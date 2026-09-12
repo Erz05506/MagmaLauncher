@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>MagmaLauncher</title>
+<link rel="stylesheet" href="style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<script>(function(){try{document.documentElement.setAttribute('data-theme',localStorage.getItem('magma_theme')||'magma');}catch(e){}})();</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700;800&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
+<base target="_blank">
+</head>
+<body>
+
+  <!-- ============ ЭКРАН ЗАГРУЗКИ ПРИ СТАРТЕ ============ -->
+  <div class="boot-splash" id="bootSplash">
+    <div class="boot-glow"></div>
+    <div class="boot-content">
+      <div class="boot-logo">
+        <svg viewBox="0 0 24 24" class="boot-flame">
+          <path d="M12 2c1 3-2 4-2 7 0 1.5 1 2.5 2 2.5s2-1 2-2.5c1.5 1 2 3 2 4.5 0 3-2 6-4 6s-6-2-6-6c0-4 3-6 3-9 0-1 1-2 3-2.5z"/>
+        </svg>
+      </div>
+      <div class="boot-title">Magma<span class="boot-title-accent">Launcher</span></div>
+      <div class="boot-bar">
+        <div class="boot-bar-fill" id="bootBarFill"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app">
+
+    <!-- Левый рейл с иконками (Modrinth-style) -->
+    <nav class="rail">
+      <div class="rail-logo" data-tooltip="MagmaLauncher">
+        <svg viewBox="0 0 24 24" class="logo-flame">
+          <path d="M12 2c1 3-2 4-2 7 0 1.5 1 2.5 2 2.5s2-1 2-2.5c1.5 1 2 3 2 4.5 0 3-2 6-4 6s-6-2-6-6c0-4 3-6 3-9 0-1 1-2 3-2.5z"/>
+        </svg>
+      </div>
+
+      <div class="rail-nav">
+        <button class="rail-btn is-active" data-view="home" data-tooltip-i18n="nav.home">
+          <svg viewBox="0 0 24 24"><path d="M4 11.5 12 4l8 7.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/></svg>
+        </button>
+        <button class="rail-btn" data-view="instances" data-tooltip-i18n="nav.instances">
+          <svg viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg>
+        </button>
+        <button class="rail-btn" data-view="mods" data-tooltip-i18n="nav.mods" id="modsRailBtn">
+          <svg viewBox="0 0 24 24" class="mods-rail-icon"><path d="M20 12a8 8 0 1 1-3.6-6.7l-2 2A5.5 5.5 0 1 0 17.5 12h-3l3.5-4 3.5 4h-1.5z"/></svg>
+        </button>
+      </div>
+
+      <button class="rail-btn rail-settings" data-view="settings" data-tooltip-i18n="nav.settings">
+        <svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.7 7.7 0 0 0-1.7-1L15 3h-4l-.3 2.6a7.7 7.7 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-1c.5.4 1 .7 1.7 1L11 21h4l.3-2.6c.6-.3 1.2-.6 1.7-1l2.4 1 2-3.4-2-1.6z"/></svg>
+      </button>
+    </nav>
+
+    <!-- Основная область -->
+    <main class="stage">
+
+      <!-- Верхняя панель: аккаунт -->
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-name">Magma<span class="brand-accent">Launcher</span></span>
+        </div>
+
+        <div class="account" id="accountTrigger">
+          <span class="account-avatar" id="accountAvatarWrap"><canvas id="accountAvatarCanvas" width="28" height="28"></canvas></span>
+          <span class="account-name" id="accountName">Steve</span>
+
+          <div class="account-list-dropdown" id="accountListDropdown">
+            <div class="account-list-items" id="accountListItems"></div>
+            <button type="button" class="account-list-add-btn" id="accountListAddBtn" data-i18n="account.addAccount">+ Добавить аккаунт</button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Контент -->
+      <section class="content">
+
+        <!-- ============ ГЛАВНАЯ ============ -->
+        <div class="view is-active" data-view="home">
+
+          <div class="mods-subtabs" id="homeSubtabs">
+            <button type="button" class="mods-subtab is-active" data-home-subtab="overview" data-i18n="home.tabOverview">Обзор</button>
+            <button type="button" class="mods-subtab" data-home-subtab="updates" data-i18n="home.tabUpdates">Обновления</button>
+          </div>
+
+          <div class="mods-subview is-active" data-home-subview="overview">
+            <div class="view-grid">
+
+              <!-- Герой-зона -->
+              <div class="hero">
+                <div class="hero-glow"></div>
+
+                   <div class="hero-top">
+                  <div class="hero-title">
+                    <span class="eyebrow" id="heroEyebrowEl" data-i18n="hero.eyebrow">Готово к запуску</span>
+                    <h1 data-i18n="hero.title" id="heroTitleEl">Твой мир ждёт</h1>
+                  </div>
+                </div>
+
+                <div class="hero-bottom">
+                  <div class="version-select">
+                    <label data-i18n="hero.buildLabel">Сборка</label>
+                    <button class="version-btn" id="versionBtn">
+                      <span id="versionBtnLabel">Vanilla 1.21.4</span>
+                      <svg viewBox="0 0 24 24" class="chev"><path d="m6 9 6 6 6-6"/></svg>
+                    </button>
+
+                    <!-- Выпадающая панель выбора версии -->
+                    <div class="version-dropdown" id="versionDropdown">
+  <div class="loader-tabs" id="loaderTabs"></div>
+  <button type="button" class="loader-tab" id="snapshotToggleBtn" data-i18n="hero.snapshots">Снапшоты</button>
+  <input type="text" class="version-search" id="versionSearch" data-i18n-placeholder="hero.searchVersion" placeholder="Поиск версии...">
+  <div class="version-list" id="versionList"></div>
+</div>
+                  </div>
+
+                  <button class="play-btn">
+                    <svg viewBox="0 0 24 24" class="play-icon"><path d="M8 5v14l11-7z"/></svg>
+                    <span data-i18n="hero.play">ИГРАТЬ</span>
+                    <svg class="crack" viewBox="0 0 300 12" preserveAspectRatio="none">
+                      <path d="M0 6 L40 6 L55 2 L70 10 L95 6 L140 6 L155 3 L175 9 L210 6 L300 6" />
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- Прогресс скачивания — скрыт, пока не запущена загрузка -->
+                <div class="launch-progress" id="launchProgress" style="display:none;">
+                  <button class="launch-pause-btn" id="launchPauseBtn" data-tooltip-i18n="launch.pauseTooltip" type="button">
+                    <svg viewBox="0 0 24 24" class="pause-icon"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+                    <svg viewBox="0 0 24 24" class="resume-icon" style="display:none;"><path d="M8 5v14l11-7z"/></svg>
+                  </button>
+                  <div class="launch-progress-track">
+                    <div class="launch-progress-fill" id="launchProgressFill"></div>
+                  </div>
+                  <span class="launch-progress-label" id="launchProgressLabel"></span>
+                  <button class="launch-details-btn" id="launchDetailsBtn" type="button" style="display:none;">
+                    <span data-i18n="launch.detailsBtn">Подробнее</span>
+                  </button>
+                  <button class="launch-cancel-btn" id="launchCancelBtn" type="button">
+                    <svg viewBox="0 0 24 24"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg>
+                    <span data-i18n="launch.cancelBtn">Отмена</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Правая колонка: новости -->
+              <aside class="news" id="newsContainer">
+                <div class="news-head"><h2 data-i18n="news.title">Новости</h2></div>
+
+                <article class="news-card">
+                  <span class="news-tag" data-i18n="news.tag.update">Обновление</span>
+                  <h3 data-i18n="news.item1.title">Magma 1.4 вышла</h3>
+                  <p data-i18n="news.item1.desc">Новый менеджер модов и ускоренная загрузка сборок.</p>
+                </article>
+
+                <article class="news-card">
+                  <span class="news-tag" data-i18n="news.tag.build">Сборка</span>
+                  <h3 data-i18n="news.item2.title">Tectonic Craft добавлена</h3>
+                  <p data-i18n="news.item2.desc">Технический модпак недели уже в каталоге.</p>
+                </article>
+
+                <article class="news-card">
+                  <span class="news-tag" data-i18n="news.tag.server">Сервер</span>
+                  <h3 data-i18n="news.item3.title">Плановые работы</h3>
+                  <p data-i18n="news.item3.desc">Профили синхронизации будут недоступны 2 часа.</p>
+                </article>
+              </aside>
+
+            </div>
+          </div>
+
+          <div class="mods-subview" data-home-subview="updates">
+            <p class="updates-subtitle" id="homeUpdatesSubtitle" data-i18n="updates.subtitle"></p>
+            <div class="updates-timeline" id="homeUpdatesTimeline"></div>
+          </div>
+
+        </div>
+
+        <!-- ============ СБОРКИ ============ -->
+        <div class="view" data-view="instances">
+          <div class="view-header">
+            <h2 data-i18n="instances.title">Сборки</h2>
+            <button class="ghost-btn" id="newInstanceBtn" data-i18n="instances.new">+ Новая сборка</button>
+          </div>
+
+            <div class="mods-subtabs">
+            <button type="button" class="mods-subtab is-active" data-instances-subtab="catalog" data-i18n="instances.tab.catalog">Каталог</button>
+            <button type="button" class="mods-subtab" data-instances-subtab="mine" data-i18n="instances.tab.mine">Мои сборки</button>
+          </div>
+
+          <div class="mods-subview" data-instances-subview="mine">
+            <div class="instance-grid" id="instanceGrid">
+              <!-- реальные установленные сборки рендерятся через app.js -->
+            </div>
+          </div>
+
+          <div class="mods-subview is-active" data-instances-subview="catalog">
+            <div class="mods-header-actions mods-header-actions-row">
+              <input type="text" class="mod-search" id="instancesCatalogSearch" data-i18n-placeholder="instances.searchCatalog" placeholder="Поиск сборок...">
+
+              <div class="mod-filter-wrap" id="instancesCatalogFilterWrap">
+                <button type="button" class="mod-filter-btn" id="instancesCatalogFilterBtn" aria-label="Filters">
+                  <svg viewBox="0 0 24 24"><path d="M4 5h16M7 12h10M10 19h4"/></svg>
+                </button>
+                <div class="mod-filter-dropdown" id="instancesCatalogFilterDropdown">
+                  <div class="mod-filter-section-title" data-i18n="mods.filter.sortBy">Сортировка</div>
+                  <div class="mod-filter-sort-list" id="instancesCatalogSortList"></div>
+                  <div class="mod-filter-section-title" data-i18n="mods.filter.sources">Источники</div>
+                  <label class="mod-filter-source-row">
+                    <input type="radio" name="instancesCatalogSourceRadio" id="instancesCatalogSourceModrinth" checked>
+                    <span class="mod-filter-source-logo" id="instancesCatalogModrinthLogo"></span>
+                    <span>Modrinth</span>
+                  </label>
+                  <label class="mod-filter-source-row">
+                    <input type="radio" name="instancesCatalogSourceRadio" id="instancesCatalogSourceCurseForge">
+                    <span class="mod-filter-source-logo" id="instancesCatalogCurseForgeLogo"></span>
+                    <span>CurseForge</span>
+                  </label>
+                </div>
+              </div>
+
+              <button type="button" class="version-btn" id="instancesCatalogVersionBtn">
+                <span id="instancesCatalogVersionLabel">1.21.4</span>
+                <svg viewBox="0 0 24 24" class="chev"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div class="version-dropdown" id="instancesCatalogVersionDropdown">
+                <input type="text" class="version-search" id="instancesCatalogVersionSearch" placeholder="Поиск версии...">
+                <div class="version-list" id="instancesCatalogVersionList"></div>
+              </div>
+
+              <button class="ghost-btn" id="importInstanceBtn" data-i18n="mods.addManual">Ручная установка</button>
+              <span class="import-instance-status" id="importInstanceStatus"></span>
+            </div>
+
+            <div class="mod-list" id="instancesCatalogList"></div>
+            <div class="mod-list-pagination" id="instancesCatalogPagination"></div>
+          </div>
+        </div>
+
+        <!-- ============ МОДЫ ============ -->
+        <div class="view" data-view="mods">
+          <div class="view-header">
+            <h2 data-i18n="mods.title">Моды</h2>
+          </div>
+
+          <!-- Категории раздела: Моды / Ресурс-паки / Шейдеры / Карты -->
+          <div class="mods-category-tabs" id="modsCategoryTabs"></div>
+
+          <div class="mods-header-actions mods-header-actions-row">
+            <input type="text" class="mod-search" id="modSearch" data-i18n-placeholder="mods.search" placeholder="Поиск модов...">
+
+            <div class="mod-filter-wrap" id="modFilterWrap">
+              <button type="button" class="mod-filter-btn" id="modFilterBtn" aria-label="Filters">
+                <svg viewBox="0 0 24 24"><path d="M4 5h16M7 12h10M10 19h4"/></svg>
+              </button>
+              <div class="mod-filter-dropdown" id="modFilterDropdown">
+                <div class="mod-filter-section-title" data-i18n="mods.filter.sortBy">Сортировка</div>
+                <div class="mod-filter-sort-list" id="modFilterSortList"></div>
+
+                <div class="mod-filter-section-title" data-i18n="mods.filter.sources">Источники</div>
+                <label class="mod-filter-source-row">
+                  <input type="radio" name="modSourceRadio" id="modFilterSourceModrinth" checked>
+                  <span class="mod-filter-source-logo" id="modFilterModrinthLogo"></span>
+                  <span>Modrinth</span>
+                </label>
+                <label class="mod-filter-source-row">
+                  <input type="radio" name="modSourceRadio" id="modFilterSourceCurseForge">
+                  <span class="mod-filter-source-logo" id="modFilterCurseForgeLogo"></span>
+                  <span>CurseForge</span>
+                </label>
+                <div class="mod-filter-source-note" id="modFilterSourceNote" style="display:none;"></div>
+              </div>
+            </div>
+
+            <button class="ghost-btn" id="modManualInstallBtn" data-i18n="mods.addManual">Ручная установка</button>
+            <input type="file" id="modManualInstallInput" accept=".jar,.zip" multiple style="display:none;">
+            <button class="ghost-btn" id="createModpackBtn" data-i18n="mods.createModpack">+ Создать модпак</button>
+          </div>
+
+          <div class="mods-target-row">
+            <span id="modsInstallTargetLabel">Ставим моды под:</span>
+            <div class="loader-tabs" id="modsTargetLoaderTabs"></div>
+            <div class="loader-tabs" id="modsTargetScopeTabs"></div>
+            <button type="button" class="version-btn mods-target-version-btn" id="modsTargetVersionBtn">
+              <span id="modsTargetVersionLabel">1.21.4</span>
+              <svg viewBox="0 0 24 24" class="chev"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="version-dropdown" id="modsTargetVersionDropdown">
+              <input type="text" class="version-search" id="modsTargetVersionSearch" placeholder="Поиск версии...">
+              <div class="version-list" id="modsTargetVersionList"></div>
+            </div>
+          </div>
+
+          <div class="mods-subtabs">
+            <button type="button" class="mods-subtab is-active" data-subtab="browse" data-i18n="mods.tab.browse">Каталог</button>
+            <button type="button" class="mods-subtab" data-subtab="installed" id="modsInstalledTabBtn">Мои моды</button>
+          </div>
+
+          <div class="mods-subview is-active" data-subview="browse">
+            <div class="mod-search-warning" id="modSearchWarning" style="display:none;"></div>
+            <div class="mod-list" id="modList">
+              <!-- результаты поиска рендерятся через app.js -->
+            </div>
+            <div class="mod-list-pagination" id="modListPagination">
+              <!-- страницы 1 2 3 ... рендерятся через app.js -->
+            </div>
+          </div>
+
+          <div class="mods-subview" data-subview="installed">
+            <div class="mods-subtabs" id="installedModsScopeFilter">
+              <button type="button" class="mods-subtab is-active" data-installed-scope="current"></button>
+              <button type="button" class="mods-subtab" data-installed-scope="all"></button>
+            </div>
+            <div class="installed-mod-list" id="installedModList">
+              <!-- реальное содержимое папки — рендерится через app.js -->
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ НАСТРОЙКИ ============ -->
+        <!-- ============ НАСТРОЙКИ ============ -->
+        <div class="view" data-view="settings">
+          <div class="view-header">
+            <h2 data-i18n="settings.title">Настройки</h2>
+          </div>
+
+          <div class="settings-layout">
+            <nav class="settings-nav">
+              <button type="button" class="mods-subtab is-active" data-settings-subtab="account" data-i18n="settings.tab.account">Аккаунт</button>
+              <button type="button" class="mods-subtab" data-settings-subtab="launcher" data-i18n="settings.tab.launcher">Настройки лаунчера</button>
+              <button type="button" class="mods-subtab" data-settings-subtab="game" data-i18n="settings.tab.game">Настройки игры</button>
+            </nav>
+            <div class="settings-content">
+             <div class="mods-subview is-active" data-settings-subview="account">
+                <div class="account-settings-layout">
+                  <div class="account-skin-viewer">
+                    <canvas id="accountSkinViewerCanvas" width="240" height="320"></canvas>
+                    <div class="account-skin-viewer-hint" data-i18n="settings.account.rotateHint">Перетащите, чтобы повернуть скин</div>
+                  </div>
+                  <div class="account-settings-info">
+                    <div class="account-settings-name-row">
+                      <span class="account-settings-name" id="settingsAccountName">Steve</span>
+                      <span class="account-settings-type-icon" id="settingsAccountTypeIcon"></span>
+                    </div>
+
+                    <div class="settings-row">
+                      <div>
+                        <div class="settings-label" data-i18n="settings.account.skinSystem.label">Система скинов</div>
+                        <div class="settings-hint" data-i18n="settings.account.skinSystem.hint">Откуда лаунчер берёт ваш скин</div>
+                      </div>
+                      <div class="skin-system-options" id="skinSystemOptions">
+                        <button type="button" class="skin-system-option is-active" data-skin-system="elyby">
+                         <span class="skin-system-logo"><img src="../assets/ely_by.jpg" alt="Ely.by"></span>
+                          <span>Ely.by</span>
+                        </button>
+                        <button type="button" class="skin-system-option is-disabled" data-skin-system="magma">
+                          <span class="skin-system-logo">
+                            <svg viewBox="0 0 24 24">
+                              <defs>
+                                <linearGradient id="skinSystemMagmaGrad" x1="0" y1="0" x2="1" y2="1">
+                                  <stop offset="0" stop-color="#ff9a4d"/>
+                                  <stop offset="1" stop-color="#ff3d1c"/>
+                                </linearGradient>
+                              </defs>
+                              <path fill="url(#skinSystemMagmaGrad)" d="M12 2 4 12l8 10 8-10zM12 6.5 17 12l-5 6-5-6z"/>
+                            </svg>
+                          </span>
+                          <span data-i18n="settings.account.skinSystem.magmaLabel">Magma Skins (в разработке)</span>
+                        </button>
+                      </div>
+                    </div>
+
+                   <button type="button" class="ghost-btn skin-change-btn" id="skinChangeBtn" data-i18n="settings.account.changeSkin">Сменить скин</button>
+
+                    <div class="settings-accounts-block">
+                      <div class="settings-label" data-i18n="account.accountsListLabel">Аккаунты</div>
+                      <div class="account-list-items" id="settingsAccountsList"></div>
+                      <button type="button" class="account-list-add-btn" id="settingsAddAccountBtn" data-i18n="account.addAccount">+ Добавить аккаунт</button>
+                    </div>
+
+                     <div class="settings-accounts-block" id="accountChangePasswordBlock">
+                      <button type="button" class="ghost-btn" id="accountChangePasswordOpenBtn" data-i18n="account.changePasswordBtn">Сменить пароль</button>
+                    </div>
+
+                    <div class="settings-accounts-block" style="display:flex;gap:10px;padding:16px;background:var(--bg-card);border:1px solid var(--border-soft);border-radius:var(--radius-md);">
+                      <button type="button" class="instance-delete-btn logout-btn" id="accountLogoutBtn" data-i18n="account.logoutBtn" style="margin-bottom:0;">Выйти из аккаунта</button>
+                      <button type="button" class="instance-delete-btn" id="accountDeleteBtn" data-i18n="account.deleteBtn" style="margin-bottom:0;">Удалить аккаунт</button>
+                    </div>
+                    <div style="height:32px;"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mods-subview" data-settings-subview="launcher">
+                <div class="settings-layout" style="align-items:flex-start;">
+                  <nav class="settings-nav" id="launcherCategoryNav">
+                    <button type="button" class="mods-subtab is-active" data-launcher-category="interface" data-i18n="settings.launcherCat.interface">Интерфейс</button>
+                    <button type="button" class="mods-subtab" data-launcher-category="performance" data-i18n="settings.launcherCat.performance">Производительность</button>
+                    <button type="button" class="mods-subtab" data-launcher-category="privacy" data-i18n="settings.launcherCat.privacy">Приватность</button>
+                    <button type="button" class="mods-subtab" data-launcher-category="updates" data-i18n="settings.launcherCat.updates">Обновления лаунчера</button>
+                    <button type="button" class="mods-subtab" data-launcher-category="info" data-i18n="settings.launcherCat.info">Информация</button>
+                  </nav>
+                  <div class="settings-content">
+
+                    <div class="mods-subview is-active" data-launcher-subview="interface">
+                      <div class="settings-list">
+                        <div class="settings-row">
+                          <div>
+                            <div class="settings-label" data-i18n="settings.lang.label">Язык</div>
+                            <div class="settings-hint" data-i18n="settings.lang.hint">Язык интерфейса лаунчера</div>
+                          </div>
+                          <div class="custom-select" id="langSelectWrap">
+                            <button type="button" class="custom-select-btn" id="langSelectBtn">
+                              <span id="langSelectLabel">English</span>
+                              <svg viewBox="0 0 24 24" class="chev"><path d="m6 9 6 6 6-6"/></svg>
+                            </button>
+                            <div class="custom-select-list" id="langSelectList">
+                              <button type="button" class="custom-select-item" data-value="en">English (United States)</button>
+                              <button type="button" class="custom-select-item" data-value="fr">Français (France)</button>
+                              <button type="button" class="custom-select-item" data-value="de">Deutsch (Deutschland)</button>
+                              <button type="button" class="custom-select-item" data-value="hi">हिन्दी (भारत)</button>
+                              <button type="button" class="custom-select-item" data-value="id">Indonesia (Indonesia)</button>
+                              <button type="button" class="custom-select-item" data-value="it">Italiano (Italia)</button>
+                              <button type="button" class="custom-select-item" data-value="ja">日本語（日本）</button>
+                              <button type="button" class="custom-select-item" data-value="ko">한국어(대한민국)</button>
+                              <button type="button" class="custom-select-item" data-value="pt">Português (Brasil)</button>
+                              <button type="button" class="custom-select-item" data-value="es">Español (Latinoamérica)</button>
+                              <button type="button" class="custom-select-item" data-value="es-ES">Español (España)</button>
+                              <button type="button" class="custom-select-item" data-value="uk">Українська</button>
+                              <button type="button" class="custom-select-item" data-value="ru">Русский</button>
+                            </div>
+                          </div>
+                        </div>
+
+                                                <div class="settings-row" style="align-items:flex-start;">
+                          <div>
+                            <div class="settings-label" data-i18n="settings.theme.label">Тема оформления</div>
+                            <div class="settings-hint" data-i18n="settings.theme.hint">Новые темы появятся в одном из ближайших обновлений</div>
+                          </div>
+                          <div class="skin-system-options" id="themeOptions" style="flex-wrap:wrap;max-width:340px;"></div>
+                        </div>
+
+                        <div class="settings-row">
+                          <div>
+                            <div class="settings-label" data-i18n="settings.hideNews.label">Скрыть новости</div>
+                            <div class="settings-hint" data-i18n="settings.hideNews.hint">Убирает блок новостей — фон главного экрана растянется на всю ширину</div>
+                          </div>
+                          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="hideNewsToggle" style="width:20px;height:20px;accent-color:#ff6b3d;cursor:pointer;">
+                          </label>
+                        </div>
+
+                        <div class="settings-row">
+                          <div>
+                            <div class="settings-label" data-i18n="settings.navBottom.label">Панель навигации снизу</div>
+                            <div class="settings-hint" data-i18n="settings.navBottom.hint">Перемещает главное меню вниз экрана — вкладки можно перетаскивать местами</div>
+                          </div>
+                          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="navBottomToggle" style="width:20px;height:20px;accent-color:#ff6b3d;cursor:pointer;">
+                          </label>
+                        </div>
+
+                        <div class="settings-row">
+                          <div>
+                            <div class="settings-label" data-i18n="settings.mergeModsInstances.label">Объединить Моды и Сборки</div>
+                            <div class="settings-hint" data-i18n="settings.mergeModsInstances.hint">Сборки станут разделом внутри вкладки Моды</div>
+                          </div>
+                          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="mergeModsInstancesToggle" style="width:20px;height:20px;accent-color:#ff6b3d;cursor:pointer;">
+                          </label>
+                        </div>
+
+                        <div class="settings-row" style="align-items:flex-start;">
+                          <div>
+                            <div class="settings-label" data-i18n="settings.heroTitle.label">Заголовок главного экрана</div>
+                            <div class="settings-hint" data-i18n="settings.heroTitle.hint">Текст на главной странице лаунчера</div>
+                          </div>
+                          <div style="display:flex;flex-direction:column;gap:8px;flex:1;min-width:220px;">
+                            <input type="text" class="settings-input" id="heroEyebrowInput" data-i18n-placeholder="settings.heroTitle.eyebrowPlaceholder" placeholder="Готово к запуску" style="width:100%;">
+                            <input type="text" class="settings-input" id="heroTitleInput" data-i18n-placeholder="settings.heroTitle.titlePlaceholder" placeholder="Твой мир ждёт" style="width:100%;">
+                            <button type="button" class="ghost-btn reset-btn" id="heroTextResetBtn" data-i18n="settings.heroTitle.reset" style="align-self:flex-start;">Сброс</button>
+                          </div>
+                        </div>
+                                                <div class="settings-row" style="align-items:flex-start;">
+                          <div>
+                            <div class="settings-label" data-i18n="settings.heroBg.presetsLabel">Готовые фоны</div>
+                            <div class="settings-hint" data-i18n="settings.heroBg.presetsHint">Выберите один из фонов или загрузите свою картинку ниже</div>
+                          </div>
+                          <div class="hero-bg-preset-options" id="heroBgPresetOptions" style="display:flex;gap:8px;flex-wrap:wrap;max-width:340px;"></div>
+                        </div>
+
+                        <div class="settings-row" style="align-items:flex-start;">
+                          <div>
+                            <div class="settings-label" data-i18n="settings.heroBg.uploadLabel">Свой фон</div>
+                            <div class="settings-hint" data-i18n="settings.heroBg.uploadHint">JPG, PNG или WebP — после загрузки можно обрезать и расположить картинку</div>
+                          </div>
+                          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <div id="heroBgPreview" style="width:64px;height:40px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border-subtle);flex-shrink:0;"></div>
+                            <button type="button" class="ghost-btn" id="heroBgUploadBtn" data-i18n="settings.heroBg.uploadBtn">Загрузить</button>
+                            <button type="button" class="ghost-btn" id="heroBgEditBtn" style="display:none;" data-i18n="settings.heroBgEditor.editBtn">Обрезать / расположить</button>
+                            <button type="button" class="ghost-btn reset-btn" id="heroBgResetBtn" data-i18n="settings.resetBtn">Сброс</button>
+                            <input type="file" id="heroBgFileInput" accept="image/png,image/jpeg,image/webp" style="display:none;">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="mods-subview" data-launcher-subview="notifications">
+                      <div class="launcher-category-placeholder">
+                        <div class="launcher-category-placeholder-icon"><svg viewBox="0 0 24 24" width="22" height="22"><path fill="#fff2e8" d="M12 22a2.4 2.4 0 0 0 2.4-2.4h-4.8A2.4 2.4 0 0 0 12 22zm7.2-6V11c0-3.5-1.9-6.4-5.2-7.2V3a2 2 0 1 0-4 0v.8C6.7 4.6 4.8 7.5 4.8 11v5l-1.8 1.8v1h18v-1z"/></svg></div>
+                        <span class="launcher-category-placeholder-badge" data-i18n="settings.launcherCat.badge">В разработке</span>
+                        <div class="launcher-category-placeholder-title" data-i18n="settings.launcherCat.notifications">Уведомления</div>
+                        <div class="launcher-category-placeholder-hint" data-i18n="settings.launcherCat.notifications.hint">Уведомления о новых версиях, событиях серверов и статусе загрузок появятся здесь.</div>
+                      </div>
+                    </div>
+
+                    <div class="mods-subview" data-launcher-subview="performance">
+  <div class="settings-list">
+    <div class="settings-row">
+      <div>
+        <div class="settings-label" data-i18n="settings.perf.reduceMotion.label">Отключить анимации интерфейса</div>
+        <div class="settings-hint" data-i18n="settings.perf.reduceMotion.hint">Убирает все анимации и плавные переходы — снижает нагрузку на слабых ПК</div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="reduceMotionToggle" style="width:20px;height:20px;accent-color:#ff6b3d;cursor:pointer;">
+      </label>
+    </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label" data-i18n="settings.perf.pauseSkinUnfocused.label">Пауза 3D-скина при потере фокуса</div>
+        <div class="settings-hint" data-i18n="settings.perf.pauseSkinUnfocused.hint">Останавливает отрисовку 3D-модели скина, когда окно лаунчера свёрнуто или неактивно</div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="pauseSkinUnfocusedToggle" checked style="width:20px;height:20px;accent-color:#ff6b3d;cursor:pointer;">
+      </label>
+    </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label" data-i18n="settings.perf.disableBlur.label">Отключить размытие фона</div>
+        <div class="settings-hint" data-i18n="settings.perf.disableBlur.hint">Убирает эффект размытия (blur) в окнах и подсказках — немного разгружает видеокарту</div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="disableBlurToggle" style="width:20px;height:20px;accent-color:#ff6b3d;cursor:pointer;">
+      </label>
+    </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label" data-i18n="settings.perf.disableGlow.label">Отключить свечение и градиенты</div>
+        <div class="settings-hint" data-i18n="settings.perf.disableGlow.hint">Убирает декоративное свечение вокруг логотипа и на главном экране</div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="disableGlowToggle" style="width:20px;height:20px;accent-color:#ff6b3d;cursor:pointer;">
+      </label>
+    </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label" data-i18n="settings.perf.simpleBg.label">Упрощённый фон главного экрана</div>
+        <div class="settings-hint" data-i18n="settings.perf.simpleBg.hint">Заменяет свою картинку фона и градиенты на простой тёмный фон</div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="simpleBgToggle" style="width:20px;height:20px;accent-color:#ff6b3d;cursor:pointer;">
+      </label>
+    </div>
+  </div>
+</div>
+
+                                        <div class="mods-subview" data-launcher-subview="privacy">
+                      <div class="settings-list">
+                        <div class="settings-row">
+                          <div>
+                            <div class="settings-label" data-i18n="settings.privacy.analytics.label">Отправка анонимной статистики</div>
+                            <div class="settings-hint" data-i18n="settings.privacy.analytics.hint">Помогает улучшать лаунчер — личные данные не передаются</div>
+                          </div>
+                          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="privacyAnalyticsToggle" style="width:20px;height:20px;accent-color:#ff6b3d;cursor:pointer;">
+                          </label>
+                        </div>
+                        <div class="settings-row">
+                          <div>
+                            <div class="settings-label" data-i18n="settings.privacy.crashReports.label">Крэш-репорты</div>
+                            <div class="settings-hint" data-i18n="settings.privacy.crashReports.hint">Сохранять отчёт об ошибке локально, в папку crashreports</div>
+                          </div>
+                          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="privacyCrashReportsToggle" style="width:20px;height:20px;accent-color:#ff6b3d;cursor:pointer;">
+                          </label>
+                        </div>
+                        <div class="settings-row">
+                          <div>
+                            <div class="settings-label" data-i18n="settings.privacy.blockTelemetry.label">Блокировать телеметрию Minecraft</div>
+                            <div class="settings-hint" data-i18n="settings.privacy.blockTelemetry.hint">Не даёт игре отправлять данные на telemetry.mojang.com и sentry.io</div>
+                          </div>
+                          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="privacyBlockTelemetryToggle" style="width:20px;height:20px;accent-color:#ff6b3d;cursor:pointer;">
+                          </label>
+                        </div>
+                        <div class="settings-row">
+                          <div>
+                            <div class="settings-label" data-i18n="settings.privacy.streamerMode.label">Режим стримера</div>
+                            <div class="settings-hint" data-i18n="settings.privacy.streamerMode.hint">Скрывает никнейм и почту в интерфейсе лаунчера</div>
+                          </div>
+                          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="privacyStreamerModeToggle" style="width:20px;height:20px;accent-color:#ff6b3d;cursor:pointer;">
+                          </label>
+                        </div>
+                        <div class="settings-row">
+                          <div>
+                            <div class="settings-label" data-i18n="settings.privacy.launcherLock.label">Пароль при запуске лаунчера</div>
+                            <div class="settings-hint" data-i18n="settings.privacy.launcherLock.hint">Запрашивать PIN-код при каждом запуске лаунчера</div>
+                          </div>
+                          <div style="display:flex;gap:8px;align-items:center;">
+                            <button type="button" class="ghost-btn" id="privacyLockSetupBtn" data-i18n="settings.privacy.launcherLock.setupBtn">Настроить PIN</button>
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                              <input type="checkbox" id="privacyLockToggle" style="width:20px;height:20px;accent-color:#ff6b3d;cursor:pointer;">
+                            </label>
+                          </div>
+                        </div>
+                        <div class="settings-row">
+                          <div>
+                            <div class="settings-label" data-i18n="settings.privacy.discordPresence.label">Статус в Discord</div>
+                            <div class="settings-hint" data-i18n="settings.privacy.discordPresence.hint">Показывает в Discord, что вы в MagmaLauncher / играете</div>
+                          </div>
+                          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="privacyDiscordPresenceToggle" style="width:20px;height:20px;accent-color:#ff6b3d;cursor:pointer;">
+                          </label>
+                        </div>
+                        <div class="settings-row">
+                          <div>
+                            <div class="settings-label" data-i18n="settings.privacy.sessions.label">Сессии</div>
+                            <div class="settings-hint" data-i18n="settings.privacy.sessions.hint">Завершить вход на всех устройствах для этого Magma-аккаунта</div>
+                          </div>
+                          <button type="button" class="ghost-btn" id="privacySignOutAllBtn" data-i18n="settings.privacy.sessions.signOutAllBtn">Выйти со всех устройств</button>
+                        </div>
+                        <div class="settings-row">
+                          <div>
+                            <div class="settings-label" data-i18n="settings.privacy.clearLogs.label">Локальные данные</div>
+                            <div class="settings-hint" data-i18n="settings.privacy.clearLogs.hint">Очистить кэш поиска и историю прокрутки лаунчера</div>
+                          </div>
+                          <button type="button" class="ghost-btn" id="privacyClearLogsBtn" data-i18n="settings.privacy.clearLogs.btn">Очистить</button>
+                        </div>
+                        <div class="settings-row">
+                          <div>
+                            <div class="settings-label" data-i18n="settings.privacy.autoDeleteLogs.label">Авто-удаление логов игры</div>
+                            <div class="settings-hint" data-i18n="settings.privacy.autoDeleteLogs.hint">Удалять логи игры старше 14 дней при каждом запуске</div>
+                          </div>
+                          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="privacyAutoDeleteLogsToggle" style="width:20px;height:20px;accent-color:#ff6b3d;cursor:pointer;">
+                          </label>
+                        </div>
+                      </div>
+                      <div class="import-instance-status" id="privacyStatusMsg" style="margin-top:6px;"></div>
+                    </div>
+
+                    <div class="mods-subview" data-launcher-subview="updates">
+  <div class="settings-list">
+    <div class="settings-row">
+      <div>
+        <div class="settings-label" data-i18n="settings.updates.autoCheck.label">Проверять обновления при запуске</div>
+        <div class="settings-hint" data-i18n="settings.updates.autoCheck.hint">Лаунчер сам проверит, есть ли новая версия</div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="autoCheckUpdatesToggle" style="width:20px;height:20px;accent-color:#ff6b3d;cursor:pointer;">
+      </label>
+    </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label" data-i18n="settings.updates.current.label">Текущая версия</div>
+        <div class="settings-hint" id="currentLauncherVersionText">—</div>
+      </div>
+      <button type="button" class="ghost-btn" id="checkUpdateBtn" data-i18n="settings.updates.checkBtn">Проверить обновления</button>
+    </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label" data-i18n="settings.updates.channel.label">Канал обновлений</div>
+        <div class="settings-hint" data-i18n="settings.updates.channel.hint">Бета может содержать необкатанные функции</div>
+      </div>
+      <div class="custom-select" id="updateChannelSelectWrap">
+        <button type="button" class="custom-select-btn" id="updateChannelSelectBtn">
+          <span id="updateChannelSelectLabel">Stable</span>
+          <svg viewBox="0 0 24 24" class="chev"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="custom-select-list" id="updateChannelSelectList">
+          <button type="button" class="custom-select-item" data-value="stable" data-i18n="settings.updates.channel.stable">Stable</button>
+          <button type="button" class="custom-select-item" data-value="beta" data-i18n="settings.updates.channel.beta">Beta</button>
+        </div>
+      </div>
+    </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label" data-i18n="settings.updates.autoInstall.label">Устанавливать автоматически</div>
+        <div class="settings-hint" data-i18n="settings.updates.autoInstall.hint">Сразу скачивать и ставить обновление, если оно найдено</div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="autoInstallUpdatesToggle" style="width:20px;height:20px;accent-color:#ff6b3d;cursor:pointer;">
+      </label>
+    </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label" data-i18n="settings.updates.lastCheck.label">Последняя проверка</div>
+        <div class="settings-hint" id="lastUpdateCheckText">—</div>
+      </div>
+    </div>
+  </div>
+  <div class="import-instance-status" id="updateStatusMsg" style="margin-top:6px;"></div>
+  <div class="launch-progress-track" id="updateProgressTrack" style="display:none;margin-top:8px;"><div class="launch-progress-fill" id="updateProgressFillBar"></div></div>
+  <div class="import-instance-status" id="updateNotesBlock" style="margin-top:6px;white-space:pre-wrap;"></div>
+  <button class="auth-submit" id="installUpdateBtn" style="display:none;max-width:260px;" data-i18n="settings.updates.installBtn">Скачать и установить</button>
+</div>
+
+              <div class="mods-subview" data-launcher-subview="info">
+                <div class="launcher-category-placeholder">
+                  <div class="launcher-category-placeholder-icon"><svg viewBox="0 0 24 24" width="22" height="22"><path fill="#fff2e8" d="M12 2c1 3-2 4-2 7 0 1.5 1 2.5 2 2.5s2-1 2-2.5c1.5 1 2 3 2 4.5 0 3-2 6-4 6s-6-2-6-6c0-4 3-6 3-9 0-1 1-2 3-2.5z"/></svg></div>
+                  <div class="launcher-category-placeholder-title" data-i18n="settings.launcherCat.info.title">MagmaLauncher Alpha 1</div>
+                  <div class="launcher-category-placeholder-hint" data-i18n="settings.launcherCat.info.hint">Неофициальный лаунчер Minecraft: Java Edition. Vanilla, Fabric, Forge, NeoForge, Quilt. Написан на C++ (CEF) и JavaScript.</div>
+                </div>
+              </div>
+
+                  </div>
+                </div>
+              </div>
+
+              <div class="mods-subview" data-settings-subview="game">
+                <div class="settings-list">
+                  <div class="settings-row">
+                    <div>
+                      <div class="settings-label" data-i18n="settings.java.label">Путь к Java</div>
+                      <div class="settings-hint" data-i18n="settings.java.hint">Исполняемый файл java.exe, используемый для запуска игры</div>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                      <input type="text" class="settings-input path-input" id="javaPathInput" value="" data-i18n-placeholder="settings.java.autoPlaceholder" placeholder="Автоматически" style="flex:1;min-width:220px;">
+                      <button type="button" class="ghost-btn" id="javaAutoDetectBtn" data-i18n="settings.java.autoDetect">Автоопределение</button>
+                      <button type="button" class="ghost-btn" id="javaBrowseBtn" data-i18n="settings.java.browse">Обзор</button>
+                      <button type="button" class="ghost-btn reset-btn" id="javaPathResetBtn" data-i18n="settings.resetBtn">Сброс</button>
+                    </div>
+                  </div>
+
+                  <div class="settings-row" style="align-items:flex-start;">
+                    <div>
+                      <div class="settings-label" data-i18n="settings.jvmArgs.label">Аргументы JVM</div>
+                      <div class="settings-hint" data-i18n="settings.jvmArgs.simpleHint">Влияет на плавность игры. Если не уверены — оставьте «Стандартные»</div>
+                    </div>
+                    <div style="flex:1;min-width:220px;">
+                      <div class="skin-system-options" id="jvmModeOptions">
+                        <button type="button" class="skin-system-option" data-jvm-mode="default" data-i18n="settings.jvmArgs.modeDefault">Стандартные</button>
+                        <button type="button" class="skin-system-option" data-jvm-mode="g1gc" data-i18n="settings.jvmArgs.presetG1GC">G1GC (рекомендуется)</button>
+                      </div>
+                      <button type="button" class="ghost-btn jvm-advanced-toggle" id="jvmAdvancedToggle" style="margin-top:10px;" data-i18n="settings.jvmArgs.advancedShow">Свои флаги (для опытных)</button>
+                      <div id="jvmAdvancedPanel" style="display:none;margin-top:10px;">
+                        <textarea class="settings-input" id="jvmArgsInput" rows="2" style="width:100%;resize:vertical;font-family:monospace;" placeholder="-XX:+UseG1GC -XX:MaxGCPauseMillis=100"></textarea>
+                        <div class="settings-hint" style="margin-top:6px;" data-i18n="settings.jvmArgs.hint">Дополнительные флаги для опытных пользователей</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="settings-row" style="align-items:flex-start;">
+                    <div>
+                      <div class="settings-label" data-i18n="settings.dir.label">Папка игры</div>
+                      <div class="settings-hint" data-i18n="settings.dir.hint">Где хранятся сборки, моды и сохранения</div>
+                    </div>
+                    <div style="flex:1;min-width:220px;">
+                      <div class="custom-select" id="gameDirModeSelectWrap" style="margin-bottom:8px;">
+                        <button type="button" class="custom-select-btn" id="gameDirModeSelectBtn">
+                          <span id="gameDirModeSelectLabel">MagmaLauncher</span>
+                          <svg viewBox="0 0 24 24" class="chev"><path d="m6 9 6 6 6-6"/></svg>
+                        </button>
+                        <div class="custom-select-list" id="gameDirModeSelectList">
+                          <button type="button" class="custom-select-item" data-value="magma" data-i18n="settings.dir.modeMagma">MagmaLauncher (по умолчанию)</button>
+                          <button type="button" class="custom-select-item" data-value="vanilla" data-i18n="settings.dir.modeVanilla">.minecraft (папка официального лаунчера)</button>
+                          <button type="button" class="custom-select-item" data-value="custom" data-i18n="settings.dir.modeCustom">Своя папка</button>
+                        </div>
+                      </div>
+                      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <input type="text" class="settings-input path-input" id="gameDirInput" value="C:\Users\user\AppData\Roaming\MagmaLauncher" style="flex:1;min-width:220px;">
+                        <button type="button" class="ghost-btn" id="gameDirBrowseBtn" data-i18n="settings.dir.browse">Обзор</button>
+                        <button type="button" class="ghost-btn reset-btn" id="gameDirResetBtn" data-i18n="settings.resetBtn">Сброс</button>
+                      </div>
+                      <button type="button" class="ghost-btn" id="gameDirMoveBtn" style="margin-top:8px;" data-i18n="settings.dir.move">Переместить папку игры</button>
+                      <div class="import-instance-status" id="gameDirMoveStatus" style="margin-top:6px;"></div>
+                    </div>
+                  </div>
+
+                  <div class="settings-row">
+                    <div>
+                      <div class="settings-label" data-i18n="settings.ram.label">Выделено ОЗУ</div>
+                      <div class="settings-hint" data-i18n="settings.ram.hint">Объём памяти, доступный игре</div>
+                    </div>
+                    <input type="range" class="settings-slider" id="ramSlider" min="1" max="16" step="1" value="4">
+                    <span class="settings-value" id="ramValue">4 ГБ</span>
+                  </div>
+
+                  <div class="settings-row">
+                    <div>
+                      <div class="settings-label" data-i18n="settings.fullscreen.label">Полноэкранный режим</div>
+                      <div class="settings-hint" data-i18n="settings.fullscreen.hint">Игра будет запускаться в полноэкранном режиме</div>
+                    </div>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                      <input type="checkbox" id="fullscreenToggle" style="width:20px;height:20px;accent-color:#ff6b3d;cursor:pointer;">
+                    </label>
+                  </div>
+
+                  <div class="settings-row" id="resolutionRow" style="align-items:flex-start;">
+                    <div>
+                      <div class="settings-label" data-i18n="settings.resolution.label">Разрешение окна</div>
+                      <div class="settings-hint" data-i18n="settings.resolution.hint">Размер игрового окна при запуске (недоступно в полноэкранном режиме)</div>
+                    </div>
+                    <div>
+                      <div class="custom-select" id="resolutionSelectWrap">
+                        <button type="button" class="custom-select-btn" id="resolutionSelectBtn">
+                          <span id="resolutionSelectLabel">По умолчанию</span>
+                          <svg viewBox="0 0 24 24" class="chev"><path d="m6 9 6 6 6-6"/></svg>
+                        </button>
+                        <div class="custom-select-list" id="resolutionSelectList">
+                          <button type="button" class="custom-select-item" data-value="default" data-i18n="settings.resolution.default">По умолчанию</button>
+                          <button type="button" class="custom-select-item" data-value="1280x720">1280x720</button>
+                          <button type="button" class="custom-select-item" data-value="1366x768">1366x768</button>
+                          <button type="button" class="custom-select-item" data-value="1600x900">1600x900</button>
+                          <button type="button" class="custom-select-item" data-value="1920x1080">1920x1080</button>
+                          <button type="button" class="custom-select-item" data-value="2560x1440">2560x1440</button>
+                          <button type="button" class="custom-select-item" data-value="3840x2160">3840x2160</button>
+                          <button type="button" class="custom-select-item" data-value="custom" data-i18n="settings.resolution.custom">Своё...</button>
+                        </div>
+                      </div>
+                      <div id="resolutionCustomRow" style="display:none;gap:8px;align-items:center;margin-top:8px;">
+                        <input type="number" class="settings-input" id="resolutionWidthInput" min="320" max="7680" data-i18n-placeholder="settings.resolution.width" placeholder="Ширина" style="width:100px;">
+                        <span>×</span>
+                        <input type="number" class="settings-input" id="resolutionHeightInput" min="240" max="4320" data-i18n-placeholder="settings.resolution.height" placeholder="Высота" style="width:100px;">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </main>
+
+    <button type="button" class="game-folder-fab version-refresh-fab" id="versionRefreshBtn" data-tooltip-i18n="nav.refreshVersion" data-tooltip-align="left">
+      <svg viewBox="0 0 24 24"><path d="M4 4v6h6M20 20v-6h-6M5.5 9a7 7 0 0 1 12.3-3M18.5 15a7 7 0 0 1-12.3 3"/></svg>
+    </button>
+    <button type="button" class="game-folder-fab" id="gameFolderBtn" data-tooltip-i18n="nav.gameFolder" data-tooltip-align="left">
+      <svg viewBox="0 0 24 24"><path d="M4 6a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6z"/></svg>
+    </button>
+  </div>
+
+  <!-- ============ МОДАЛКА АВТОРИЗАЦИИ ============ -->
+  <div class="modal-overlay" id="authOverlay">
+    <div class="modal-panel">
+
+      <button type="button" class="modal-close" id="authModalClose" aria-label="Закрыть" style="display:none;">
+        <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+
+      <div class="auth-tabs">
+        <button class="auth-tab is-active" data-tab="guest">
+          <svg viewBox="0 0 24 24" class="auth-tab-icon">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7v1H4z"/>
+          </svg>
+          <span data-i18n="auth.tab.guest">Гость</span>
+        </button>
+
+        <button class="auth-tab" data-tab="magma">
+          <svg viewBox="0 0 24 24" class="auth-tab-icon">
+            <defs>
+              <linearGradient id="magmaTabGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ff9a4d"/>
+                <stop offset="1" stop-color="#ff3d1c"/>
+              </linearGradient>
+            </defs>
+            <path fill="url(#magmaTabGrad)" d="M12 2 4 12l8 10 8-10zM12 6.5 17 12l-5 6-5-6z"/>
+          </svg>
+          <span data-i18n="auth.tab.magma">Magma Аккаунт</span>
+        </button>
+
+        <button class="auth-tab" data-tab="microsoft">
+          <span class="auth-tab-badge" data-i18n="auth.tab.comingSoonBadge">Скоро</span>
+          <svg viewBox="0 0 23 23" class="auth-tab-icon ms-icon">
+            <rect x="1"  y="1"  width="10" height="10" fill="#F25022"/>
+            <rect x="12" y="1"  width="10" height="10" fill="#7FBA00"/>
+            <rect x="1"  y="12" width="10" height="10" fill="#00A4EF"/>
+            <rect x="12" y="12" width="10" height="10" fill="#FFB900"/>
+          </svg>
+          <span data-i18n="auth.tab.microsoft">Microsoft</span>
+        </button>
+      </div>
+
+      <div class="auth-content">
+
+        <!-- Гость -->
+        <div class="auth-pane is-active" data-pane="guest">
+          <label class="auth-field-label" data-i18n="auth.guest.label">Никнейм</label>
+          <input type="text" class="auth-input" id="guestNickname" placeholder="Steve" maxlength="16">
+          <span class="auth-field-hint" data-i18n="auth.magma.nickRules">3–16 символов: латинские буквы, цифры и _</span>
+          <div class="auth-error" id="guestError"></div>
+          <button class="auth-submit" id="guestSubmit" data-i18n="auth.guest.continue">Продолжить как гость</button>
+        </div>
+
+        <!-- Magma Аккаунт: вход -->
+        <div class="auth-pane" data-pane="magma">
+          <div class="auth-form" id="magmaLoginForm">
+            <label class="auth-field-label" data-i18n="auth.magma.emailLabel">Почта или ник</label>
+            <input type="text" class="auth-input" id="magmaLoginEmail" placeholder="steve@magma.gg или Steve">
+
+            <label class="auth-field-label" data-i18n="auth.magma.passwordLabel">Пароль</label>
+            <div class="auth-input-wrap">
+              <input type="password" class="auth-input" id="magmaLoginPassword" placeholder="••••••••">
+              <button type="button" class="auth-eye-toggle" data-target="magmaLoginPassword" aria-label="Показать пароль">
+                <svg viewBox="0 0 24 24" class="eye-open"><path d="M12 5c-5 0-9 4-10 7 1 3 5 7 10 7s9-4 10-7c-1-3-5-7-10-7zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/></svg>
+                <svg viewBox="0 0 24 24" class="eye-closed" style="display:none;"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.1A9.4 9.4 0 0 1 12 5c5 0 9 4 10 7-.4 1.2-1.4 2.7-2.8 4M6.6 6.6C4.8 7.9 3.5 9.6 3 10c1 3 5 7 10 7 1 0 2-.2 3-.5"/></svg>
+              </button>
+            </div>
+
+            <div class="auth-error" id="magmaLoginError"></div>
+
+            <button class="auth-submit" id="magmaLoginSubmit" data-i18n="auth.magma.signIn">Войти</button>
+
+            <div class="auth-divider"><span data-i18n="auth.google.or">или</span></div>
+
+            <button class="auth-submit auth-submit-google" id="googleAuthSubmit" data-context="login">
+              <svg viewBox="0 0 48 48" class="google-icon-btn">
+                <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z"/>
+                <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+                <path fill="#4CAF50" d="M24 44c5.4 0 10.3-1.9 14-5.1l-6.5-5.4c-2.1 1.5-4.7 2.5-7.5 2.5-5.3 0-9.7-3.1-11.3-7.5l-6.6 5.1C9.6 39.6 16.2 44 24 44z"/>
+                <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.3 5.7l6.5 5.4C40.9 36.6 44 30.9 44 24c0-1.2-.1-2.4-.4-3.5z"/>
+              </svg>
+              <span data-i18n="auth.google.button">Войти через Google</span>
+            </button>
+
+            <p class="auth-switch">
+              <span data-i18n="auth.magma.noAccount">Нет аккаунта?</span>
+              <a href="#" id="showMagmaRegister" data-i18n="auth.magma.createLink">Создать</a>
+            </p>
+          </div>
+
+          <!-- Magma Аккаунт: регистрация через Google -->
+          <div class="auth-form" id="magmaRegisterForm" style="display:none;">
+            <button type="button" class="auth-back" id="magmaRegisterBack" aria-label="Назад">
+              <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+            </button>
+
+            <p class="auth-desc" data-i18n="auth.google.registerDesc">Аккаунт Magma создаётся через ваш Google-аккаунт. Это займёт 10 секунд — почту подтверждать не нужно.</p>
+
+            <button class="auth-submit auth-submit-google" id="googleRegisterSubmit" data-context="register">
+              <svg viewBox="0 0 48 48" class="google-icon-btn">
+                <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z"/>
+                <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+                <path fill="#4CAF50" d="M24 44c5.4 0 10.3-1.9 14-5.1l-6.5-5.4c-2.1 1.5-4.7 2.5-7.5 2.5-5.3 0-9.7-3.1-11.3-7.5l-6.6 5.1C9.6 39.6 16.2 44 24 44z"/>
+                <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.3 5.7l6.5 5.4C40.9 36.6 44 30.9 44 24c0-1.2-.1-2.4-.4-3.5z"/>
+              </svg>
+              <span data-i18n="auth.google.registerButton">Зарегистрироваться через Google</span>
+            </button>
+
+            <div class="auth-error" id="magmaRegisterError"></div>
+
+            <p class="auth-switch">
+              <span data-i18n="auth.magma.haveAccount">Уже есть аккаунт?</span>
+              <a href="#" id="showMagmaLogin" data-i18n="auth.magma.loginLink">Войти</a>
+            </p>
+          </div>
+
+          <!-- Magma Аккаунт: последний шаг после Google — придумать пароль -->
+          <div class="auth-form" id="magmaGoogleSetupForm" style="display:none;">
+            <button type="button" class="auth-back" id="magmaGoogleSetupBack" aria-label="Назад">
+              <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+            </button>
+
+            <p class="auth-desc" id="magmaGoogleSetupDesc"></p>
+
+            <label class="auth-field-label" data-i18n="auth.magma.registerNick">Никнейм (логин)</label>
+            <input type="text" class="auth-input" id="magmaGoogleNick" placeholder="Steve" maxlength="16">
+            <span class="auth-field-hint" data-i18n="auth.magma.nickRules">3–16 символов: латинские буквы, цифры и _</span>
+
+            <div class="auth-error" id="magmaGoogleSetupError"></div>
+
+            <button class="auth-submit" id="magmaGoogleSetupSubmit" data-i18n="auth.google.finishButton">Завершить регистрацию</button>
+          </div>
+        </div>
+
+        <!-- Microsoft -->
+        <div class="auth-pane" data-pane="microsoft">
+          <p class="auth-desc" data-i18n="auth.ms.comingSoonDesc">Вход через Microsoft/Xbox пока в разработке — Microsoft требует отдельного одобрения приложения для доступа к Minecraft API. Как только доступ будет открыт, эта вкладка заработает автоматически.</p>
+          <button class="auth-submit auth-submit-ms" id="msSubmit" disabled>
+            <svg viewBox="0 0 23 23" class="ms-icon-btn">
+              <rect x="1"  y="1"  width="10" height="10" fill="#F25022"/>
+              <rect x="12" y="1"  width="10" height="10" fill="#7FBA00"/>
+              <rect x="1"  y="12" width="10" height="10" fill="#00A4EF"/>
+              <rect x="12" y="12" width="10" height="10" fill="#FFB900"/>
+            </svg>
+            <span data-i18n="auth.ms.comingSoonButton">Скоро будет доступно</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ МОДАЛКА "О МОДЕ" ============ -->
+  <div class="modal-overlay" id="modDetailsOverlay">
+    <div class="modal-panel mod-details-panel">
+      <button type="button" class="modal-close" id="modDetailsClose" aria-label="Закрыть">
+        <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+
+      <div class="mod-details-head">
+        <div class="mod-details-icon" id="modDetailsIcon"></div>
+        <div>
+          <h3 class="mod-details-title" id="modDetailsTitle"></h3>
+          <div class="mod-details-stats" id="modDetailsStats"></div>
+        </div>
+      </div>
+
+      <div class="mod-details-body" id="modDetailsBody"></div>
+
+      <button class="auth-submit" id="modDetailsInstallBtn"></button>
+    </div>
+  </div>
+
+  <!-- ============ МОДАЛКА "МОДЫ СБОРКИ" ============ -->
+  <div class="modal-overlay" id="instanceModsOverlay">
+    <div class="modal-panel mod-details-panel">
+      <button type="button" class="modal-close" id="instanceModsClose" aria-label="Закрыть">
+        <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+      <h3 class="modpack-title" id="instanceModsTitle"></h3>
+      <button type="button" class="instance-delete-btn" id="instanceModsDeleteBtn"></button>
+      <div class="installed-mod-list" id="instanceModsList" style="margin-bottom:14px;"></div>
+      <button class="ghost-btn" id="instanceModsManualBtn" data-i18n="mods.addManual" style="width:100%;margin-bottom:10px;">Ручная установка</button>
+      <button class="auth-submit" id="instanceModsAddBtn"></button>
+    </div>
+  </div>
+
+  <!-- ============ МОДАЛКА "СОЗДАТЬ МОДПАК" ============ -->
+  <div class="modal-overlay" id="modpackOverlay">
+    <div class="modal-panel modpack-panel">
+      <button type="button" class="modal-close" id="modpackModalClose" aria-label="Закрыть">
+        <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+
+      <h3 class="modpack-title" data-i18n="mods.createModpack">Создать модпак</h3>
+
+      <label class="auth-field-label" data-i18n="mods.name">Название модпака</label>
+      <input type="text" class="auth-input" id="modpackNameInput" placeholder="My Modpack" maxlength="40">
+
+      <label class="auth-field-label" data-i18n="mods.version">Версия Minecraft</label>
+      <button type="button" class="version-btn modpack-version-btn" id="modpackVersionBtn">
+        <span id="modpackVersionLabel">1.21.4</span>
+        <svg viewBox="0 0 24 24" class="chev"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="version-dropdown" id="modpackVersionDropdown">
+        <input type="text" class="version-search" id="modpackVersionSearch" placeholder="Поиск версии...">
+        <div class="version-list" id="modpackVersionList"></div>
+      </div>
+
+      <label class="auth-field-label" data-i18n="mods.loader">Загрузчик</label>
+      <div class="loader-tabs" id="modpackLoaderTabs">
+        <button type="button" class="loader-tab is-active" data-loader="fabric">Fabric</button>
+        <button type="button" class="loader-tab" data-loader="forge">Forge</button>
+        <button type="button" class="loader-tab" data-loader="neoforge">NeoForge</button>
+        <button type="button" class="loader-tab" data-loader="quilt">Quilt</button>
+      </div>
+
+      <label class="auth-field-label" data-i18n="mods.recommended">Рекомендуемые моды</label>
+      <div class="modpack-default-mods" id="modpackDefaultMods">
+        <!-- рендерится через app.js в зависимости от выбранного загрузчика -->
+      </div>
+
+      <div class="auth-error" id="modpackError"></div>
+
+      <div class="modpack-progress" id="modpackProgress" style="display:none;">
+        <div class="launch-progress-track"><div class="launch-progress-fill" id="modpackProgressFill"></div></div>
+        <span class="launch-progress-label" id="modpackProgressLabel"></span>
+      </div>
+
+      <button class="auth-submit" id="modpackSubmit" data-i18n="mods.createBtn">Создать модпак</button>
+    </div>
+  </div>
+
+  <!-- ============ МОДАЛКА "РУЧНАЯ УСТАНОВКА" ============ -->
+  <div class="modal-overlay" id="manualInstallOverlay">
+    <div class="modal-panel manual-install-panel">
+      <button type="button" class="modal-close" id="manualInstallClose" aria-label="Закрыть">
+        <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+      <h3 class="modpack-title" id="manualInstallTitle" data-i18n="mods.addManual">Ручная установка</h3>
+      <p class="manual-install-hint" id="manualInstallHint"></p>
+      <div class="manual-install-drop" id="manualInstallDrop">
+        <svg viewBox="0 0 24 24" class="manual-install-drop-icon"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/></svg>
+        <span data-i18n="mods.dropHint">Перетащите файлы сюда</span>
+        <button type="button" class="ghost-btn" id="manualInstallBrowseBtn" data-i18n="mods.browseFiles">Выбрать файлы</button>
+        <input type="file" id="manualInstallInput" multiple style="display:none;">
+      </div>
+      <div class="manual-install-list" id="manualInstallList"></div>
+      <div class="auth-error" id="manualInstallError"></div>
+    </div>
+  </div>
+
+ <!-- ============ МОДАЛКА "ПОДРОБНОСТИ ОШИБКИ" ============ -->
+  <div class="modal-overlay" id="errorDetailsOverlay">
+    <div class="modal-panel error-details-panel">
+      <button type="button" class="modal-close" id="errorDetailsClose" aria-label="Закрыть">
+        <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+      <h3 class="error-details-title" id="errorDetailsTitle" data-i18n="launch.errorDetailsTitle">Что пошло не так</h3>
+      <pre class="error-details-body" id="errorDetailsBody"></pre>
+    </div>
+  </div>
+
+  <!-- ============ МОДАЛКА "СМЕНА СКИНА" ============ -->
+  <div class="modal-overlay" id="skinChangeInfoOverlay">
+    <div class="modal-panel">
+      <button type="button" class="modal-close" id="skinChangeInfoClose" aria-label="Закрыть">
+        <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+      <h3 class="modpack-title" data-i18n="skinChange.title">Смена скина</h3>
+      <p class="auth-desc" data-i18n="skinChange.desc">Чтобы сменить скин, зарегистрируйтесь или войдите на сайте Ely.by — лаунчер сам подхватит новый скин в игре.</p>
+      <label class="modpack-mod-check">
+        <input type="checkbox" id="skinChangeDontShowAgain">
+        <div data-i18n="skinChange.dontShowAgain">Больше не показывать</div>
+      </label>
+            <button class="auth-submit" id="skinChangeGoBtn" data-i18n="skinChange.goBtn">Перейти на Ely.by</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="accountLogoutOverlay">
+    <div class="modal-panel">
+      <button type="button" class="modal-close" id="accountLogoutClose" aria-label="Закрыть">
+        <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+      <h3 class="modpack-title" data-i18n="account.logoutConfirmTitle">Выйти из аккаунта?</h3>
+      <p class="auth-desc" data-i18n="account.logoutConfirmDesc">Вы уверены, что хотите выйти?</p>
+      <button class="auth-submit" id="accountLogoutConfirmBtn" data-i18n="account.logoutConfirmBtn">Выйти</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="accountDeleteOverlay">
+    <div class="modal-panel">
+      <button type="button" class="modal-close" id="accountDeleteClose" aria-label="Закрыть">
+        <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+      <h3 class="modpack-title" data-i18n="account.deleteConfirmTitle">Удалить аккаунт?</h3>
+      <p class="auth-desc" data-i18n="account.deleteConfirmDesc">Это действие необратимо, аккаунт будет удалён навсегда.</p>
+            <div class="auth-error" id="accountDeleteError"></div>
+      <button class="auth-submit" id="accountDeleteConfirmBtn" style="background:#ff6b5e;" data-i18n="account.deleteConfirmBtn">Удалить навсегда</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="accountChangePasswordOverlay">
+    <div class="modal-panel">
+      <button type="button" class="modal-close" id="accountChangePasswordClose" aria-label="Закрыть">
+        <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+      <h3 class="modpack-title" data-i18n="account.changePasswordLabel">Смена пароля</h3>
+      <p class="auth-desc" data-i18n="account.changePasswordHint">Доступно только для Magma-аккаунтов</p>
+      <div class="auth-form">
+        <label class="auth-field-label" data-i18n="account.currentPasswordPlaceholder">Текущий пароль</label>
+        <input type="password" class="auth-input" id="accountCurrentPasswordInput" placeholder="••••••••">
+        <label class="auth-field-label" data-i18n="account.newPasswordPlaceholder">Новый пароль</label>
+        <input type="password" class="auth-input" id="accountNewPasswordInput" placeholder="••••••••">
+        <div class="auth-error" id="accountChangePasswordError"></div>
+        <button class="auth-submit" id="accountChangePasswordBtn" data-i18n="account.changePasswordBtn">Сменить пароль</button>
+      </div>
+    </div>
+  </div>
+    <div class="modal-overlay" id="heroBgEditorOverlay">
+    <div class="modal-panel hero-bg-editor-panel">
+      <button type="button" class="modal-close" id="heroBgEditorClose" aria-label="Закрыть">
+        <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+      <h3 class="modpack-title" data-i18n="settings.heroBgEditor.title">Обрезка и расположение фона</h3>
+      <p class="auth-desc" data-i18n="settings.heroBgEditor.hint">Перетащите картинку, чтобы выбрать, что показывать, и настройте масштаб</p>
+      <div class="hero-bg-editor-frame" id="heroBgEditorFrame">
+        <div class="hero-bg-editor-image" id="heroBgEditorImage"></div>
+      </div>
+      <div class="hero-bg-editor-zoom-row">
+        <span data-i18n="settings.heroBgEditor.zoom">Масштаб</span>
+        <input type="range" class="settings-slider" id="heroBgEditorZoom" min="100" max="250" step="1" value="100">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px;">
+        <button type="button" class="ghost-btn" id="heroBgEditorResetPos" data-i18n="settings.heroBgEditor.centerBtn" style="flex:1;">По центру</button>
+        <button type="button" class="auth-submit" id="heroBgEditorSaveBtn" data-i18n="settings.heroBgEditor.saveBtn" style="margin-top:0;flex:1;">Сохранить</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="launcherLockOverlay">
+    <div class="modal-panel">
+      <h3 class="modpack-title" data-i18n="settings.privacy.launcherLock.enterTitle">Введите PIN-код</h3>
+      <input type="password" class="auth-input" id="launcherLockInput" maxlength="12" inputmode="numeric">
+      <div class="auth-error" id="launcherLockError"></div>
+      <button class="auth-submit" id="launcherLockSubmitBtn" data-i18n="settings.privacy.launcherLock.unlockBtn">Разблокировать</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="launcherLockSetupOverlay">
+    <div class="modal-panel">
+      <button type="button" class="modal-close" id="launcherLockSetupClose" aria-label="Закрыть">
+        <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+      <h3 class="modpack-title" data-i18n="settings.privacy.launcherLock.setupTitle">Настройка PIN-кода</h3>
+      <label class="auth-field-label" data-i18n="settings.privacy.launcherLock.newPinLabel">Новый PIN-код</label>
+      <input type="password" class="auth-input" id="launcherLockSetupInput" maxlength="12" inputmode="numeric">
+      <div class="auth-error" id="launcherLockSetupError"></div>
+      <button class="auth-submit" id="launcherLockSetupSaveBtn" data-i18n="settings.privacy.launcherLock.saveBtn">Сохранить</button>
+    </div>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+<script src="../assets/skinview3d.bundle.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+secret.h
+.vscode/
+
+**/cef/
+**/build/
+**/vcpkg/
+**/vpckg_installed/
+
+*.dll
+*.exe
+*.obj
+*.lib
+*.a
+*.pdb
+*.bin
+*.zip
+*.tar.gz
