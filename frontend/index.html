@@ -16,9 +16,7 @@
     <div class="boot-glow"></div>
     <div class="boot-content">
       <div class="boot-logo">
-        <svg viewBox="0 0 24 24" class="boot-flame">
-          <path d="M12 2c1 3-2 4-2 7 0 1.5 1 2.5 2 2.5s2-1 2-2.5c1.5 1 2 3 2 4.5 0 3-2 6-4 6s-6-2-6-6c0-4 3-6 3-9 0-1 1-2 3-2.5z"/>
-        </svg>
+        <div class="rail-logo" data-tooltip="MagmaLauncher"></div>
       </div>
       <div class="boot-title">Magma<span class="boot-title-accent">Launcher</span></div>
       <div class="boot-bar">
@@ -31,12 +29,7 @@
 
     <!-- Левый рейл с иконками (Modrinth-style) -->
     <nav class="rail">
-      <div class="rail-logo" data-tooltip="MagmaLauncher">
-        <svg viewBox="0 0 24 24" class="logo-flame">
-          <path d="M12 2c1 3-2 4-2 7 0 1.5 1 2.5 2 2.5s2-1 2-2.5c1.5 1 2 3 2 4.5 0 3-2 6-4 6s-6-2-6-6c0-4 3-6 3-9 0-1 1-2 3-2.5z"/>
-        </svg>
-      </div>
-
+      <div class="rail-logo" data-tooltip="MagmaLauncher"></div>
       <div class="rail-nav">
         <button class="rail-btn is-active" data-view="home" data-tooltip-i18n="nav.home">
           <svg viewBox="0 0 24 24"><path d="M4 11.5 12 4l8 7.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/></svg>
@@ -708,11 +701,58 @@
   <button class="auth-submit" id="installUpdateBtn" style="display:none;max-width:260px;" data-i18n="settings.updates.installBtn">Скачать и установить</button>
 </div>
 
-              <div class="mods-subview" data-launcher-subview="info">
-                <div class="launcher-category-placeholder">
+                            <div class="mods-subview" data-launcher-subview="info">
+                <div class="launcher-category-placeholder" style="max-width:640px;">
                   <div class="launcher-category-placeholder-icon"><svg viewBox="0 0 24 24" width="22" height="22"><path fill="#fff2e8" d="M12 2c1 3-2 4-2 7 0 1.5 1 2.5 2 2.5s2-1 2-2.5c1.5 1 2 3 2 4.5 0 3-2 6-4 6s-6-2-6-6c0-4 3-6 3-9 0-1 1-2 3-2.5z"/></svg></div>
                   <div class="launcher-category-placeholder-title" data-i18n="settings.launcherCat.info.title">MagmaLauncher Alpha 1</div>
                   <div class="launcher-category-placeholder-hint" data-i18n="settings.launcherCat.info.hint">Неофициальный лаунчер Minecraft: Java Edition. Vanilla, Fabric, Forge, NeoForge, Quilt. Написан на C++ (CEF) и JavaScript.</div>
+                  <div class="launcher-category-placeholder-hint" data-i18n="settings.launcherCat.info.longDesc" style="margin-top:2px;">Лаунчер сам качает нужную версию Java, ассеты и загрузчики, ставит Fabric/Forge/NeoForge/Quilt в пару кликов и умеет собирать модпаки из каталогов Modrinth и CurseForge — без ручной возни с файлами.</div>
+                  <div class="launcher-category-placeholder-hint" data-i18n="settings.launcherCat.info.license" style="margin-top:2px;">Код распространяется по лицензии MIT — использовать, менять и форкать можно свободно.</div>
+                </div>
+
+                <div class="launcher-links-row" style="margin-top:16px;">
+                  <a href="https://github.com/Erz05506/MagmaLauncher" class="launcher-link-card">
+                    <span class="launcher-link-icon"><img src="../assets/github-logo.png" alt="GitHub"></span>
+                    <span class="launcher-link-text">
+                      <span class="launcher-link-title" data-i18n="settings.updates.link.github.title">GitHub</span>
+                      <span class="launcher-link-desc" data-i18n="settings.updates.link.github.desc">Исходный код и релизы</span>
+                    </span>
+                  </a>
+                  <a href="https://discord.gg/R7DCtQBYs" class="launcher-link-card">
+                    <span class="launcher-link-icon"><img src="../assets/discord-logo.png" alt="Discord"></span>
+                    <span class="launcher-link-text">
+                      <span class="launcher-link-title" data-i18n="settings.updates.link.discord.title">Discord</span>
+                      <span class="launcher-link-desc" data-i18n="settings.updates.link.discord.desc">Сообщество и новости проекта</span>
+                    </span>
+                  </a>
+                  <a href="https://www.youtube.com/@Erz05" class="launcher-link-card">
+                    <span class="launcher-link-icon"><img src="../assets/youtube-logo.png" alt="YouTube"></span>
+                    <span class="launcher-link-text">
+                      <span class="launcher-link-title" data-i18n="settings.updates.link.youtube.title">YouTube</span>
+                      <span class="launcher-link-desc" data-i18n="settings.updates.link.youtube.desc">Видео, туториалы и разработка</span>
+                    </span>
+                  </a>
+                  <a href="https://t.me/magma_launcher" class="launcher-link-card">
+                   <span class="launcher-link-icon"><img src="../assets/telegram-logo.png" alt="Telegram"></span>
+                    <span class="launcher-link-text">
+                      <span class="launcher-link-title" data-i18n="settings.updates.link.telegram.title">Telegram</span>
+                      <span class="launcher-link-desc" data-i18n="settings.updates.link.telegram.desc">Новости и обновления</span>
+                    </span>
+                  </a>
+                    <a href="https://www.tiktok.com/@magma.launcher?_r=1&_t=ZS-99hjtZdg306" class="launcher-link-card">
+                    <span class="launcher-link-icon"><img src="../assets/tiktok-logo.png" alt="TikTok"></span>
+                    <span class="launcher-link-text">
+                      <span class="launcher-link-title" data-i18n="settings.updates.link.tiktok.title">TikTok</span>
+                      <span class="launcher-link-desc" data-i18n="settings.updates.link.tiktok.desc">Короткие видео о лаунчере</span>
+                    </span>
+                  </a>
+                  <a href="https://www.donationalerts.com/r/erzz05" class="launcher-link-card"></a>
+                    <span class="launcher-link-icon"><img src="../assets/donationalerts-logo.png" alt="DonationAlerts"></span>
+                    <span class="launcher-link-text">
+                      <span class="launcher-link-title" data-i18n="settings.updates.link.donate.title">DonationAlerts</span>
+                      <span class="launcher-link-desc" data-i18n="settings.updates.link.donate.desc">Поддержать разработку</span>
+                    </span>
+                  </a>
                 </div>
               </div>
 
@@ -796,6 +836,16 @@
                     </div>
                     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
                       <input type="checkbox" id="fullscreenToggle" style="width:20px;height:20px;accent-color:#ff6b3d;cursor:pointer;">
+                    </label>
+                  </div>
+
+                    <div class="settings-row" id="reopenOnGameExitRow">
+                    <div>
+                      <div class="settings-label" data-i18n="settings.reopenOnExit.label">Открывать лаунчер после закрытия игры</div>
+                      <div class="settings-hint" data-i18n="settings.reopenOnExit.hint">Лаунчер снова запустится, когда вы закроете Minecraft</div>
+                    </div>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                      <input type="checkbox" id="reopenOnGameExitToggle" style="width:20px;height:20px;accent-color:var(--magma-1);cursor:pointer;">
                     </label>
                   </div>
 
@@ -1171,7 +1221,7 @@
         <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
       </button>
       <h3 class="modpack-title" data-i18n="settings.heroBgEditor.title">Обрезка и расположение фона</h3>
-      <p class="auth-desc" data-i18n="settings.heroBgEditor.hint">Перетащите картинку, чтобы выбрать, что показывать, и настройте масштаб</p>
+    <p class="auth-desc" data-i18n="settings.heroBgEditor.hint">Зажмите правую кнопку мыши и перетащите картинку, чтобы выбрать, что показывать, и настройте масштаб</p>
       <div class="hero-bg-editor-frame" id="heroBgEditorFrame">
         <div class="hero-bg-editor-image" id="heroBgEditorImage"></div>
       </div>

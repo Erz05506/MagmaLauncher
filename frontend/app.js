@@ -205,6 +205,11 @@ async function switchToRailView(target) {
     resetInstancesViewHeaderTitle();
   }
 
+  if (target === 'settings') {
+  switchSettingsSubtab(document.querySelector('.mods-subtab[data-settings-subtab].is-active')?.dataset.settingsSubtab || 'account');
+  updateSkinViewerRenderState(); // <-- добавь
+}
+
   updateGameFolderBtnVisibility();
   if (target === 'mods') {
     renderModsCategoryTabs();
@@ -251,6 +256,9 @@ document.getElementById('reduceMotionToggle')?.addEventListener('change', (e) =>
   applyReduceMotion();
 });
 
+// Настройки намеренно не закрепляем через position:fixed/sticky:
+// обе группы подвкладок должны прокручиваться вместе со всем содержимым.
+
 const PAUSE_SKIN_UNFOCUSED_KEY = 'magma_pause_skin_unfocused';
 function getPauseSkinUnfocusedPref() { return localStorage.getItem(PAUSE_SKIN_UNFOCUSED_KEY) !== '0'; }
 function applyPauseSkinUnfocusedToggle() {
@@ -261,10 +269,37 @@ document.getElementById('pauseSkinUnfocusedToggle')?.addEventListener('change', 
   localStorage.setItem(PAUSE_SKIN_UNFOCUSED_KEY, e.target.checked ? '1' : '0');
 });
 window.addEventListener('blur', () => {
-  if (accountSkinViewer && getPauseSkinUnfocusedPref()) accountSkinViewer.renderPaused = true;
+  // Не оставляем WebGL-вьюер работать в фоне.
+  if (accountSkinViewer) accountSkinViewer.renderPaused = true;
 });
 window.addEventListener('focus', () => {
-  if (accountSkinViewer) accountSkinViewer.renderPaused = false;
+  // Восстанавливаем состояние только по реальной видимости вкладки.
+  updateSkinViewerRenderState();
+});
+
+const CLOSE_ON_LAUNCH_KEY = 'magma_close_on_launch';
+const REOPEN_ON_EXIT_KEY = 'magma_reopen_on_game_exit';
+function getCloseOnLaunchPref() { return localStorage.getItem(CLOSE_ON_LAUNCH_KEY) === '1'; }
+// работает только вместе с "Закрывать лаунчер при запуске игры"
+function getReopenOnExitPref() { return getCloseOnLaunchPref() && localStorage.getItem(REOPEN_ON_EXIT_KEY) === '1'; }
+
+function applyCloseOnLaunchToggle() {
+  const toggle = document.getElementById('closeOnLaunchToggle');
+  if (toggle) toggle.checked = getCloseOnLaunchPref();
+}
+function applyReopenOnExitToggle() {
+  const toggle = document.getElementById('reopenOnGameExitToggle');
+  const row = document.getElementById('reopenOnGameExitRow');
+  const available = getCloseOnLaunchPref();
+  if (toggle) { toggle.disabled = !available; toggle.checked = getReopenOnExitPref(); }
+  if (row) row.style.opacity = available ? '1' : '0.5';
+}
+document.getElementById('closeOnLaunchToggle')?.addEventListener('change', (e) => {
+  localStorage.setItem(CLOSE_ON_LAUNCH_KEY, e.target.checked ? '1' : '0');
+  applyReopenOnExitToggle();
+});
+document.getElementById('reopenOnGameExitToggle')?.addEventListener('change', (e) => {
+  localStorage.setItem(REOPEN_ON_EXIT_KEY, e.target.checked ? '1' : '0');
 });
 
 const DISABLE_BLUR_KEY = 'magma_disable_blur';
@@ -797,10 +832,14 @@ window.__launchDone = function (data) {
   playBtn.querySelector('span').textContent = t('hero.play');
   setPauseButtonState(false);
 
-  if (data.success) {
+    if (data.success) {
     setLaunchProgress(true, 1, t('launch.success'), false, { showControls: false });
     updateDiscordPresencePlaying();
-    setTimeout(() => setLaunchProgress(false, 0, ''), 3000);
+    if (getCloseOnLaunchPref() && typeof window.closeLauncher === 'function') {
+      window.closeLauncher({ reopenAfterGame: getReopenOnExitPref() });
+      return;
+    }
+    setTimeout(() => setLaunchProgress(false, 0, ''), 6000);
   } else if (data.cancelled) {
     setLaunchProgress(true, 0, t('launch.cancelled'), false, { showControls: false });
     setTimeout(() => setLaunchProgress(false, 0, ''), 1500);
@@ -878,7 +917,10 @@ playBtn.addEventListener('click', async () => {
   try {
     const raw = await window.launchGame(params);
     const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if (!result.started) throw new Error(translateBackendError(result.error) || t('auth.magma.genericError'));
+    if (!result.started) {
+      const msg = result.error === 'ERR_ALREADY_RUNNING' ? t('launch.alreadyRunning') : (translateBackendError(result.error) || t('auth.magma.genericError'));
+      throw new Error(msg);
+    }
   } catch (err) {
     console.error('[MagmaLauncher] Ошибка запуска игры:', err);
     label.textContent = original;
@@ -5972,6 +6014,350 @@ const UPDATES_DATA = [
     } },
 ];
 
+const I18N_UPDATES_LINKS_PATCH = {
+  ru: {
+    'settings.updates.aboutTitle': 'О проекте',
+    'settings.updates.aboutDesc': 'MagmaLauncher — независимый проект, который разрабатывается открыто. Исходники доступны каждому, в Discord можно следить за новостями и общаться с сообществом, а поддержать разработку — через DonationAlerts.',
+    'settings.updates.link.github.title': 'GitHub',
+    'settings.updates.link.github.desc': 'Исходный код и релизы',
+    'settings.updates.link.discord.title': 'Discord',
+    'settings.updates.link.discord.desc': 'Сообщество и новости проекта',
+    'settings.updates.link.donate.title': 'DonationAlerts',
+    'settings.updates.link.donate.desc': 'Поддержать разработку',
+  },
+  en: {
+    'settings.updates.aboutTitle': 'About the project',
+    'settings.updates.aboutDesc': 'MagmaLauncher is an independent project built in the open. The source code is available to everyone, the Discord server is where news and community discussions happen, and DonationAlerts is the way to support development.',
+    'settings.updates.link.github.title': 'GitHub',
+    'settings.updates.link.github.desc': 'Source code and releases',
+    'settings.updates.link.discord.title': 'Discord',
+    'settings.updates.link.discord.desc': 'Community and project news',
+    'settings.updates.link.donate.title': 'DonationAlerts',
+    'settings.updates.link.donate.desc': 'Support development',
+  },
+  uk: {
+    'settings.updates.aboutTitle': 'Про проєкт',
+    'settings.updates.aboutDesc': 'MagmaLauncher — незалежний проєкт, який розробляється відкрито. Вихідний код доступний усім, у Discord можна стежити за новинами й спілкуватися зі спільнотою, а підтримати розробку — через DonationAlerts.',
+    'settings.updates.link.github.title': 'GitHub',
+    'settings.updates.link.github.desc': 'Вихідний код і релізи',
+    'settings.updates.link.discord.title': 'Discord',
+    'settings.updates.link.discord.desc': 'Спільнота та новини проєкту',
+    'settings.updates.link.donate.title': 'DonationAlerts',
+    'settings.updates.link.donate.desc': 'Підтримати розробку',
+  },
+  fr: {
+    'settings.updates.aboutTitle': 'À propos du projet',
+    'settings.updates.aboutDesc': "MagmaLauncher est un projet indépendant développé en open source. Le code source est accessible à tous, le serveur Discord permet de suivre les actualités et d'échanger avec la communauté, et DonationAlerts permet de soutenir le développement.",
+    'settings.updates.link.github.title': 'GitHub',
+    'settings.updates.link.github.desc': 'Code source et versions',
+    'settings.updates.link.discord.title': 'Discord',
+    'settings.updates.link.discord.desc': 'Communauté et actualités du projet',
+    'settings.updates.link.donate.title': 'DonationAlerts',
+    'settings.updates.link.donate.desc': 'Soutenir le développement',
+  },
+  de: {
+    'settings.updates.aboutTitle': 'Über das Projekt',
+    'settings.updates.aboutDesc': 'MagmaLauncher ist ein unabhängiges, offen entwickeltes Projekt. Der Quellcode ist für alle einsehbar, auf dem Discord-Server gibt es Neuigkeiten und Community-Austausch, und über DonationAlerts kannst du die Entwicklung unterstützen.',
+    'settings.updates.link.github.title': 'GitHub',
+    'settings.updates.link.github.desc': 'Quellcode und Releases',
+    'settings.updates.link.discord.title': 'Discord',
+    'settings.updates.link.discord.desc': 'Community und Projekt-News',
+    'settings.updates.link.donate.title': 'DonationAlerts',
+    'settings.updates.link.donate.desc': 'Entwicklung unterstützen',
+  },
+  es: {
+    'settings.updates.aboutTitle': 'Sobre el proyecto',
+    'settings.updates.aboutDesc': 'MagmaLauncher es un proyecto independiente desarrollado de forma abierta. El código fuente está disponible para todos, en Discord encontrarás noticias y a la comunidad, y puedes apoyar el desarrollo a través de DonationAlerts.',
+    'settings.updates.link.github.title': 'GitHub',
+    'settings.updates.link.github.desc': 'Código fuente y versiones',
+    'settings.updates.link.discord.title': 'Discord',
+    'settings.updates.link.discord.desc': 'Comunidad y noticias del proyecto',
+    'settings.updates.link.donate.title': 'DonationAlerts',
+    'settings.updates.link.donate.desc': 'Apoyar el desarrollo',
+  },
+  it: {
+    'settings.updates.aboutTitle': 'Info sul progetto',
+    'settings.updates.aboutDesc': 'MagmaLauncher è un progetto indipendente sviluppato in modo aperto. Il codice sorgente è disponibile a tutti, su Discord trovi novità e community, e puoi sostenere lo sviluppo tramite DonationAlerts.',
+    'settings.updates.link.github.title': 'GitHub',
+    'settings.updates.link.github.desc': 'Codice sorgente e release',
+    'settings.updates.link.discord.title': 'Discord',
+    'settings.updates.link.discord.desc': 'Community e novità del progetto',
+    'settings.updates.link.donate.title': 'DonationAlerts',
+    'settings.updates.link.donate.desc': 'Sostieni lo sviluppo',
+  },
+  pt: {
+    'settings.updates.aboutTitle': 'Sobre o projeto',
+    'settings.updates.aboutDesc': 'O MagmaLauncher é um projeto independente desenvolvido de forma aberta. O código-fonte está disponível para todos, o Discord traz novidades e a comunidade, e você pode apoiar o desenvolvimento pelo DonationAlerts.',
+    'settings.updates.link.github.title': 'GitHub',
+    'settings.updates.link.github.desc': 'Código-fonte e versões',
+    'settings.updates.link.discord.title': 'Discord',
+    'settings.updates.link.discord.desc': 'Comunidade e novidades do projeto',
+    'settings.updates.link.donate.title': 'DonationAlerts',
+    'settings.updates.link.donate.desc': 'Apoiar o desenvolvimento',
+  },
+  ja: {
+    'settings.updates.aboutTitle': 'プロジェクトについて',
+    'settings.updates.aboutDesc': 'MagmaLauncherはオープンに開発されている独立系プロジェクトです。ソースコードは誰でも閲覧でき、Discordではお知らせやコミュニティとの交流があり、DonationAlertsで開発を支援できます。',
+    'settings.updates.link.github.title': 'GitHub',
+    'settings.updates.link.github.desc': 'ソースコードとリリース',
+    'settings.updates.link.discord.title': 'Discord',
+    'settings.updates.link.discord.desc': 'コミュニティとプロジェクトのお知らせ',
+    'settings.updates.link.donate.title': 'DonationAlerts',
+    'settings.updates.link.donate.desc': '開発を支援する',
+  },
+  ko: {
+    'settings.updates.aboutTitle': '프로젝트 소개',
+    'settings.updates.aboutDesc': 'MagmaLauncher는 공개적으로 개발되는 독립 프로젝트입니다. 소스 코드는 누구나 볼 수 있고, Discord에서는 소식과 커뮤니티를 만날 수 있으며, DonationAlerts를 통해 개발을 후원할 수 있습니다.',
+    'settings.updates.link.github.title': 'GitHub',
+    'settings.updates.link.github.desc': '소스 코드와 릴리스',
+    'settings.updates.link.discord.title': 'Discord',
+    'settings.updates.link.discord.desc': '커뮤니티와 프로젝트 소식',
+    'settings.updates.link.donate.title': 'DonationAlerts',
+    'settings.updates.link.donate.desc': '개발 후원하기',
+  },
+  hi: {
+    'settings.updates.aboutTitle': 'प्रोजेक्ट के बारे में',
+    'settings.updates.aboutDesc': 'MagmaLauncher एक स्वतंत्र प्रोजेक्ट है जो खुले तौर पर विकसित किया जाता है। सोर्स कोड सभी के लिए उपलब्ध है, Discord पर खबरें और समुदाय मिलेगा, और DonationAlerts के ज़रिए आप डेवलपमेंट को सपोर्ट कर सकते हैं।',
+    'settings.updates.link.github.title': 'GitHub',
+    'settings.updates.link.github.desc': 'सोर्स कोड और रिलीज़',
+    'settings.updates.link.discord.title': 'Discord',
+    'settings.updates.link.discord.desc': 'समुदाय और प्रोजेक्ट की खबरें',
+    'settings.updates.link.donate.title': 'DonationAlerts',
+    'settings.updates.link.donate.desc': 'डेवलपमेंट को सपोर्ट करें',
+  },
+  id: {
+    'settings.updates.aboutTitle': 'Tentang proyek',
+    'settings.updates.aboutDesc': 'MagmaLauncher adalah proyek independen yang dikembangkan secara terbuka. Kode sumbernya tersedia untuk semua orang, di Discord Anda bisa mengikuti berita dan komunitas, dan Anda bisa mendukung pengembangan lewat DonationAlerts.',
+    'settings.updates.link.github.title': 'GitHub',
+    'settings.updates.link.github.desc': 'Kode sumber dan rilis',
+    'settings.updates.link.discord.title': 'Discord',
+    'settings.updates.link.discord.desc': 'Komunitas dan berita proyek',
+    'settings.updates.link.donate.title': 'DonationAlerts',
+    'settings.updates.link.donate.desc': 'Dukung pengembangan',
+  },
+};
+Object.keys(I18N_UPDATES_LINKS_PATCH).forEach(lang => {
+  if (!I18N[lang]) I18N[lang] = {};
+  Object.assign(I18N[lang], I18N_UPDATES_LINKS_PATCH[lang]);
+});
+I18N['es-ES'] = I18N.es;
+
+const I18N_INFO_LINKS_PATCH = {
+  ru: {
+    'settings.launcherCat.info.longDesc': 'Лаунчер сам качает нужную версию Java, ассеты и загрузчики, ставит Fabric/Forge/NeoForge/Quilt в пару кликов и умеет собирать модпаки из каталогов Modrinth и CurseForge — без ручной возни с файлами.',
+    'settings.launcherCat.info.license': 'Код распространяется по лицензии MIT — использовать, менять и форкать можно свободно.',
+    'settings.updates.link.youtube.title': 'YouTube',
+    'settings.updates.link.youtube.desc': 'Видео, туториалы и разработка',
+    'settings.updates.link.telegram.title': 'Telegram',
+    'settings.updates.link.telegram.desc': 'Новости и обновления',
+  },
+  en: {
+    'settings.launcherCat.info.longDesc': 'The launcher downloads the right Java version, assets and mod loaders for you, installs Fabric/Forge/NeoForge/Quilt in a couple of clicks, and can build modpacks straight from the Modrinth and CurseForge catalogs — no manual file wrangling.',
+    'settings.launcherCat.info.license': 'The code is released under the MIT license — free to use, modify and fork.',
+    'settings.updates.link.youtube.title': 'YouTube',
+    'settings.updates.link.youtube.desc': 'Videos, tutorials and dev updates',
+    'settings.updates.link.telegram.title': 'Telegram',
+    'settings.updates.link.telegram.desc': 'News and updates',
+  },
+  uk: {
+    'settings.launcherCat.info.longDesc': 'Лаунчер сам завантажує потрібну версію Java, ассети та завантажувачі, ставить Fabric/Forge/NeoForge/Quilt у кілька кліків і вміє збирати модпаки з каталогів Modrinth і CurseForge — без ручної роботи з файлами.',
+    'settings.launcherCat.info.license': 'Код розповсюджується за ліцензією MIT — використовувати, змінювати і форкати можна вільно.',
+    'settings.updates.link.youtube.title': 'YouTube',
+    'settings.updates.link.youtube.desc': 'Відео, туторіали та розробка',
+    'settings.updates.link.telegram.title': 'Telegram',
+    'settings.updates.link.telegram.desc': 'Новини та оновлення',
+  },
+  fr: {
+    'settings.launcherCat.info.longDesc': "Le launcher télécharge lui-même la bonne version de Java, les assets et les loaders, installe Fabric/Forge/NeoForge/Quilt en quelques clics et peut créer des modpacks directement depuis les catalogues Modrinth et CurseForge — sans manipulation manuelle de fichiers.",
+    'settings.launcherCat.info.license': "Le code est distribué sous licence MIT — libre d'utilisation, de modification et de fork.",
+    'settings.updates.link.youtube.title': 'YouTube',
+    'settings.updates.link.youtube.desc': 'Vidéos, tutoriels et développement',
+    'settings.updates.link.telegram.title': 'Telegram',
+    'settings.updates.link.telegram.desc': 'Actualités et mises à jour',
+  },
+  de: {
+    'settings.launcherCat.info.longDesc': 'Der Launcher lädt die passende Java-Version, Assets und Loader selbst herunter, installiert Fabric/Forge/NeoForge/Quilt mit wenigen Klicks und kann Modpacks direkt aus den Modrinth- und CurseForge-Katalogen zusammenstellen — ganz ohne manuelles Dateigefummel.',
+    'settings.launcherCat.info.license': 'Der Code steht unter der MIT-Lizenz — frei nutzbar, veränderbar und forkbar.',
+    'settings.updates.link.youtube.title': 'YouTube',
+    'settings.updates.link.youtube.desc': 'Videos, Tutorials und Entwicklung',
+    'settings.updates.link.telegram.title': 'Telegram',
+    'settings.updates.link.telegram.desc': 'Neuigkeiten und Updates',
+  },
+  es: {
+    'settings.launcherCat.info.longDesc': 'El launcher descarga automáticamente la versión de Java correcta, los assets y los loaders, instala Fabric/Forge/NeoForge/Quilt en un par de clics y puede armar modpacks directamente desde los catálogos de Modrinth y CurseForge, sin tocar archivos a mano.',
+    'settings.launcherCat.info.license': 'El código se distribuye bajo la licencia MIT: libre para usar, modificar y crear forks.',
+    'settings.updates.link.youtube.title': 'YouTube',
+    'settings.updates.link.youtube.desc': 'Videos, tutoriales y desarrollo',
+    'settings.updates.link.telegram.title': 'Telegram',
+    'settings.updates.link.telegram.desc': 'Noticias y actualizaciones',
+  },
+  it: {
+    'settings.launcherCat.info.longDesc': 'Il launcher scarica da solo la versione giusta di Java, gli asset e i loader, installa Fabric/Forge/NeoForge/Quilt in un paio di clic e può creare modpack direttamente dai cataloghi Modrinth e CurseForge, senza smanettare a mano con i file.',
+    'settings.launcherCat.info.license': 'Il codice è distribuito con licenza MIT — libero da usare, modificare e forkare.',
+    'settings.updates.link.youtube.title': 'YouTube',
+    'settings.updates.link.youtube.desc': 'Video, tutorial e sviluppo',
+    'settings.updates.link.telegram.title': 'Telegram',
+    'settings.updates.link.telegram.desc': 'Notizie e aggiornamenti',
+  },
+  pt: {
+    'settings.launcherCat.info.longDesc': 'O launcher baixa sozinho a versão certa do Java, os assets e os loaders, instala Fabric/Forge/NeoForge/Quilt em poucos cliques e consegue montar modpacks direto dos catálogos do Modrinth e CurseForge, sem mexer em arquivos manualmente.',
+    'settings.launcherCat.info.license': 'O código é distribuído sob a licença MIT — livre para usar, modificar e criar forks.',
+    'settings.updates.link.youtube.title': 'YouTube',
+    'settings.updates.link.youtube.desc': 'Vídeos, tutoriais e desenvolvimento',
+    'settings.updates.link.telegram.title': 'Telegram',
+    'settings.updates.link.telegram.desc': 'Notícias e atualizações',
+  },
+  ja: {
+    'settings.launcherCat.info.longDesc': 'ランチャーが必要なJavaバージョン、アセット、ローダーを自動でダウンロードし、Fabric/Forge/NeoForge/Quiltを数クリックでインストール。ModrinthやCurseForgeのカタログから直接モッドパックを作成でき、ファイルを手動で操作する必要はありません。',
+    'settings.launcherCat.info.license': 'コードはMITライセンスで公開されています — 自由に使用・改変・フォークできます。',
+    'settings.updates.link.youtube.title': 'YouTube',
+    'settings.updates.link.youtube.desc': '動画、チュートリアル、開発情報',
+    'settings.updates.link.telegram.title': 'Telegram',
+    'settings.updates.link.telegram.desc': 'ニュースとアップデート',
+  },
+  ko: {
+    'settings.launcherCat.info.longDesc': '런처가 알맞은 Java 버전, 에셋, 로더를 알아서 다운로드하고 Fabric/Forge/NeoForge/Quilt를 몇 번의 클릭으로 설치하며, Modrinth와 CurseForge 카탈로그에서 바로 모드팩을 만들 수 있습니다 — 파일을 직접 손댈 필요 없이요.',
+    'settings.launcherCat.info.license': '코드는 MIT 라이선스로 배포됩니다 — 자유롭게 사용, 수정, 포크할 수 있습니다.',
+    'settings.updates.link.youtube.title': 'YouTube',
+    'settings.updates.link.youtube.desc': '영상, 튜토리얼, 개발 소식',
+    'settings.updates.link.telegram.title': 'Telegram',
+    'settings.updates.link.telegram.desc': '소식과 업데이트',
+  },
+  hi: {
+    'settings.launcherCat.info.longDesc': 'लॉन्चर खुद सही Java वर्शन, एसेट्स और लोडर डाउनलोड करता है, कुछ क्लिक में Fabric/Forge/NeoForge/Quilt इंस्टॉल करता है और Modrinth व CurseForge कैटलॉग से सीधे मॉडपैक बना सकता है — फ़ाइलों से खुद छेड़छाड़ किए बिना।',
+    'settings.launcherCat.info.license': 'कोड MIT लाइसेंस के तहत जारी किया गया है — उपयोग, बदलाव और फोर्क करना पूरी तरह मुफ़्त है।',
+    'settings.updates.link.youtube.title': 'YouTube',
+    'settings.updates.link.youtube.desc': 'वीडियो, ट्यूटोरियल और डेवलपमेंट',
+    'settings.updates.link.telegram.title': 'Telegram',
+    'settings.updates.link.telegram.desc': 'समाचार और अपडेट',
+  },
+  id: {
+    'settings.launcherCat.info.longDesc': 'Launcher secara otomatis mengunduh versi Java, aset, dan loader yang tepat, menginstal Fabric/Forge/NeoForge/Quilt hanya dengan beberapa klik, dan bisa membuat modpack langsung dari katalog Modrinth dan CurseForge — tanpa perlu mengutak-atik file secara manual.',
+    'settings.launcherCat.info.license': 'Kode dirilis di bawah lisensi MIT — bebas digunakan, dimodifikasi, dan di-fork.',
+    'settings.updates.link.youtube.title': 'YouTube',
+    'settings.updates.link.youtube.desc': 'Video, tutorial, dan pengembangan',
+    'settings.updates.link.telegram.title': 'Telegram',
+    'settings.updates.link.telegram.desc': 'Berita dan pembaruan',
+  },
+};
+Object.keys(I18N_INFO_LINKS_PATCH).forEach(lang => {
+  if (!I18N[lang]) I18N[lang] = {};
+  Object.assign(I18N[lang], I18N_INFO_LINKS_PATCH[lang]);
+});
+I18N['es-ES'] = I18N.es;
+
+const I18N_BUGFIX_PATCH = {
+  ru: {
+    'settings.closeOnLaunch.label': 'Закрывать лаунчер при запуске игры',
+    'settings.closeOnLaunch.hint': 'Лаунчер закроется сразу после того, как откроется Minecraft',
+    'settings.updates.link.tiktok.title': 'TikTok',
+    'settings.updates.link.tiktok.desc': 'Короткие видео о лаунчере',
+    'launch.alreadyRunning': 'Игра уже запускается или уже открыта — дождитесь окна Minecraft',
+  },
+  en: {
+    'settings.closeOnLaunch.label': 'Close launcher when the game starts',
+    'settings.closeOnLaunch.hint': 'The launcher will close as soon as Minecraft opens',
+    'settings.updates.link.tiktok.title': 'TikTok',
+    'settings.updates.link.tiktok.desc': 'Short videos about the launcher',
+    'launch.alreadyRunning': 'The game is already launching or running — wait for the Minecraft window',
+  },
+  uk: {
+    'settings.closeOnLaunch.label': 'Закривати лаунчер під час запуску гри',
+    'settings.closeOnLaunch.hint': 'Лаунчер закриється одразу після відкриття Minecraft',
+    'settings.updates.link.tiktok.title': 'TikTok',
+    'settings.updates.link.tiktok.desc': 'Короткі відео про лаунчер',
+    'launch.alreadyRunning': 'Гра вже запускається або вже відкрита — дочекайтеся вікна Minecraft',
+  },
+  fr: {
+    'settings.closeOnLaunch.label': 'Fermer le launcher au lancement du jeu',
+    'settings.closeOnLaunch.hint': 'Le launcher se fermera dès que Minecraft s\'ouvrira',
+    'settings.updates.link.tiktok.title': 'TikTok',
+    'settings.updates.link.tiktok.desc': 'Courtes vidéos sur le launcher',
+    'launch.alreadyRunning': 'Le jeu est déjà en cours de lancement ou ouvert — attendez la fenêtre de Minecraft',
+  },
+  de: {
+    'settings.closeOnLaunch.label': 'Launcher beim Spielstart schließen',
+    'settings.closeOnLaunch.hint': 'Der Launcher schließt sich, sobald Minecraft startet',
+    'settings.updates.link.tiktok.title': 'TikTok',
+    'settings.updates.link.tiktok.desc': 'Kurzvideos über den Launcher',
+    'launch.alreadyRunning': 'Das Spiel startet bereits oder läuft schon — warte auf das Minecraft-Fenster',
+  },
+  es: {
+    'settings.closeOnLaunch.label': 'Cerrar el launcher al iniciar el juego',
+    'settings.closeOnLaunch.hint': 'El launcher se cerrará en cuanto se abra Minecraft',
+    'settings.updates.link.tiktok.title': 'TikTok',
+    'settings.updates.link.tiktok.desc': 'Videos cortos sobre el launcher',
+    'launch.alreadyRunning': 'El juego ya se está iniciando o ya está abierto — espera la ventana de Minecraft',
+  },
+  it: {
+    'settings.closeOnLaunch.label': "Chiudi il launcher all'avvio del gioco",
+    'settings.closeOnLaunch.hint': "Il launcher si chiuderà non appena Minecraft si apre",
+    'settings.updates.link.tiktok.title': 'TikTok',
+    'settings.updates.link.tiktok.desc': 'Video brevi sul launcher',
+    'launch.alreadyRunning': "Il gioco è già in avvio o già aperto — attendi la finestra di Minecraft",
+  },
+  pt: {
+    'settings.closeOnLaunch.label': 'Fechar o launcher ao iniciar o jogo',
+    'settings.closeOnLaunch.hint': 'O launcher vai fechar assim que o Minecraft abrir',
+    'settings.updates.link.tiktok.title': 'TikTok',
+    'settings.updates.link.tiktok.desc': 'Vídeos curtos sobre o launcher',
+    'launch.alreadyRunning': 'O jogo já está iniciando ou já está aberto — espere a janela do Minecraft',
+  },
+  ja: {
+    'settings.closeOnLaunch.label': 'ゲーム起動時にランチャーを閉じる',
+    'settings.closeOnLaunch.hint': 'Minecraftが開いたらすぐにランチャーが閉じます',
+    'settings.updates.link.tiktok.title': 'TikTok',
+    'settings.updates.link.tiktok.desc': 'ランチャーに関するショート動画',
+    'launch.alreadyRunning': 'ゲームは既に起動中か起動済みです — Minecraftのウィンドウをお待ちください',
+  },
+  ko: {
+    'settings.closeOnLaunch.label': '게임 시작 시 런처 닫기',
+    'settings.closeOnLaunch.hint': 'Minecraft가 열리면 바로 런처가 닫힙니다',
+    'settings.updates.link.tiktok.title': 'TikTok',
+    'settings.updates.link.tiktok.desc': '런처에 대한 짧은 영상',
+    'launch.alreadyRunning': '게임이 이미 실행 중이거나 열려 있습니다 — Minecraft 창을 기다려주세요',
+  },
+  hi: {
+    'settings.closeOnLaunch.label': 'गेम शुरू होने पर लॉन्चर बंद करें',
+    'settings.closeOnLaunch.hint': 'Minecraft खुलते ही लॉन्चर बंद हो जाएगा',
+    'settings.updates.link.tiktok.title': 'TikTok',
+    'settings.updates.link.tiktok.desc': 'लॉन्चर के बारे में छोटे वीडियो',
+    'launch.alreadyRunning': 'गेम पहले से लॉन्च हो रहा है या खुला है — Minecraft विंडो का इंतज़ार करें',
+  },
+  id: {
+    'settings.closeOnLaunch.label': 'Tutup launcher saat game dimulai',
+    'settings.closeOnLaunch.hint': 'Launcher akan tertutup segera setelah Minecraft terbuka',
+    'settings.updates.link.tiktok.title': 'TikTok',
+    'settings.updates.link.tiktok.desc': 'Video pendek tentang launcher',
+    'launch.alreadyRunning': 'Game sedang dimulai atau sudah terbuka — tunggu jendela Minecraft',
+  },
+};
+Object.keys(I18N_BUGFIX_PATCH).forEach(lang => {
+  if (!I18N[lang]) I18N[lang] = {};
+  Object.assign(I18N[lang], I18N_BUGFIX_PATCH[lang]);
+});
+I18N['es-ES'] = I18N.es;
+
+const I18N_REOPEN_PATCH = {
+  ru: { 'settings.reopenOnExit.label': 'Открывать лаунчер после закрытия игры', 'settings.reopenOnExit.hint': 'Лаунчер снова запустится, когда вы закроете Minecraft. Доступно, только если включено «Закрывать лаунчер при запуске игры»', 'settings.account.viewerLoading': 'Загружаем модель скина...' },
+  en: { 'settings.reopenOnExit.label': 'Reopen launcher when the game closes', 'settings.reopenOnExit.hint': 'The launcher will start again after you close Minecraft. Available only when "Close launcher when the game starts" is on', 'settings.account.viewerLoading': 'Loading skin model...' },
+  uk: { 'settings.reopenOnExit.label': 'Відкривати лаунчер після закриття гри', 'settings.reopenOnExit.hint': 'Лаунчер знову запуститься, коли ви закриєте Minecraft. Доступно, лише якщо ввімкнено «Закривати лаунчер під час запуску гри»', 'settings.account.viewerLoading': 'Завантажуємо модель скіна...' },
+  fr: { 'settings.reopenOnExit.label': 'Rouvrir le launcher à la fermeture du jeu', 'settings.reopenOnExit.hint': 'Le launcher redémarrera quand vous fermerez Minecraft. Disponible uniquement si « Fermer le launcher au lancement du jeu » est activé', 'settings.account.viewerLoading': 'Chargement du modèle de skin...' },
+  de: { 'settings.reopenOnExit.label': 'Launcher nach dem Beenden des Spiels wieder öffnen', 'settings.reopenOnExit.hint': 'Der Launcher startet erneut, sobald du Minecraft schließt. Nur verfügbar, wenn „Launcher beim Spielstart schließen“ aktiviert ist', 'settings.account.viewerLoading': 'Skin-Modell wird geladen...' },
+  es: { 'settings.reopenOnExit.label': 'Reabrir el launcher al cerrar el juego', 'settings.reopenOnExit.hint': 'El launcher volverá a iniciarse cuando cierres Minecraft. Solo disponible si "Cerrar el launcher al iniciar el juego" está activado', 'settings.account.viewerLoading': 'Cargando el modelo del skin...' },
+  it: { 'settings.reopenOnExit.label': 'Riapri il launcher alla chiusura del gioco', 'settings.reopenOnExit.hint': 'Il launcher si riavvierà quando chiudi Minecraft. Disponibile solo se "Chiudi il launcher all\'avvio del gioco" è attivo', 'settings.account.viewerLoading': 'Caricamento del modello della skin...' },
+  pt: { 'settings.reopenOnExit.label': 'Reabrir o launcher ao fechar o jogo', 'settings.reopenOnExit.hint': 'O launcher será iniciado novamente quando você fechar o Minecraft. Disponível apenas se "Fechar o launcher ao iniciar o jogo" estiver ativado', 'settings.account.viewerLoading': 'Carregando o modelo da skin...' },
+  ja: { 'settings.reopenOnExit.label': 'ゲーム終了時にランチャーを再度開く', 'settings.reopenOnExit.hint': 'Minecraftを閉じるとランチャーが再び起動します。「ゲーム起動時にランチャーを閉じる」が有効な場合のみ利用できます', 'settings.account.viewerLoading': 'スキンモデルを読み込み中...' },
+  ko: { 'settings.reopenOnExit.label': '게임 종료 시 런처 다시 열기', 'settings.reopenOnExit.hint': 'Minecraft를 닫으면 런처가 다시 실행됩니다. "게임 시작 시 런처 닫기"가 켜져 있을 때만 사용할 수 있습니다', 'settings.account.viewerLoading': '스킨 모델 불러오는 중...' },
+  hi: { 'settings.reopenOnExit.label': 'गेम बंद होने पर लॉन्चर फिर से खोलें', 'settings.reopenOnExit.hint': 'Minecraft बंद करने पर लॉन्चर फिर से शुरू होगा। यह केवल तब उपलब्ध है जब "गेम शुरू होने पर लॉन्चर बंद करें" चालू हो', 'settings.account.viewerLoading': 'स्किन मॉडल लोड हो रहा है...' },
+  id: { 'settings.reopenOnExit.label': 'Buka kembali launcher saat game ditutup', 'settings.reopenOnExit.hint': 'Launcher akan dimulai lagi setelah Anda menutup Minecraft. Hanya tersedia jika "Tutup launcher saat game dimulai" aktif', 'settings.account.viewerLoading': 'Memuat model skin...' },
+};
+Object.keys(I18N_REOPEN_PATCH).forEach(lang => {
+  if (!I18N[lang]) I18N[lang] = {};
+  Object.assign(I18N[lang], I18N_REOPEN_PATCH[lang]);
+});
+I18N['es-ES'] = I18N.es;
+
 function renderUpdatesTimeline() {
   const container = document.getElementById('homeUpdatesTimeline');
   if (!container) return;
@@ -6116,6 +6502,7 @@ function switchSettingsSubtab(target) {
   if (target === 'account') {
     updateSettingsAccountTab();
   }
+  updateSkinViewerRenderState(); // <-- добавь эту строку
 }
 
 settingsSubtabs.forEach(tab => {
@@ -6125,12 +6512,29 @@ settingsSubtabs.forEach(tab => {
 const launcherCategoryTabs = document.querySelectorAll('.mods-subtab[data-launcher-category]');
 const launcherCategoryViews = document.querySelectorAll('.mods-subview[data-launcher-subview]');
 
-launcherCategoryTabs.forEach(tab => {
-  tab.addEventListener('click', () => {
-    launcherCategoryTabs.forEach(tb => tb.classList.toggle('is-active', tb === tab));
-    const target = tab.dataset.launcherCategory;
-    launcherCategoryViews.forEach(v => v.classList.toggle('is-active', v.dataset.launcherSubview === target));
+function switchLauncherCategory(target) {
+  const launcherNav = document.getElementById('launcherCategoryNav');
+  if (launcherNav) {
+    launcherNav.style.position = 'static';
+    launcherNav.style.top = '';
+    launcherNav.style.left = '';
+    launcherNav.style.width = '';
+    launcherNav.style.maxHeight = '';
+    launcherNav.style.overflowY = '';
+    launcherNav.style.visibility = 'visible';
+    launcherNav.style.opacity = '1';
+  }
+
+  launcherCategoryTabs.forEach(tb => {
+    tb.classList.toggle('is-active', tb.dataset.launcherCategory === target);
   });
+  launcherCategoryViews.forEach(v => {
+    v.classList.toggle('is-active', v.dataset.launcherSubview === target);
+  });
+}
+
+launcherCategoryTabs.forEach(tab => {
+  tab.addEventListener('click', () => switchLauncherCategory(tab.dataset.launcherCategory));
 });
 
 // ============================================
@@ -6531,10 +6935,12 @@ function openHeroBgEditor() {
   if (heroBgEditorImageEl) heroBgEditorImageEl.style.backgroundImage = `url("${custom.bgImage}")`;
   applyHeroBgEditorPreview();
   heroBgEditorOverlay?.classList.add('is-open');
+  document.body.classList.add('is-modal-scroll-lock'); // NEW
 }
 
 function closeHeroBgEditor() {
   heroBgEditorOverlay?.classList.remove('is-open');
+  document.body.classList.remove('is-modal-scroll-lock'); // NEW
 }
 
 heroBgEditBtn?.addEventListener('click', openHeroBgEditor);
@@ -6553,6 +6959,9 @@ heroBgEditorResetPosBtn?.addEventListener('click', () => {
 });
 
 heroBgEditorFrame?.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  if (e.button !== 0) return; // теперь только ЛКМ двигает картинку
+  e.stopPropagation();
   heroBgEditorDragging = true;
   heroBgEditorFrame.classList.add('is-dragging');
   heroBgEditorFrame.setPointerCapture(e.pointerId);
@@ -6560,6 +6969,8 @@ heroBgEditorFrame?.addEventListener('pointerdown', (e) => {
 });
 heroBgEditorFrame?.addEventListener('pointermove', (e) => {
   if (!heroBgEditorDragging) return;
+  e.preventDefault();
+  e.stopPropagation();
   const rect = heroBgEditorFrame.getBoundingClientRect();
   const dxPercent = ((e.clientX - heroBgEditorDragStart.x) / rect.width) * 100;
   const dyPercent = ((e.clientY - heroBgEditorDragStart.y) / rect.height) * 100;
@@ -6567,6 +6978,9 @@ heroBgEditorFrame?.addEventListener('pointermove', (e) => {
   heroBgEditorState.posY = Math.max(0, Math.min(100, heroBgEditorDragStart.posY - dyPercent));
   applyHeroBgEditorPreview();
 });
+// отключаем контекстное меню на самом холсте редактора — иначе ПКМ откроет
+// кастомное контекстное меню вместо перетаскивания
+heroBgEditorFrame?.addEventListener('contextmenu', (e) => e.preventDefault());
 function endHeroBgEditorDrag(e) {
   if (!heroBgEditorDragging) return;
   heroBgEditorDragging = false;
@@ -6951,8 +7365,13 @@ function renderInstances() {
       <div class="instance-meta">${loaderLabel} · ${pack.mcVersion}${modsCount ? ' · ' + modsCount + ' ' + t('mods.modsCount') : ''}</div>
       <button type="button" class="instance-card-play" data-pack="${pack.name}">${t('hero.play')}</button>
     `;
-    card.querySelector('.instance-card-play').addEventListener('click', (e) => { e.stopPropagation(); closeInstanceContextMenu(); launchModpack(pack); });
-    card.addEventListener('click', () => { closeInstanceContextMenu(); openInstanceModsModal(pack); });
+    card.querySelector('.instance-card-play').addEventListener('click', (e) => { e.stopPropagation(); hideCustomContextMenu(); launchModpack(pack); });
+    card.addEventListener('click', () => { hideCustomContextMenu(); openInstanceModsModal(pack); });
+    card.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showInstanceContextMenu(pack, e.clientX, e.clientY);
+    });
      instanceGrid.appendChild(card);
 
     const instanceIconImg = card.querySelector('.instance-icon-img');
@@ -7072,28 +7491,32 @@ async function loadInstanceModsList(pack) {
   }
 }
 
-function renderInstanceModsList(files, dir, pack) {
+async function renderInstanceModsList(files, dir, pack) {
   instanceModsListEl.innerHTML = '';
-  if (files.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'mod-list-empty';
-    empty.textContent = t('instance.noMods');
-    instanceModsListEl.appendChild(empty);
-    return;
-  }
+  if (files.length === 0) return;
 
   files.sort((a, b) => modDisplayNameFromFile(a).localeCompare(modDisplayNameFromFile(b)));
 
+  const cardsMeta = [];
+  const seen = new Set();
+
   files.forEach(filename => {
     const isDisabled = /\.disabled$/i.test(filename);
-    const slug = findSlugForFilename(filename);
+    const baseName = modDisplayNameFromFile(filename);
+    const key = normalizeTitleKey(baseName);
 
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    const slug = findSlugForFilename(filename);
     const card = document.createElement('div');
     card.className = 'installed-mod-card' + (isDisabled ? ' is-disabled' : '');
     card.innerHTML = `
-      <div class="installed-mod-icon">${(modDisplayNameFromFile(filename).charAt(0) || '?').toUpperCase()}</div>
+      <div class="installed-mod-icon">${(baseName.charAt(0) || '?').toUpperCase()}</div>
       <div class="installed-mod-info">
-        <div class="installed-mod-name">${modDisplayNameFromFile(filename)}</div>
+        <div class="installed-mod-name">
+          <span class="installed-mod-name-text">${baseName}</span>
+        </div>
         ${isDisabled ? `<div class="installed-mod-status">${t('mods.installed.disabled')}</div>` : ''}
       </div>
       <div class="installed-mod-actions">
@@ -7103,36 +7526,11 @@ function renderInstanceModsList(files, dir, pack) {
             : `<svg viewBox="0 0 24 24"><path d="M12 4v16M4 12h16" transform="rotate(45 12 12)"/></svg><span>${t('mods.installed.disable')}</span>`}
         </button>
         <button type="button" class="installed-mod-btn is-delete" data-tooltip="${t('mods.installed.delete')}">
-          <svg viewBox="0 0 24 24"><path d="M6 7h12M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0 1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
         </button>
       </div>
     `;
 
-    const cardIconImg = card.querySelector('.mod-card-icon-img');
-if (cardIconImg) {
-  cardIconImg.addEventListener('error', () => {
-    cardIconImg.replaceWith(document.createTextNode(iconFallbackChar));
-  }, { once: true });
-}
-
-     if (slug) {
-      fetchModTitleAndIcon(slug).then(info => {
-        if (!info) return;
-        const nameEl = card.querySelector('.installed-mod-name');
-        const iconEl = card.querySelector('.installed-mod-icon');
-        if (nameEl) nameEl.textContent = info.title;
-        if (iconEl && info.icon_url) iconEl.innerHTML = `<img src="${info.icon_url}" alt="">`;
-      }).catch(() => {});
-    } else {
-      guessModTitleAndIcon(filename).then(info => {
-        if (!info) return;
-        const nameEl = card.querySelector('.installed-mod-name');
-        const iconEl = card.querySelector('.installed-mod-icon');
-        if (nameEl) nameEl.textContent = info.title;
-        if (iconEl && info.icon_url) iconEl.innerHTML = `<img src="${info.icon_url}" alt="">`;
-      }).catch(() => {});
-    }
- 
     const toggleBtn = card.querySelector('.installed-mod-btn:not(.is-delete)');
     toggleBtn.addEventListener('click', async () => {
       if (typeof window.toggleModFile !== 'function') return;
@@ -7141,7 +7539,7 @@ if (cardIconImg) {
         const raw = await window.toggleModFile({ dir, filename });
         const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
         if (!result.success) throw new Error(translateBackendError(result.error) || t('auth.magma.genericError'));
-        loadInstanceModsList(pack);
+        await loadInstanceModsList(pack);
       } catch (err) {
         console.error('[MagmaLauncher] Не удалось переключить мод сборки:', err);
         toggleBtn.disabled = false;
@@ -7156,10 +7554,8 @@ if (cardIconImg) {
         const raw = await window.deleteModFile({ dir, filename });
         const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
         if (!result.success) throw new Error(translateBackendError(result.error) || t('auth.magma.genericError'));
-        // Ключ хранения статуса модпака идёт по имени сборки (см.
-        // installedModsStorageKey), поэтому loader/version здесь не важны.
         if (slug) unmarkModInstalled('fabric', pack.mcVersion, slug, pack.name);
-        loadInstanceModsList(pack);
+        await loadInstanceModsList(pack);
       } catch (err) {
         console.error('[MagmaLauncher] Не удалось удалить мод сборки:', err);
         deleteBtn.disabled = false;
@@ -7167,37 +7563,41 @@ if (cardIconImg) {
     });
 
     instanceModsListEl.appendChild(card);
+    cardsMeta.push({ card, filename, slug });
   });
+
+  runWithConcurrencyLimit(cardsMeta, async ({ card, filename, slug }) => {
+    const info = slug
+      ? await fetchModTitleAndIcon(slug).catch(() => null)
+      : await guessModTitleAndIcon(filename).catch(() => null);
+    if (!info) return;
+
+    const nameEl = card.querySelector('.installed-mod-name-text');
+    const iconEl = card.querySelector('.installed-mod-icon');
+    if (nameEl) nameEl.textContent = info.title;
+    if (iconEl && info.icon_url) iconEl.innerHTML = `<img src="${info.icon_url}" alt="">`;
+  }, 5);
 }
 
-instanceModsAddBtn?.addEventListener('click', () => {
+instanceModsAddBtn?.addEventListener('click', async () => {
   if (!currentInstanceModsPack) return;
   const pack = currentInstanceModsPack;
   closeInstanceModsModal();
 
-  railButtons.forEach(b => b.classList.toggle('is-active', b.dataset.view === 'mods'));
-  views.forEach(v => v.classList.toggle('is-active', v.dataset.view === 'mods'));
-  currentActiveView = 'mods';
-VERSIONS[0]
   modsActiveCategory = 'mod';
   modsTargetLoader = 'modpacks';
+  modsTargetNonModScope = 'modpack';
   modsTargetInstanceName = pack.name;
+  saveModsViewState();
 
-  renderModsCategoryTabs();
   applyModsCategoryVisibility();
   updateModsInstallTargetLabel();
   updateModsMyTabLabel();
-  renderModsTargetLoaderTabs();
-  renderModsTargetScopeTabs();
-  renderModsTargetVersionList('');
-  syncModsTargetVersionLabel();
-  saveModsViewState();
+
+  await switchToRailView('mods');
 
   modsSubtabs.forEach(tb => tb.classList.toggle('is-active', tb.dataset.subtab === 'browse'));
   modsSubviews.forEach(v => v.classList.toggle('is-active', v.dataset.subview === 'browse'));
-
-  runModSearch(1);
-  restoreViewScroll('mods');
 });
 
 // ============================================
@@ -8340,9 +8740,12 @@ function renderModsTargetVersionList(filter) {
       const item = document.createElement('button');
       item.className = 'version-item' + (modsTargetInstanceName === pack.name ? ' is-selected' : '');
       item.textContent = `${pack.name} (${pack.mcVersion})`;
-      modsTargetInstanceName = pack.name;
-      modsTargetVersionDropdown.classList.remove('is-open');
-      refreshModsTargetUI
+      item.addEventListener('click', () => {
+        modsTargetInstanceName = pack.name;
+        modsTargetVersionDropdown.classList.remove('is-open');
+        saveModsViewState();
+        refreshModsTargetUI();
+      });
       modsTargetVersionList.appendChild(item);
     });
     return;
@@ -8373,6 +8776,7 @@ function renderModsTargetVersionList(filter) {
 // по которой кликнули, и подправляет её так, чтобы она не вылезала за
 // пределы окна лаунчера (окно небольшое, 800x600 по умолчанию).
 function positionDropdownNear(anchorBtn, dropdownEl) {
+  dropdownEl.style.position = 'fixed';
   dropdownEl.style.right = 'auto';
   const width = Math.min(dropdownEl.offsetWidth || 280, 320);
   dropdownEl.style.width = width + 'px';
@@ -8382,12 +8786,13 @@ function positionDropdownNear(anchorBtn, dropdownEl) {
   left = Math.max(8, Math.min(left, window.innerWidth - width - 8));
 
   const height = dropdownEl.offsetHeight || 380;
-  let top = rect.bottom + 8;
-  if (top + height > window.innerHeight - 8) {
-    top = rect.top - height - 8;
-  }
-  top = Math.max(8, top);
-  dropdownEl.style.maxHeight = Math.min(420, window.innerHeight - 16) + 'px';
+  dropdownEl.style.maxHeight = Math.min(320, window.innerHeight - 16) + 'px';
+
+  // Открываем ВВЕРХ от кнопки — вниз список обычно накрывает соседние
+  // настройки страницы; вниз открываем только если сверху не помещается.
+  let top = rect.top - height - 8;
+  if (top < 8) top = rect.bottom + 8;
+  if (top + height > window.innerHeight - 8) top = Math.max(8, window.innerHeight - height - 8);
 
   dropdownEl.style.left = left + 'px';
   dropdownEl.style.top = top + 'px';
@@ -9314,6 +9719,17 @@ function getAllInstalledModVersionsForFilename(filename) {
   return entries;
 }
 
+// Приоритет — реальный манифест на диске (.magma_mods.json, см. getModsManifest
+// в C++), он не теряется между сессиями/машинами в отличие от localStorage.
+// localStorage остаётся запасным источником для старых записей/ручных установок.
+function getModVersionEntriesForFilename(filename, manifestMap) {
+  const base = filename.replace(/\.disabled$/i, '');
+  if (manifestMap && manifestMap[base] && manifestMap[base].version) {
+    return [{ loader: manifestMap[base].loader, version: manifestMap[base].version }];
+  }
+  return getAllInstalledModVersionsForFilename(filename);
+}
+
 function currentContentDir() {
   const gameDir = getGameDir();
   const dirName = currentCategoryDef().dirName || 'mods';
@@ -9462,6 +9878,20 @@ async function guessModTitleAndIcon(filename) {
   }
 }
 
+// Ограничивает число одновременно летящих промисов — иначе список из
+// десятков модов разом бьёт по сети и перегружает главный поток на
+// первые секунды отрисовки (наблюдаемый "фриз при открытии сборки").
+async function runWithConcurrencyLimit(items, worker, limit = 5) {
+  let index = 0;
+  async function runNext() {
+    while (index < items.length) {
+      const i = index++;
+      await worker(items[i], i);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, runNext));
+}
+
 async function loadInstalledMods() {
   if (!installedModListEl) return;
 
@@ -9494,7 +9924,17 @@ async function loadInstalledMods() {
 
     const extPattern = modsActiveCategory === 'mod' ? /\.jar(\.disabled)?$/i : /\.zip(\.disabled)?$/i;
     const files = (result.files || []).filter(f => extPattern.test(f));
-    renderInstalledMods(files);
+
+    let manifestMap = {};
+    if (typeof window.getModsManifest === 'function') {
+      try {
+        const rawManifest = await window.getModsManifest({ dir: currentContentDir() });
+        const manifestResult = typeof rawManifest === 'string' ? JSON.parse(rawManifest) : rawManifest;
+        if (manifestResult.success) manifestMap = manifestResult.manifest || {};
+      } catch (err) {}
+    }
+
+    renderInstalledMods(files, manifestMap);
   } catch (err) {
     console.error('[MagmaLauncher] Не удалось прочитать папку mods:', err);
     installedModListEl.innerHTML = `<div class="mod-list-hint">${t('mods.installed.loadError')}</div>`;
@@ -9576,7 +10016,7 @@ function renderInstalledMapFolders(folders) {
   });
 }
 
-function renderInstalledMods(files) {
+function renderInstalledMods(files, manifestMap = {}) {
   hideJsTooltip();
   installedModListEl.innerHTML = '';
 
@@ -9584,7 +10024,7 @@ function renderInstalledMods(files) {
   const currentVersion = effectiveModsTargetVersion();
 
     const visibleFiles = showAllVersions ? files : files.filter(f => {
-    const versions = getAllInstalledModVersionsForFilename(f);
+    const versions = getModVersionEntriesForFilename(f, manifestMap);
     return versions.length === 0 || versions.some(v => v.version === currentVersion);
   });
   if (visibleFiles.length === 0) {
@@ -9604,21 +10044,25 @@ function renderInstalledMods(files) {
     // В режиме "Все версии" рядом с названием показываем, под какую
     // версию/загрузчик этот конкретный файл был установлен — иначе список
     // становится неотличимой мешаниной модов сразу под все версии игрока.
-      const versionPrefix = (showAllVersions && !isModpackScopeActive())
-      ? (() => {
-          const entries = getAllInstalledModVersionsForFilename(filename);
-          if (!entries.length) return '';
-          const text = entries.map(e => `${LOADER_DISPLAY_LABELS[e.loader] || e.loader} ${e.version}`).join(', ');
-          return `<span class="installed-mod-version-tag">(${text})</span> `;
-        })()
-      : '';
+    const versionPrefix = (showAllVersions && !isModpackScopeActive())
+  ? (() => {
+      const entries = getModVersionEntriesForFilename(filename, manifestMap);
+      if (!entries.length) return '';
+      const text = entries.map(e => `${LOADER_DISPLAY_LABELS[e.loader] || e.loader} ${e.version}`).join(', ');
+      return `<span class="installed-mod-version-tag">(${text})</span>`;
+    })()
+  : '';
 
     const card = document.createElement('div');
     card.className = 'installed-mod-card' + (isDisabled ? ' is-disabled' : '');
     card.innerHTML = `
       <div class="installed-mod-icon">${(modDisplayNameFromFile(filename).charAt(0) || '?').toUpperCase()}</div>
-      <div class="installed-mod-info">
-        <div class="installed-mod-name">${versionPrefix}${modDisplayNameFromFile(filename)}</div>
+     <div class="installed-mod-info">
+    <div class="installed-mod-name">
+
+      <span class="installed-mod-name-text">${modDisplayNameFromFile(filename)}</span>${versionPrefix ? ' ' + versionPrefix : ''}
+
+    </div>
         ${isDisabled ? `<div class="installed-mod-status">${t('mods.installed.disabled')}</div>` : ''}
       </div>
       <div class="installed-mod-actions">
@@ -9647,7 +10091,8 @@ if (cardIconImg) {
         if (!info) return;
         const nameEl = card.querySelector('.installed-mod-name');
         const iconEl = card.querySelector('.installed-mod-icon');
-        if (nameEl) nameEl.textContent = info.title;
+        const nameTextEl = card.querySelector('.installed-mod-name-text');
+        if (nameTextEl) nameTextEl.textContent = info.title;
         if (iconEl && info.icon_url) iconEl.innerHTML = `<img src="${info.icon_url}" alt="">`;
       }).catch(() => {});
     } else {
@@ -9655,7 +10100,8 @@ if (cardIconImg) {
         if (!info) return;
         const nameEl = card.querySelector('.installed-mod-name');
         const iconEl = card.querySelector('.installed-mod-icon');
-        if (nameEl) nameEl.textContent = info.title;
+        const nameTextEl = card.querySelector('.installed-mod-name-text');
+        if (nameTextEl) nameTextEl.textContent = info.title;
         if (iconEl && info.icon_url) iconEl.innerHTML = `<img src="${info.icon_url}" alt="">`;
       }).catch(() => {});
     }
@@ -10424,14 +10870,16 @@ function drawSkinHeadFallback(canvas, nickname) {
 // вместо того чтобы затереть уже нарисованный правильный скин.
 const skinHeadRequestIds = new WeakMap();
 
-async function loadSkinHeadInto(canvas, nickname, attempt = 0) {
+async function loadSkinHeadInto(canvas, nickname) {
   if (!canvas || !nickname) return;
 
-  if (attempt === 0) {
-    skinHeadRequestIds.set(canvas, (skinHeadRequestIds.get(canvas) || 0) + 1);
-  }
-  const myId = skinHeadRequestIds.get(canvas);
+  const myId = (skinHeadRequestIds.get(canvas) || 0) + 1;
+  skinHeadRequestIds.set(canvas, myId);
   const isCurrent = () => skinHeadRequestIds.get(canvas) === myId;
+
+  // Сразу чистим канвас заглушкой — иначе видно скин ПРЕДЫДУЩЕГО аккаунта,
+  // пока грузится новый.
+  drawSkinHeadFallback(canvas, nickname);
 
   const drawFromUrl = (url) => new Promise((resolve) => {
     const img = new Image();
@@ -10443,7 +10891,7 @@ async function loadSkinHeadInto(canvas, nickname, attempt = 0) {
 
   if (typeof window.fetchSkinBytes === 'function') {
     try {
-      const raw = await window.fetchSkinBytes({ url: elyBySkinUrl(nickname, attempt > 0) });
+      const raw = await window.fetchSkinBytes({ url: elyBySkinUrl(nickname, false) });
       if (!isCurrent()) return;
       const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
       if (result.success) {
@@ -10454,27 +10902,20 @@ async function loadSkinHeadInto(canvas, nickname, attempt = 0) {
         URL.revokeObjectURL(blobUrl);
         if (ok) return;
       }
-    } catch (err) {
-      // сеть/бэкенд недоступны — падаем на запасной путь ниже
-    }
+    } catch (err) {}
   }
 
+  // Скина на Ely.by нет (или сеть недоступна) — всегда показываем Стива,
+  // без лишних повторных запросов.
   if (!isCurrent()) return;
-  const direct = await drawFromUrl(elyByHeadUrl(nickname));
-  if (direct) return;
-  if (!isCurrent()) return;
-  if (attempt < 1 && typeof window.fetchSkinBytes === 'function') {
-    setTimeout(() => loadSkinHeadInto(canvas, nickname, attempt + 1), 300);
-    return;
-  }
-  const fallback = await drawFromUrl(DEFAULT_STEVE_SKIN_URL);
+  const fallback = await drawFromUrl(await defaultSteveSkinBlobUrl());
   if (!fallback && isCurrent()) drawSkinHeadFallback(canvas, nickname);
 }
 
 function renderAccountAvatar() {
   const canvas = document.getElementById('accountAvatarCanvas');
   const nick = (accountName && accountName.textContent) || '';
-  loadSkinHeadInto(canvas, nick);
+  return loadSkinHeadInto(canvas, nick); // добавили return
 }
 
 function base64ToUint8Array(base64) {
@@ -10540,7 +10981,129 @@ async function loadSkinBlobUrl(nickname) {
 let accountSkinViewer = null;
 let accountSkinViewerBlobUrl = null;
 let accountSkinViewerRequestId = 0;
-let accountSkinViewerContextLossBound = false;
+let accountSkinViewerNick = null;     // чей скин сейчас реально показан
+let accountSkinViewerLoadedAt = 0;
+let accountSkinViewerPending = null;  // текущая загрузка (ждём её на экране загрузки)
+
+function setSkinViewerHint(key) {
+  const hintEl = document.querySelector('.account-skin-viewer-hint');
+  if (hintEl) hintEl.textContent = t(key);
+}
+
+function releaseSkinBlobUrl(url) {
+  // кэшированного Стива не трогаем — он переиспользуется
+  if (url && url.startsWith('blob:') && url !== cachedDefaultSteveBlobUrl) URL.revokeObjectURL(url);
+}
+
+function bindAccountSkinViewerContextLossRecovery(canvas) {
+  if (accountSkinViewerContextLossBound) return;
+  accountSkinViewerContextLossBound = true;
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    accountSkinViewer = null;
+    accountSkinViewerNick = null;
+  });
+  canvas.addEventListener('webglcontextrestored', () => {
+    const nick = (accountName && accountName.textContent) || '';
+    if (nick) refreshAccountSkinViewer(nick);
+  });
+}
+
+// skipVisibilityWait=true — создаём вьюер, даже если вкладка скрыта (на экране загрузки)
+async function ensureAccountSkinViewer(skipVisibilityWait = true) {
+  const canvas = document.getElementById('accountSkinViewerCanvas');
+  if (!canvas || typeof skinview3d === 'undefined') return null;
+  if (accountSkinViewer) return accountSkinViewer;
+
+  if (!skipVisibilityWait) await waitForNonZeroCanvasSize(canvas, 60);
+  bindAccountSkinViewerContextLossRecovery(canvas);
+
+  try {
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+    if (!gl) {
+      console.error('[MagmaLauncher] WebGL недоступен для 3D-вьюера скина.');
+      return null;
+    }
+    accountSkinViewer = new skinview3d.SkinViewer({
+      canvas, width: 240, height: 320, zoom: 0.8, renderPaused: true,
+    });
+    if (accountSkinViewer.renderer && typeof accountSkinViewer.renderer.setPixelRatio === 'function') {
+      accountSkinViewer.renderer.setPixelRatio(1);
+    }
+    accountSkinViewer.controls.enableZoom = false;
+    accountSkinViewer.animation = new skinview3d.IdleAnimation();
+  } catch (err) {
+    console.error('[MagmaLauncher] Не удалось создать 3D-вьюер скина:', err);
+    accountSkinViewer = null;
+    return null;
+  }
+  updateSkinViewerRenderState(); // сам решит: рисовать или держать на паузе
+  return accountSkinViewer;
+}
+
+function refreshAccountSkinViewer(nickname) {
+  accountSkinViewerPending = doRefreshAccountSkinViewer(nickname);
+  return accountSkinViewerPending;
+}
+
+async function doRefreshAccountSkinViewer(nickname) {
+  if (!nickname) return;
+
+  const nickChanged = accountSkinViewerNick !== nickname;
+  // тот же ник и скин недавно грузился — ничего не делаем
+  if (!nickChanged && accountSkinViewer && Date.now() - accountSkinViewerLoadedAt < 60000) return;
+
+  const myRequestId = ++accountSkinViewerRequestId;
+
+  if (typeof skinview3d === 'undefined') {
+    setSkinViewerHint('settings.account.viewerLoadError');
+    return;
+  }
+
+  const viewer = await ensureAccountSkinViewer(true);
+  if (myRequestId !== accountSkinViewerRequestId) return;
+  if (!viewer) {
+    setSkinViewerHint('settings.account.viewerLoadError');
+    return;
+  }
+
+  // Другой аккаунт: сразу убираем старую модель и пишем "Загрузка..."
+  if (nickChanged) {
+    viewer.resetSkin();
+    accountSkinViewerNick = null;
+    setSkinViewerHint('settings.account.viewerLoading');
+  }
+
+  const blobUrl = await loadSkinBlobUrl(nickname);
+  if (myRequestId !== accountSkinViewerRequestId) {
+    releaseSkinBlobUrl(blobUrl);
+    return;
+  }
+
+  let loaded = false;
+  for (let attempt = 0; attempt < 3 && !loaded; attempt++) {
+    try {
+      await viewer.loadSkin(blobUrl);
+      loaded = true;
+    } catch (err) {
+      console.error('[MagmaLauncher] Не удалось загрузить модель скина:', err);
+      await new Promise(r => setTimeout(r, 300 * (attempt + 1)));
+      if (myRequestId !== accountSkinViewerRequestId) { releaseSkinBlobUrl(blobUrl); return; }
+    }
+  }
+
+  if (!loaded) {
+    releaseSkinBlobUrl(blobUrl);
+    setSkinViewerHint('settings.account.viewerLoadError'); // ошибка — только если реально не вышло
+    return;
+  }
+
+  releaseSkinBlobUrl(accountSkinViewerBlobUrl);
+  accountSkinViewerBlobUrl = blobUrl;
+  accountSkinViewerNick = nickname;
+  accountSkinViewerLoadedAt = Date.now();
+  setSkinViewerHint('settings.account.rotateHint');
+}
 
 function waitForNonZeroCanvasSize(canvas, maxFrames) {
   return new Promise((resolve) => {
@@ -10581,36 +11144,36 @@ function bindAccountSkinViewerContextLossRecovery(canvas) {
   });
 }
 
-async function ensureAccountSkinViewer(forceRecreate) {
+async function ensureAccountSkinViewer() {
   const canvas = document.getElementById('accountSkinViewerCanvas');
   if (!canvas || typeof skinview3d === 'undefined') return null;
+  if (accountSkinViewer) return accountSkinViewer; // не пересоздаём, если уже есть
 
-  if (accountSkinViewer && !forceRecreate) return accountSkinViewer;
-
-  if (accountSkinViewer) {
-    try { accountSkinViewer.dispose(); } catch (err) {}
-    accountSkinViewer = null;
-  }
-
-  await waitForNonZeroCanvasSize(canvas, 40);
+  await waitForNonZeroCanvasSize(canvas, 60);
   bindAccountSkinViewerContextLossRecovery(canvas);
 
-    try {
+  try {
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+    if (!gl) {
+      console.error('[MagmaLauncher] WebGL недоступен для 3D-вьюера скина.');
+      accountSkinViewer = null;
+      return null;
+    }
+
     accountSkinViewer = new skinview3d.SkinViewer({
       canvas,
       width: 240,
       height: 320,
       zoom: 0.8,
+      renderPaused: false
     });
-    // Если канвас в момент инициализации всё ещё был скрыт (display:none
-    // родителя), WebGL-контекст мог создаться "пустым" — пересоздаём вьюер
-    // ещё раз, уже точно после того, как вкладка стала видимой.
-    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-    if (!gl) {
-      try { accountSkinViewer.dispose(); } catch (err) {}
-      await waitForNonZeroCanvasSize(canvas, 40);
-      accountSkinViewer = new skinview3d.SkinViewer({ canvas, width: 240, height: 320, zoom: 0.8 });
+
+    // Саму 3D-модель, скин и IdleAnimation не меняем.
+    // Уменьшаем только внутренний WebGL-буфер на дисплеях с масштабированием Windows.
+    if (accountSkinViewer.renderer && typeof accountSkinViewer.renderer.setPixelRatio === 'function') {
+      accountSkinViewer.renderer.setPixelRatio(1);
     }
+
     accountSkinViewer.controls.enableZoom = false;
     accountSkinViewer.animation = new skinview3d.IdleAnimation();
     if (document.hasFocus && !document.hasFocus() && getPauseSkinUnfocusedPref()) {
@@ -10636,7 +11199,6 @@ async function refreshAccountSkinViewer(nickname) {
     return;
   }
 
-  let viewer = await ensureAccountSkinViewer(true);
   if (!viewer) {
     if (hintEl) hintEl.textContent = t('settings.account.viewerLoadError');
     return;
@@ -10683,6 +11245,17 @@ async function refreshAccountSkinViewer(nickname) {
 function isSkinViewerCanvasVisible() {
   const canvas = document.getElementById('accountSkinViewerCanvas');
   if (!canvas) return false;
+  
+  // Проверяем не только размер, но и что родитель не скрыт
+  let el = canvas;
+  while (el && el !== document.body) {
+    const style = window.getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+      return false;
+    }
+    el = el.parentElement;
+  }
+  
   const rect = canvas.getBoundingClientRect();
   return rect.width > 0 && rect.height > 0;
 }
@@ -10697,7 +11270,7 @@ function updateSettingsAccountTab() {
   const changePasswordBlock = document.getElementById('accountChangePasswordBlock');
   if (changePasswordBlock) changePasswordBlock.style.display = currentAccountType() === 'magma' ? '' : 'none';
 
-  if (isSkinViewerCanvasVisible()) refreshAccountSkinViewer(nick);
+  refreshAccountSkinViewer(nick);
 }
 
 function finishLogin(nick, isMicrosoftLogin) {
@@ -10864,6 +11437,23 @@ function openSettingsAccountTab() {
   updateGameFolderBtnVisibility();
   switchSettingsSubtab('account');
   restoreViewScroll('settings');
+}
+
+function updateSkinViewerRenderState() {
+  if (!accountSkinViewer) return;
+
+  const accountTabActive = document.querySelector('.mods-subtab[data-settings-subtab="account"]')?.classList.contains('is-active');
+  const settingsViewActive = document.querySelector('.view[data-view="settings"]')?.classList.contains('is-active');
+  const canvasVisible = isSkinViewerCanvasVisible();
+  const windowUnfocused = typeof document.hasFocus === 'function' && !document.hasFocus();
+  const pauseUnfocused = getPauseSkinUnfocusedPref();
+
+  // WebGL работает только когда вьюер реально виден.
+  accountSkinViewer.renderPaused =
+    !settingsViewActive ||
+    !accountTabActive ||
+    !canvasVisible ||
+    (pauseUnfocused && windowUnfocused);
 }
 
 accountTrigger?.addEventListener('click', (e) => {
@@ -11439,6 +12029,7 @@ async function bootSequence() {
   restoreLauncherSettings();
   updateRamValue();
   initPrivacySettings();
+  defaultSteveSkinBlobUrl().catch(() => {}); // заранее прогреваем дефолтного Стива 
   if (getPrivacyPref(PRIVACY_AUTO_DELETE_LOGS_KEY, false) && typeof window.cleanOldGameLogs === 'function') {
     window.cleanOldGameLogs({ gameDir: getGameDir(), days: 14 }).catch(() => {});
   }
@@ -11505,6 +12096,13 @@ loadNewsFeed();
     console.error('[MagmaLauncher] Восстановление сессии не уложилось в таймаут:', err);
     restored = false;
   }
+
+  if (restored) {
+    await Promise.race([
+      accountSkinViewerPending || Promise.resolve(),
+      new Promise(resolve => setTimeout(resolve, 4000)),
+    ]);
+}
 
   setBootProgress(0.9);
 
@@ -11690,10 +12288,16 @@ document.addEventListener('wheel', (e) => {
   let dragState = null;
   const DRAG_THRESHOLD = 6;
 
-  function isInteractiveTarget(el) {
-    return !!(el.closest && el.closest('button, a, input, textarea, select, [contenteditable="true"], .rail-btn, canvas, .settings-slider'));
-  }
-
+function isInteractiveTarget(el) {
+  return !!(el.closest && el.closest(
+    'button, a, input, textarea, select, [contenteditable="true"], .rail-btn, canvas, .settings-slider, ' +
+    '.updates-timeline, .mod-details-body, .installed-mod-name, .instance-name, .instance-meta, ' +
+    '.mod-name, .mod-desc, .mod-downloads, .server-name, .server-desc, .server-meta, ' +
+    '.mod-details-title, .mod-details-stats, #instanceModsTitle, .news-card h3, .news-card p, ' +
+    '.launcher-category-placeholder-title, .launcher-category-placeholder-hint, .launcher-link-title, .launcher-link-desc, ' +
+    '.hero-bg-editor-frame' // ← добавили
+  ));
+}
   document.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
     if (isInteractiveTarget(e.target)) return;
@@ -11703,6 +12307,7 @@ document.addEventListener('wheel', (e) => {
   }, { capture: true });
 
   document.addEventListener('pointermove', (e) => {
+    e.preventDefault()
     if (!dragState || e.pointerId !== dragState.pointerId) return;
     const dy = e.clientY - dragState.startY;
     const dx = e.clientX - dragState.startX;
@@ -11743,6 +12348,7 @@ document.body.appendChild(customContextMenuEl);
 function hideCustomContextMenu() {
   customContextMenuEl.classList.remove('is-visible');
 }
+
 
 async function runContextMenuCommand(cmd, target) {
   target.focus();
@@ -11873,13 +12479,39 @@ function showCopyOnlyContextMenu(container, x, y) {
   customContextMenuEl.style.top = top + 'px';
 }
 
+function showInstanceContextMenu(pack, x, y) {
+  customContextMenuEl.innerHTML = '';
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'custom-context-menu-item';
+  deleteBtn.innerHTML = `${CONTEXT_MENU_ICONS.cut}<span>${t('instance.deleteBtn')}</span>`;
+  deleteBtn.addEventListener('click', async () => {
+    hideCustomContextMenu();
+    const msg = t('instance.confirmDelete').replace('{name}', pack.name);
+    if (!window.confirm(msg)) return;
+    await removeInstanceEverywhere(pack);
+  });
+  customContextMenuEl.appendChild(deleteBtn);
+
+  customContextMenuEl.classList.add('is-visible');
+  const menuWidth = customContextMenuEl.offsetWidth || 180;
+  const menuHeight = customContextMenuEl.offsetHeight || 60;
+  let left = Math.max(8, Math.min(x, window.innerWidth - menuWidth - 8));
+  let top = Math.max(8, Math.min(y, window.innerHeight - menuHeight - 8));
+  customContextMenuEl.style.left = left + 'px';
+  customContextMenuEl.style.top = top + 'px';
+}
+
 document.addEventListener('contextmenu', (e) => {
   const editable = e.target.closest && e.target.closest('input, textarea, [contenteditable="true"]');
   const copyable = !editable && e.target.closest && e.target.closest(
     '.updates-timeline .update-card-title, .updates-timeline .update-highlights, ' +
     '.news-card h3, .news-card p, ' +
     '.mod-name, .mod-desc, .mod-details-title, .mod-details-body, ' +
-    '.installed-mod-name, .server-card .server-name, .server-card .server-description'
+    '.installed-mod-name, .server-card .server-name, .server-card .server-description, ' +
+    '.launcher-category-placeholder-title, .launcher-category-placeholder-hint, ' +
+    '.launcher-link-title, .launcher-link-desc'
   );
   if (editable) {
     e.preventDefault();
@@ -12426,7 +13058,6 @@ accountDeleteConfirmBtn?.addEventListener('click', async () => {
     restoreButton(accountDeleteConfirmBtn);
   }
 });
-
 applyActiveTheme();
 restoreLastSelection();
 restoreModsViewState();
@@ -12443,4 +13074,6 @@ applyPauseSkinUnfocusedToggle();
 applyDisableBlur();
 applyDisableGlow();
 applySimpleBg();
+applyCloseOnLaunchToggle();
+applyReopenOnExitToggle();
 bootSequence().then(() => restoreViewScroll(currentActiveView));

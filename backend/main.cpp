@@ -886,6 +886,12 @@ if (name == "installLauncherUpdate") {
                 launcher::g_paused = false;
                 launcher::g_cancelled = false;
 
+                if (launcher::g_gameProcessActive.load()) {
+                    json result; result["started"] = false; result["error"] = "ERR_ALREADY_RUNNING";
+                    callback->Success(result.dump());
+                    return true;
+                }
+
                 std::thread([browser, lr]() {
                     std::string errorOut;
                     bool ok = launcher::launchMinecraft(lr,
@@ -907,6 +913,32 @@ if (name == "installLauncherUpdate") {
 
                 json started; started["started"] = true;
                 callback->Success(started.dump());
+                return true;
+            }
+
+                if (name == "getModsManifest") {
+                std::string dir = arg0.value("dir", "");
+                std::string raw, err;
+                bool ok = launcher::getModsManifestJson(dir, raw, err);
+                json result; result["success"] = ok;
+                if (ok) result["manifest"] = json::parse(raw); else result["error"] = err;
+                callback->Success(result.dump());
+                return true;
+            }
+
+            if (name == "closeLauncher") {
+                bool reopenAfterGame = arg0.value("reopenAfterGame", false);
+                if (reopenAfterGame) {
+                    std::string reopenErr;
+                    if (!launcher::scheduleLauncherReopenAfterGameExit(reopenErr)) {
+                        std::cerr << "[MagmaLauncher] " << reopenErr << std::endl;
+                    }
+                }
+                if (browser && browser->GetHost()) {
+                    PostUi([browser]() { browser->GetHost()->CloseBrowser(false); });
+                }
+                json result; result["success"] = true;
+                callback->Success(result.dump());
                 return true;
             }
 
@@ -1361,23 +1393,47 @@ public:
     }
 
         void OnAfterCreated(CefRefPtr<CefBrowser> browser) override {
-        CEF_REQUIRE_UI_THREAD();
-        browser_list_.push_back(browser);
+    CEF_REQUIRE_UI_THREAD();
+    browser_list_.push_back(browser);
 
-        HWND hwnd = browser->GetHost()->GetWindowHandle();
-        if (hwnd) {
+    HWND hwnd = browser->GetHost()->GetWindowHandle();
+    if (hwnd) {
+        HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
+        MONITORINFO mi{ sizeof(MONITORINFO) };
+        GetMonitorInfo(monitor, &mi);
+
+        // Один ShowWindow(SW_MAXIMIZE) не всегда разворачивает окно сразу
+        // после CreateBrowser — сначала явно растягиваем на рабочую область
+        // монитора, и только потом просим состояние "развёрнуто", чтобы
+        // кнопка restore/maximize в шапке тоже вела себя правильно.
+        SetWindowPos(hwnd, nullptr,
+            mi.rcWork.left, mi.rcWork.top,
+            mi.rcWork.right - mi.rcWork.left,
+            mi.rcWork.bottom - mi.rcWork.top,
+            SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+        ShowWindow(hwnd, SW_MAXIMIZE);
+
+                CefRefPtr<CefBrowser> browserRef = browser;
+        CefPostDelayedTask(TID_UI, new FuncTask([hwnd]() {
+            if (!IsWindow(hwnd)) return;
+            HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
+            MONITORINFO mi2{ sizeof(MONITORINFO) };
+            GetMonitorInfo(monitor, &mi2);
+            SetWindowPos(hwnd, nullptr,
+                mi2.rcWork.left, mi2.rcWork.top,
+                mi2.rcWork.right - mi2.rcWork.left,
+                mi2.rcWork.bottom - mi2.rcWork.top,
+                SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
             ShowWindow(hwnd, SW_MAXIMIZE);
-            // CEF иногда не синхронизирует внутренний размер браузера с
-            // реальным размером окна сразу после раннего SW_MAXIMIZE —
-            // контент рисуется под старый (немаксимизированный) размер,
-            // и сверху остаётся чёрная полоса. Принудительно пересчитываем.
-            RECT rc{};
-            GetClientRect(hwnd, &rc);
-            SetWindowPos(hwnd, nullptr, 0, 0, rc.right, rc.bottom,
-                         SWP_NOMOVE | SWP_NOZORDER | SWP_FRAMECHANGED);
-            browser->GetHost()->WasResized();
-        }
+        }), 250);
+
+        RECT rc{};
+        GetClientRect(hwnd, &rc);
+        SetWindowPos(hwnd, nullptr, 0, 0, rc.right, rc.bottom,
+                     SWP_NOMOVE | SWP_NOZORDER | SWP_FRAMECHANGED);
+        browser->GetHost()->WasResized();
     }
+}
 
     // Блокирует создание попап-окон CEF (target="_blank", window.open и т.п.)
     // на уровне самого браузерного движка — JS-перехват в app.js работает
@@ -1453,9 +1509,21 @@ public:
     CefRefPtr<CefRenderProcessHandler> GetRenderProcessHandler() override { return this; }
 
     void OnBeforeCommandLineProcessing(const CefString& process_type,
-                                        CefRefPtr<CefCommandLine> command_line) override {
-        command_line->AppendSwitch("allow-file-access-from-files");
-    }
+                                    CefRefPtr<CefCommandLine> command_line) override {
+    command_line->AppendSwitch("allow-file-access-from-files");
+
+    // WebGL для skinview3d.
+    //
+    // Раньше здесь принудительно включался SwiftShader — программный
+    // рендеринг через CPU. После появления 3D-скина это могло тормозить
+    // весь CEF-интерфейс.
+    //
+    // Сам код 3D-модели в app.js не меняем: используем аппаратный
+    // ANGLE/D3D11 backend Windows.
+    command_line->AppendSwitchWithValue("use-gl", "angle");
+    command_line->AppendSwitchWithValue("use-angle", "d3d11");
+    command_line->AppendSwitch("ignore-gpu-blocklist");
+}
 
     void OnContextInitialized() override {
     CEF_REQUIRE_UI_THREAD();
@@ -1523,7 +1591,7 @@ private:
             "installMod", "listModsInDir", "toggleModFile", "deleteModFile", "createModpack", "toggleFullscreen",
             "setLauncherFullscreen", "setLauncherWindowSize",
             "discordPresenceStart", "discordPresenceSetActivity", "discordPresenceClear", "discordPresenceStop",
-            "cleanOldGameLogs"
+            "cleanOldGameLogs", "getModsManifest", "closeLauncher"
         };
         
         std::ostringstream js;

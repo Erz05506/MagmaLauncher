@@ -137,6 +137,11 @@ extern std::atomic<bool> g_paused;
 // сообщает фронтенду про отмену отдельным полем, а не как об ошибке.
 extern std::atomic<bool> g_cancelled;
 
+extern std::atomic<bool> g_gameProcessActive;
+extern std::atomic<unsigned long> g_gameProcessId;
+
+// Запускает скрытый процесс, который дождётся закрытия игры и снова откроет лаунчер.
+bool scheduleLauncherReopenAfterGameExit(std::string& errorOut);
 // Полный цикл: скачать всё необходимое (пропуская уже скачанное и валидное
 // по SHA1) и запустить java-процесс с игрой. Выполняется синхронно —
 // вызывающая сторона должна сама увести это в отдельный поток, чтобы не
@@ -312,6 +317,10 @@ bool toggleModEnabled(const std::string& dirPath, const std::string& fileName,
 
 // Удаляет файл мода из папки насовсем (используется кнопкой "Удалить" во
 // вкладке "Мои моды").
+// Возвращает содержимое .magma_mods.json как JSON { "файл.jar": {"version":.., "loader":..} } —
+// нужен фронтенду для тега "(Fabric 1.21.11)" в режиме "Все версии" (раньше
+// эти данные брались только из localStorage, не синхронизированного с диском).
+bool getModsManifestJson(const std::string& dirPath, std::string& jsonOut, std::string& errorOut);
 bool deleteModFile(const std::string& dirPath, const std::string& fileName, std::string& errorOut);
 
 bool deleteModFile(const std::string& dirPath, const std::string& fileName, std::string& errorOut);

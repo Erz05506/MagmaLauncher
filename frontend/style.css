@@ -197,7 +197,7 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   color: var(--magma-glow);
   background: var(--bg-card-hover);
   transform: translateY(-1px);
-  box-shadow: 0 6px 14px -6px rgba(255, 122, 26, 0.45);
+  box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--magma-1) 45%, transparent);
 }
 
 .rail-btn.is-active {
@@ -608,13 +608,13 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   font-weight: 700;
   letter-spacing: .5px;
   color: #1a0a02;
-  box-shadow: 0 8px 24px -8px rgba(255, 80, 20, 0.6);
+  box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--magma-2) 60%, transparent);
   transition: transform .12s ease, box-shadow .12s ease;
   overflow: visible;
 }
 .play-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 30px -6px rgba(255, 100, 30, 0.75);
+ box-shadow: 0 12px 30px -6px color-mix(in srgb, var(--magma-glow) 75%, transparent);
 }
 .play-btn:active { transform: translateY(0); }
 .play-icon { width: 18px; height: 18px; fill: #1a0a02; }
@@ -630,7 +630,7 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   stroke: var(--magma-glow);
   stroke-width: 1.4;
   opacity: .55;
-  filter: drop-shadow(0 0 4px rgba(255, 150, 60, .8));
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--magma-glow) 80%, transparent));
   animation: crackGlow 2.6s ease-in-out infinite;
 }
 @keyframes crackGlow {
@@ -1071,14 +1071,14 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   height: 18px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--magma-1), var(--magma-2));
-  box-shadow: 0 0 0 4px rgba(255, 122, 26, 0.16), 0 4px 12px -2px rgba(255, 90, 20, 0.65);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--magma-1) 16%, transparent), 0 4px 12px -2px color-mix(in srgb, var(--magma-2) 65%, transparent);
   cursor: pointer;
   transition: box-shadow .15s ease, transform .1s ease;
 }
 .settings-slider::-webkit-slider-thumb:hover,
 .settings-slider:active::-webkit-slider-thumb {
   transform: scale(1.15);
-  box-shadow: 0 0 0 7px rgba(255, 122, 26, 0.22), 0 4px 16px -2px rgba(255, 90, 20, 0.75);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--magma-1) 16%, transparent), 0 4px 12px -2px color-mix(in srgb, var(--magma-2) 65%, transparent);
 }
 
 .settings-slider::-moz-range-track {
@@ -1209,7 +1209,7 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: .4px;
-  box-shadow: 0 4px 10px -2px rgba(255, 90, 20, 0.55);
+  box-shadow: 0 4px 10px -2px color-mix(in srgb, var(--magma-2) 55%, transparent);
   z-index: 1;
 }
 
@@ -1295,9 +1295,9 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   letter-spacing: .3px;
   text-align: center;
   transition: transform .12s ease, box-shadow .12s ease;
-  box-shadow: 0 8px 20px -8px rgba(255, 80, 20, 0.55);
+  box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--magma-2) 55%, transparent);
 }
-.auth-submit:hover { transform: translateY(-1px); box-shadow: 0 10px 24px -6px rgba(255, 100, 30, 0.65); }
+.auth-submit:hover { box-shadow: 0 10px 24px -6px color-mix(in srgb, var(--magma-glow) 65%, transparent); }
 .auth-submit:active { transform: translateY(0); }
 
 .auth-submit:disabled,
@@ -1659,8 +1659,8 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   transition: transform .12s ease, box-shadow .12s ease;
   box-shadow: 0 8px 20px -8px rgba(255, 80, 20, 0.55);
 }
-.server-play-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 24px -6px rgba(255, 100, 30, 0.65); }
-.server-play-btn .play-icon { width: 14px; height: 14px; fill: #1a0a02; }
+.server-play-btn { box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--magma-2) 55%, transparent); }
+.server-play-btn:hover { box-shadow: 0 10px 24px -6px color-mix(in srgb, var(--magma-glow) 65%, transparent); }
 
 /* ============================================
    Моды: переключатель "Каталог" / "Мои моды"
@@ -1705,10 +1705,26 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
    поэтому тут никогда не может "врать" бейдж, если файл удалили руками.
    ============================================ */
 .installed-mod-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-right: 4px;
+  direction: rtl;
+  padding-left: 6px;
+  padding-right: 0;
+}
+.installed-mod-list > * {
+  direction: ltr;
+}
+.installed-mod-list::-webkit-scrollbar {
+  width: 6px;
+}
+.installed-mod-list::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+.installed-mod-list::-webkit-scrollbar-thumb {
+  background: #4a4a52;
+  border-radius: 999px;
+}
+.installed-mod-list::-webkit-scrollbar-thumb:hover {
+  background: #b8b8c0;
 }
 
 .installed-mod-card {
@@ -2429,6 +2445,13 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   user-select: text;
   -webkit-user-select: text;
 }
+.launcher-category-placeholder-title,
+.launcher-category-placeholder-hint,
+.launcher-link-title,
+.launcher-link-desc {
+  user-select: text;
+  -webkit-user-select: text;
+}
 
 /* ============================================
    Аватарка аккаунта + выпадающий список аккаунтов
@@ -2636,29 +2659,29 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   gap: 4px;
   width: 210px;
   flex-shrink: 0;
-  position: sticky;
-  top: 58px;
+  position: static;
+  top: auto;
   align-self: flex-start;
-  z-index: 4;
 }
-view[data-view="settings"] {
-  /* padding-top у .content "прокручивается" вместе с контентом — из-за
-     этого sticky-заголовок и sticky-навигация делали рывок в первые px
-     скролла. "Съедаем" этот паддинг у самого .content для вкладки
-     настроек и возвращаем его как собственный padding вкладки — margin,
-     в отличие от padding скролл-контейнера, на sticky не влияет так же.
-  */
+.view[data-view="settings"] {
   margin-top: -20px;
   padding-top: 20px;
 }
 .view[data-view="settings"] .view-header {
-  position: sticky;
-  top: 0;
-  z-index: 6;
   background: var(--bg-void);
   padding: 4px 0 14px;
 }
 .settings-nav .mods-subtab { width: 100%; text-align: left; }
+#launcherCategoryNav {
+  position: static !important;
+  top: auto !important;
+  left: auto !important;
+  width: 210px !important;
+  max-height: none !important;
+  overflow: visible !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
 .settings-content { flex: 1; min-width: 0; }
 
 .settings-accounts-block { margin-top: 24px; }
@@ -2689,7 +2712,7 @@ view[data-view="settings"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 20px -8px rgba(255, 90, 20, 0.5);
+  box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--magma-2) 50%, transparent);
 }
 .launcher-category-placeholder-title {
   font-family: var(--font-display);
@@ -2872,6 +2895,19 @@ view[data-view="settings"] {
   margin-top: 14px;
 }
 .hero-bg-editor-frame.is-dragging { cursor: grabbing; }
+.hero-bg-editor-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 7;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  cursor: grab;
+  user-select: none;
+  margin-top: 14px;
+  touch-action: none; /* НОВОЕ — запрещает браузеру воспринимать движение как жест прокрутки/пана */
+}
 .hero-bg-editor-image {
   position: absolute;
   top: 0; left: 0;
@@ -2960,3 +2996,91 @@ view[data-view="settings"] {
   animation: updateCheckSpin .7s linear infinite;
 }
 @keyframes updateCheckSpin { to { transform: rotate(360deg); } }
+.launcher-links-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+}
+.launcher-link-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  text-decoration: none;
+  flex: 1 1 200px;
+  min-width: 200px;
+  transition: background .15s ease, border-color .15s ease, transform .15s ease;
+}
+.launcher-link-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--magma-1);
+  transform: translateY(-1px);
+}
+.launcher-link-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--bg-panel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--magma-glow);
+  flex-shrink: 0;
+}
+.launcher-link-icon svg { width: 18px; height: 18px; fill: currentColor; }
+.launcher-link-icon img { width: 20px; height: 20px; object-fit: contain; border-radius: 4px; box-shadow: none; filter: none; }
+.launcher-link-icon svg { width: 18px; height: 18px; fill: currentColor; }
+.launcher-link-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.launcher-link-title { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.launcher-link-desc { font-size: 11.5px; color: var(--text-muted); }
+.rail-logo,
+.boot-logo {
+  background: linear-gradient(160deg, var(--magma-1), var(--magma-2));
+  -webkit-mask-image: url('../assets/magmalauncher-logo.png');
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: 62%;
+  mask-image: url('../assets/magmalauncher-logo.png');
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: 62%;
+}
+body.is-modal-scroll-lock .content {
+  overflow: hidden !important;
+}
+.mod-details-panel::-webkit-scrollbar { width: 8px; }
+.mod-details-panel::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 44px 6px 12px 0; /* сдвигает вниз, не мешает кнопке закрытия */
+}
+.mod-details-panel::-webkit-scrollbar-thumb {
+  background: #4a4a52;
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.mod-details-panel::-webkit-scrollbar-thumb:hover {
+  background: #b8b8c0;   /* ← любой цвет, какой хочешь при наведении */
+  background-clip: padding-box;
+}
+#instanceModsList::-webkit-scrollbar {
+  width: 6px;
+}
+
+#instanceModsList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#instanceModsList::-webkit-scrollbar-thumb {
+  background: #4a4a52 !important;
+  border-radius: 999px;
+}
+
+#instanceModsList::-webkit-scrollbar-thumb:hover {
+  background: #b8b8c0 !important;
+}
