@@ -17,6 +17,7 @@
 #include <filesystem>
 #include <map>
 #include <chrono>
+#include <thread>
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
@@ -27,6 +28,9 @@ namespace launcher {
 std::atomic<bool> g_paused{false};
 // Определение флага отмены, объявленного в launcher_core.h.
 std::atomic<bool> g_cancelled{false};
+
+std::atomic<bool> g_gameProcessActive{false};
+std::atomic<unsigned long> g_gameProcessId{0};
 
 // ============================================
 // Мелкие HTTP-хелперы
@@ -2576,6 +2580,26 @@ void reconcileModsForVersion(const fs::path& modsDir, const std::string& mcVersi
         }
     }
 }
+// Вызывается после закрытия игры (см. launchMinecraft) для общей mods/.
+// Возвращает обратно включёнными ВСЕ моды, которых reconcileModsForVersion
+// отключил сам (несовпадение версии), кроме отключённых игроком вручную
+// (userDisabled) — чтобы после выхода из игры моды под другую версию/
+// загрузчик снова были видны включёнными, не дожидаясь следующего запуска
+// именно их версии.
+void restoreAllModsAfterExit(const fs::path& modsDir) {
+    std::error_code ec;
+    if (!fs::exists(modsDir, ec)) return;
+
+    auto manifest = readModsManifest(modsDir);
+    for (auto& kv : manifest) {
+        if (kv.second.userDisabled) continue;
+        fs::path enabledPath = modsDir / kv.first;
+        fs::path disabledPath = modsDir / (kv.first + ".disabled");
+        if (fs::exists(disabledPath, ec) && !fs::exists(enabledPath, ec)) {
+            fs::rename(disabledPath, enabledPath, ec);
+        }
+    }
+}
 
 bool installModToDirImpl(const std::string& slug, const std::string& mcVersion,
                           const std::string& loader, const fs::path& modsDir,
@@ -3517,7 +3541,12 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
     g_cancelled.store(false);
     g_paused.store(false);
 
-    // OptiFine и Forge+OptiFine временно отключены (см. LOADERS в app.js) —
+    if (g_gameProcessActive.load()) {
+        errorOut = "ERR_ALREADY_RUNNING";
+        return false;
+    }
+
+    // OptiFine и Forge+OptiFine временно отключены(см. LOADERS в app.js) —
     // зависели от сторонних зеркал (BMCLAPI/FastMCMirror) и оказались слишком
     // нестабильными для стабильного релиза. Отклоняем сразу, до тяжёлых
     // загрузок, понятной ошибкой на случай, если фронтенд всё же прислал
@@ -3878,13 +3907,25 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         nullptr, cmdBuf.data(), nullptr, nullptr, FALSE,
         CREATE_NO_WINDOW, nullptr, instanceDir.string().c_str(), &si, &pi);
 
-    if (!ok) {
+        if (!ok) {
         DWORD err = GetLastError();
         errorOut = "ERR_JAVA_LAUNCH_FAILED||" + winErrorMessage(err) + " (" + std::to_string(err) + "); " + javaPath;
         return false;
     }
-    CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
+
+    g_gameProcessId.store(pi.dwProcessId);
+    g_gameProcessActive.store(true);
+
+    fs::path modsDirForRestore = req.instanceName.empty() ? (instanceDir / "mods") : fs::path();
+    HANDLE gameProcessHandle = pi.hProcess;
+    std::thread([gameProcessHandle, modsDirForRestore]() {
+        WaitForSingleObject(gameProcessHandle, INFINITE);
+        CloseHandle(gameProcessHandle);
+        if (!modsDirForRestore.empty()) restoreAllModsAfterExit(modsDirForRestore);
+        g_gameProcessId.store(0);
+        g_gameProcessActive.store(false);
+    }).detach();
 
     onProgress("launch", 1.0, "Игра запущена");
     return true;
@@ -3897,6 +3938,16 @@ bool detectSystemJava(std::string& javaPathOut, std::string& errorOut) {
         return false;
     }
     javaPathOut = found->string();
+    return true;
+}
+
+bool getModsManifestJson(const std::string& dirPath, std::string& jsonOut, std::string& errorOut) {
+    auto manifest = readModsManifest(fs::path(dirPath));
+    json out = json::object();
+    for (auto& kv : manifest) {
+        out[kv.first] = { {"version", kv.second.version}, {"loader", kv.second.loader} };
+    }
+    jsonOut = out.dump();
     return true;
 }
 
@@ -4366,19 +4417,32 @@ bool resetVersionCache(const std::string& version, const std::string& gameDir, s
     return true;
 }
 
-namespace {
-int cmpVersionStrings(const std::string& a, const std::string& b) {
-    auto extractTrailingNumber = [](const std::string& s) -> int {
-        int i = (int)s.size() - 1;
-        while (i >= 0 && !isdigit((unsigned char)s[i])) i--;
-        int end = i;
-        while (i >= 0 && isdigit((unsigned char)s[i])) i--;
-        std::string digits = s.substr(i + 1, end - i);
-        if (digits.empty()) return 0;
-        try { return std::stoi(digits); } catch (...) { return 0; }
+int cmpVersionStrings(const std::string& v1, const std::string& v2) {
+    auto extractSegments = [](const std::string& v) {
+        std::vector<int> segments;
+        std::stringstream ss(v);
+        std::string token;
+        while (std::getline(ss, token, '.')) {
+            std::string digits;
+            for (char c : token) {
+                if (isdigit((unsigned char)c)) digits += c;
+                else if (!digits.empty()) break;
+            }
+            segments.push_back(digits.empty() ? 0 : std::stoi(digits));
+        }
+        if (segments.empty()) segments.push_back(0);
+        return segments;
     };
-    return extractTrailingNumber(a) - extractTrailingNumber(b);
-}
+
+    std::vector<int> s1 = extractSegments(v1);
+    std::vector<int> s2 = extractSegments(v2);
+    size_t maxLen = std::max(s1.size(), s2.size());
+    for (size_t i = 0; i < maxLen; i++) {
+        int n1 = i < s1.size() ? s1[i] : 0;
+        int n2 = i < s2.size() ? s2[i] : 0;
+        if (n1 != n2) return n1 - n2;
+    }
+    return 0;
 }
 
 bool checkLauncherUpdate(const std::string& manifestUrl, const std::string& currentVersion, UpdateInfo& infoOut, std::string& errorOut) {
@@ -4442,6 +4506,47 @@ bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& 
 
     onProgress("update", 1.0, "Перезапуск...");
     return true; // main.cpp должен после этого закрыть лаунчер (CefQuitMessageLoop)
+}
+
+bool scheduleLauncherReopenAfterGameExit(std::string& errorOut) {
+    unsigned long pid = g_gameProcessId.load();
+    if (pid == 0 || !g_gameProcessActive.load()) {
+        errorOut = "Игра не запущена";
+        return false;
+    }
+
+    char selfBuf[MAX_PATH];
+    GetModuleFileNameA(nullptr, selfBuf, MAX_PATH);
+    fs::path selfPath = selfBuf;
+
+    auto psQuote = [](const std::string& s) {
+        std::string out;
+        for (char c : s) { out += c; if (c == '\'') out += '\''; }
+        return out;
+    };
+
+    std::ostringstream cmd;
+    cmd << "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command \""
+        << "Wait-Process -Id " << pid << " -ErrorAction SilentlyContinue; "
+        << "Start-Process -FilePath '" << psQuote(selfPath.string()) << "' "
+        << "-WorkingDirectory '" << psQuote(selfPath.parent_path().string()) << "'\"";
+
+    std::string cmdLine = cmd.str();
+    std::vector<char> cmdBuf(cmdLine.begin(), cmdLine.end());
+    cmdBuf.push_back('\0');
+
+    STARTUPINFOA si{}; si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE;
+    PROCESS_INFORMATION pi{};
+    if (!CreateProcessA(nullptr, cmdBuf.data(), nullptr, nullptr, FALSE,
+                        CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP, nullptr, nullptr, &si, &pi)) {
+        errorOut = "Не удалось запустить процесс повторного открытия лаунчера";
+        return false;
+    }
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    return true;
 }
 
 } // namespace launcher
