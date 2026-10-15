@@ -1,3 +1,22 @@
+<p align="center">
+  <img src="assets/magmalauncher-logo.png" width="180" alt="MagmaLauncher">
+</p>
+
+<h1 align="center">MagmaLauncher</h1>
+
+<p align="center">
+  An open-source Minecraft launcher built for modded gameplay.
+</p>
+
+<p align="center">
+  <a href="https://github.com/Erz05506/MagmaLauncher/releases">
+    Download
+  </a>
+  ·
+  <a href="https://github.com/Erz05506/MagmaLauncher/issues">
+    Report a bug
+  </a>
+</p>
 # MagmaLauncher
 
 An unofficial, open-source launcher for **Minecraft: Java Edition**, built with C++ (CEF/Chromium) on the backend and plain HTML/CSS/JavaScript on the frontend.
