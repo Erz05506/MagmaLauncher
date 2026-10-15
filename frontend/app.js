@@ -1,8 +1,9 @@
+// Magma Launcher — frontend logic
+
 // ============================================
 // MagmaLauncher — frontend logic
 // ============================================
 
-// --- Supabase (общая база аккаунтов вместо localStorage) ---
 const SUPABASE_URL = 'https://bjgpqlegoptegcbogncq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqZ3BxbGVnb3B0ZWdjYm9nbmNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzOTY4ODEsImV4cCI6MjA5OTk3Mjg4MX0.3iMFvghcz-IaXuLqk5WLRnou_4bpwFFmGrWSNSmHMS0';
 
@@ -48,7 +49,6 @@ async function fetchProfileWithRetry(userId) {
   return { profile: null, missing: false };
 }
 
-// --- Переключение вкладок в левом рейле ---
 const railButtons = document.querySelectorAll('.rail-btn[data-view]');
 const views = document.querySelectorAll('.view[data-view]');
 const contentEl = document.querySelector('.content');
@@ -79,14 +79,7 @@ function getGameDir() {
 }
 
 // ============================================
-// Память прокрутки для каждой вкладки — храним в localStorage, чтобы позиция
-// сохранялась не только при переключении вкладок внутри одной сессии, но и
-// при полном перезапуске лаунчера. Раньше при заходе на "Моды" список всегда
-// принудительно проматывался к самому списку модов (см. modList.scrollIntoView
-// ниже) — это перекрывало любую сохранённую позицию и выглядело как "экран
-// открывается чуть ниже, а не сверху". Теперь принудительная прокрутка
-// убрана, а позиция восстанавливается из памяти (или, для первого визита,
-// остаётся 0 — то есть ровно "самый верх", как и просили).
+
 // ============================================
 const VIEW_SCROLL_KEY = 'magma_view_scroll';
 let viewScrollState = {};
@@ -106,13 +99,7 @@ function restoreViewScroll(view) {
   syncSmoothScrollTarget(contentEl, savedTop);
 }
 // ============================================
-// Единый тултип для всего приложения — один div с position:fixed в конце
-// <body>, координаты которого считает JS по getBoundingClientRect() наведённого
-// элемента. Раньше тултипы рисовались через CSS ::after прямо у элемента —
-// внутри любого контейнера со скроллом (.content, узкие карточки модов и
-// т.п.) такой тултип обрезался границей контейнера (overflow-y:auto
-// заставляет браузер обрезать и по горизонтали тоже). Один тултип поверх
-// всего окна такой проблемы в принципе не имеет.
+
 // ============================================
 const jsTooltipEl = document.createElement('div');
 jsTooltipEl.className = 'js-tooltip';
@@ -141,7 +128,18 @@ function positionJsTooltip(anchor) {
     return;
   }
 
-  const preferLeft = anchor.getAttribute('data-tooltip-align') === 'left';
+  const align = anchor.getAttribute('data-tooltip-align');
+  if (align === 'top') {
+    let left = rect.left + rect.width / 2 - tw / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - tw - 8));
+    let top = rect.top - th - 10;
+    if (top < 8) top = rect.bottom + 10;
+    jsTooltipEl.style.left = Math.round(left) + 'px';
+    jsTooltipEl.style.top = Math.round(top) + 'px';
+    return;
+  }
+
+  const preferLeft = align === 'left';
   let left = preferLeft ? (rect.left - tw - 10) : (rect.right + 10);
   if (left + tw > window.innerWidth - 8) left = rect.left - tw - 10;
   if (left < 8) left = Math.min(rect.right + 10, window.innerWidth - tw - 8);
@@ -186,11 +184,6 @@ async function switchToRailView(target) {
   views.forEach(v => v.classList.toggle('is-active', v.dataset.view === target));
   currentActiveView = target;
 
-  // Уходя с объединённого раздела "Сборки" на ЛЮБУЮ вкладку рейла (не
-  // только на "Моды") — сбрасываем mergedInstancesOpen и возвращаем блок
-  // категорий обратно в "Моды". Раньше сброс был только при переходе именно
-  // на "Моды", и если игрок кликал сразу "Главная"/"Настройки", подсветка и
-  // сам блок категорий оставались висеть привязанными к "Сборкам".
   if (mergedInstancesOpen) {
     mergedInstancesOpen = false;
     const modsView = document.querySelector('.view[data-view="mods"]');
@@ -198,16 +191,14 @@ async function switchToRailView(target) {
     if (modsCategoryTabsEl && modsView && modsViewHeader && modsCategoryTabsEl.parentElement !== modsView) {
       modsView.insertBefore(modsCategoryTabsEl, modsViewHeader.nextSibling);
     }
-    // ВАЖНО: раньше пилюли категорий перерисовывались только при target==='mods'
-    // — при уходе на любую другую вкладку "Сборки" оставалась подсвеченной
-    // в своей разметке до следующего явного захода в "Моды".
+
     renderModsCategoryTabs();
     resetInstancesViewHeaderTitle();
   }
 
   if (target === 'settings') {
   switchSettingsSubtab(document.querySelector('.mods-subtab[data-settings-subtab].is-active')?.dataset.settingsSubtab || 'account');
-  updateSkinViewerRenderState(); // <-- добавь
+  updateSkinViewerRenderState();
 }
 
   updateGameFolderBtnVisibility();
@@ -256,9 +247,6 @@ document.getElementById('reduceMotionToggle')?.addEventListener('change', (e) =>
   applyReduceMotion();
 });
 
-// Настройки намеренно не закрепляем через position:fixed/sticky:
-// обе группы подвкладок должны прокручиваться вместе со всем содержимым.
-
 const PAUSE_SKIN_UNFOCUSED_KEY = 'magma_pause_skin_unfocused';
 function getPauseSkinUnfocusedPref() { return localStorage.getItem(PAUSE_SKIN_UNFOCUSED_KEY) !== '0'; }
 function applyPauseSkinUnfocusedToggle() {
@@ -269,18 +257,18 @@ document.getElementById('pauseSkinUnfocusedToggle')?.addEventListener('change', 
   localStorage.setItem(PAUSE_SKIN_UNFOCUSED_KEY, e.target.checked ? '1' : '0');
 });
 window.addEventListener('blur', () => {
-  // Не оставляем WebGL-вьюер работать в фоне.
+
   if (accountSkinViewer) accountSkinViewer.renderPaused = true;
 });
 window.addEventListener('focus', () => {
-  // Восстанавливаем состояние только по реальной видимости вкладки.
+
   updateSkinViewerRenderState();
 });
 
 const CLOSE_ON_LAUNCH_KEY = 'magma_close_on_launch';
 const REOPEN_ON_EXIT_KEY = 'magma_reopen_on_game_exit';
 function getCloseOnLaunchPref() { return localStorage.getItem(CLOSE_ON_LAUNCH_KEY) === '1'; }
-// работает только вместе с "Закрывать лаунчер при запуске игры"
+
 function getReopenOnExitPref() { return getCloseOnLaunchPref() && localStorage.getItem(REOPEN_ON_EXIT_KEY) === '1'; }
 
 function applyCloseOnLaunchToggle() {
@@ -531,19 +519,37 @@ async function ensureTelemetryBlockHostsFile() {
 const discordPresenceBootTime = Date.now();
 let discordPresenceStarted = false;
 
+let discordRetryTimer = null;
+
+function scheduleDiscordRetry() {
+  if (discordRetryTimer || !getPrivacyPref(PRIVACY_DISCORD_KEY, true)) return;
+  discordRetryTimer = setTimeout(() => {
+    discordRetryTimer = null;
+    startDiscordPresence();
+  }, 20000);
+}
+
 async function startDiscordPresence() {
   if (typeof window.discordPresenceStart !== 'function' || discordPresenceStarted) return;
   try {
     const raw = await window.discordPresenceStart({ appId: '1545886388145229875' });
     const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if (!result.success) return;
+    if (!result.success) {
+      console.warn('[MagmaLauncher] Discord недоступен:', result.error);
+      scheduleDiscordRetry();
+      return;
+    }
     discordPresenceStarted = true;
     updateDiscordPresenceIdle();
   } catch (err) {
     console.error('[MagmaLauncher] Не удалось подключиться к Discord:', err);
+    scheduleDiscordRetry();
   }
 }
+
 function stopDiscordPresence() {
+  clearTimeout(discordRetryTimer);
+  discordRetryTimer = null;
   discordPresenceStarted = false;
   if (typeof window.discordPresenceStop === 'function') window.discordPresenceStop().catch(() => {});
 }
@@ -690,7 +696,6 @@ document.getElementById('mergeModsInstancesToggle')?.addEventListener('change', 
   applyMergeModsInstances();
 });
 
-// --- Кнопка ИГРАТЬ ---
 const playBtn = document.querySelector('.play-btn');
 const launchProgressEl = document.getElementById('launchProgress');
 const launchProgressFillEl = document.getElementById('launchProgressFill');
@@ -699,11 +704,6 @@ const launchPauseBtn = document.getElementById('launchPauseBtn');
 const launchCancelBtn = document.getElementById('launchCancelBtn');
 const launchDetailsBtn = document.getElementById('launchDetailsBtn');
 
-// opts.showControls — показывать ли паузу/отмену. Раньше они оставались
-// видимыми (и как будто рабочими) даже после того, как загрузка уже
-// закончилась ошибкой — нажатие "Отмена" в этот момент ничего не отменяло,
-// потому что отменять уже было нечего, и выглядело так, будто кнопка сломана.
-// opts.fullError — если задано, показывается кнопка "Подробнее" с полным текстом.
 function setLaunchProgress(visible, fraction, label, isError, opts = {}) {
   if (!launchProgressEl) return;
   launchProgressEl.style.display = visible ? 'flex' : 'none';
@@ -727,8 +727,7 @@ function setLaunchProgress(visible, fraction, label, isError, opts = {}) {
 }
 
 // ============================================
-// Модалка "Подробности ошибки" — вместо системного alert() показывает
-// полный текст в обычном окне лаунчера, который можно спокойно читать/копировать.
+
 // ============================================
 const errorDetailsOverlay = document.getElementById('errorDetailsOverlay');
 const errorDetailsBody = document.getElementById('errorDetailsBody');
@@ -743,11 +742,10 @@ errorDetailsClose?.addEventListener('click', () => errorDetailsOverlay.classList
 errorDetailsOverlay?.addEventListener('click', (e) => { if (e.target === errorDetailsOverlay) errorDetailsOverlay.classList.remove('is-open'); });
 
 // ============================================
-// Пауза скачивания.
+
 // ============================================
 let isLaunchPaused = false;
-let lastProgressLabelText = ''; // последний реальный текст стадии от бэкенда — нужен, чтобы
-                                 // сразу восстановить его при снятии паузы (см. setPauseButtonState)
+let lastProgressLabelText = '';
 
 function setPauseButtonState(paused) {
   isLaunchPaused = paused;
@@ -758,18 +756,10 @@ function setPauseButtonState(paused) {
   if (pauseIcon) pauseIcon.style.display = paused ? 'none' : 'block';
   if (resumeIcon) resumeIcon.style.display = paused ? 'block' : 'none';
 
-  // Пока стоит пауза, бэкенд не шлёт новых __launchProgress событий (загрузка
-  // реально остановлена — см. abortIfCancelledCallback в launcher_core.cpp),
-  // так что строка прогресса просто замирает на последнем тексте и выглядит
-  // так, будто ничего не произошло. Явно показываем, что это пауза, а не зависание.
   if (paused && launchProgressLabelEl) {
     launchProgressLabelEl.textContent = t('launch.paused');
   } else if (!paused && launchProgressLabelEl) {
-    // При снятии паузы возвращаем последний реальный текст стадии СРАЗУ, а не
-    // ждём следующего __launchProgress от бэкенда. Если пауза пришлась на
-    // середину закачки одного большого файла (client.jar, крупная библиотека,
-    // Java runtime), следующее обновление прогресса может прийти нескоро —
-    // и надпись "На паузе" зависала бы на экране, хотя загрузка уже идёт.
+
     launchProgressLabelEl.textContent = lastProgressLabelText;
   }
 }
@@ -792,7 +782,7 @@ launchPauseBtn?.addEventListener('click', async () => {
 
 launchCancelBtn?.addEventListener('click', async () => {
   if (typeof window.cancelLaunch !== 'function') {
-    // dev-режим без C++ бэкенда — просто прячем прогресс и возвращаем кнопку "Играть"
+
     setLaunchProgress(false, 0, '');
     playBtn.disabled = false;
     playBtn.querySelector('span').textContent = t('hero.play');
@@ -810,7 +800,6 @@ launchCancelBtn?.addEventListener('click', async () => {
   }
 });
 
-// Эти две функции дёргает C++ (w.eval(...)) из main.cpp по мере скачивания.
 window.__launchProgress = function (data) {
   const stageLabels = {
     manifest: t('launch.stage.manifest'),
@@ -846,16 +835,12 @@ window.__launchDone = function (data) {
   } else {
     const fullError = data.error || t('auth.magma.genericError');
     const shortError = fullError.length > 90 ? fullError.slice(0, 90) + '…' : fullError;
-    // Загрузка уже остановилась — прятать паузу/отмену (нечего ставить на паузу
-    // и нечего отменять), но при длинной ошибке (например, лог Forge) даём
-    // открыть полный текст в модалке вместо системного alert().
+
     setLaunchProgress(true, 0, shortError, true, {
       showControls: false,
       fullError: fullError.length > 90 ? fullError : null,
     });
-    // Ошибку больше не прячем через setTimeout — пусть человек спокойно
-    // прочитает её или откроет "Подробнее", а не гонится за текстом до того,
-    // как он исчезнет сам.
+
   }
 };
 
@@ -930,7 +915,7 @@ playBtn.addEventListener('click', async () => {
 });
 
 // ============================================
-// Локализация (RU / EN)
+// Localization (RU / EN)
 // ============================================
 const I18N = {
   ru: {
@@ -3085,16 +3070,12 @@ function translateBackendError(raw) {
   return detail ? `${message} (${detail})` : message;
 }
 
-// Испанский (Испания) пока переиспользует те же строки, что и испанский
-// (Латинская Америка) — для такого простого интерфейса разница между
-// вариантами непринципиальна, а поддерживать два набора строк накладно.
+// Spanish (Spain) reuses the Latin American strings.
+
 I18N['es-ES'] = I18N.es;
 
-// Довесок переводов — ключи, которые появились уже после того, как основные
-// блоки I18N выше были написаны (модпаки в загрузчиках, переключатель
-// "Обычная игра/Модпак", фильтр "Мои моды", модалка модов сборки и т.п.).
-// Отдельный объект вместо правки каждого языкового блока — так проще не
-// потерять ни один язык и не раздувать основной I18N ещё сильнее.
+// Additional localization entries.
+
 const I18N_SUPPLEMENT = {
   ru: {
     'instances.import': 'Импорт из файла',
@@ -4392,16 +4373,10 @@ Object.keys(I18N_SUPPLEMENT).forEach(lang => {
 I18N['es-ES'] = I18N.es;
 
 // ============================================
-// История обновлений Minecraft — краткие, общими словами написанные пункты
-// по каждому крупному релизу (не копия официальных patch notes). ru/en
-// заполнены полностью, остальные языки используют ru как запасной вариант —
-// как и DEFAULT_MODS_BY_LOADER выше по файлу.
+
 // ============================================
 // ============================================
-// Названия месяцев для истории обновлений — чтобы не переводить дату у
-// каждой версии отдельно на каждый язык, а просто переводить 12 названий
-// месяцев один раз и собирать дату программно. Для ja/ko формат "год.месяц"
-// собирается без отдельных названий (там просто цифра + иероглиф).
+
 // ============================================
 const I18N_SUPPLEMENT_2 = {
   ru: {
@@ -4838,12 +4813,6 @@ Object.keys(I18N_SUPPLEMENT_2).forEach(lang => {
   Object.assign(I18N[lang], I18N_SUPPLEMENT_2[lang]);
 });
 
-// Небольшой слой интерфейсных переводов, которые раньше оставались хардкодом
-// в HTML/названиях тем. Названия самих тем не переводим — только
-// пометку «Magma (по умолчанию)», как и просил пользователь.
-// Небольшой слой интерфейсных переводов, которые раньше оставались хардкодом
-// в HTML/названиях тем. Названия самих тем не переводим — только
-// пометку «Magma (по умолчанию)».
 const I18N_PERF_PATCH = {
   ru: {
     'settings.perf.reduceMotion.label': 'Отключить анимации интерфейса',
@@ -5624,8 +5593,8 @@ const UPDATE_2024_RANGE = {
 };
 
 // ============================================
-// История обновлений Minecraft — краткие пункты по каждому крупному релизу
-// (не копия официальных patch notes), переведены на все языки лаунчера.
+// Minecraft release history
+
 // ============================================
 const UPDATES_DATA = [
   { version: '1.0', month: 11, year: 2011,
@@ -6358,6 +6327,15 @@ Object.keys(I18N_REOPEN_PATCH).forEach(lang => {
 });
 I18N['es-ES'] = I18N.es;
 
+const I18N_MAGMA_SOON_PATCH = {
+  ru: { 'auth.magma.comingSoonDesc': 'Вход через Magma Аккаунт временно отключён для альфа-версии — доступен только гостевой вход. Скоро вернём.' },
+  en: { 'auth.magma.comingSoonDesc': 'Magma Account sign-in is temporarily disabled in the alpha — only guest sign-in is available. It will be back soon.' },
+};
+Object.keys(I18N_MAGMA_SOON_PATCH).forEach(lang => {
+  if (!I18N[lang]) I18N[lang] = {};
+  Object.assign(I18N[lang], I18N_MAGMA_SOON_PATCH[lang]);
+});
+
 function renderUpdatesTimeline() {
   const container = document.getElementById('homeUpdatesTimeline');
   if (!container) return;
@@ -6384,9 +6362,6 @@ function renderUpdatesTimeline() {
       ${highlights.map(h => `<li>${h}</li>`).join('')}
     </ul>
   `;
-
-  // Обработчик должен находиться внутри forEach,
-  // потому что card существует только здесь
 
   container.appendChild(card);
 });
@@ -6429,6 +6404,11 @@ function applyLanguage(lang) {
     el.setAttribute('data-tooltip', t(el.dataset.tooltipI18n));
   });
 
+  ['versionSearch', 'modsTargetVersionSearch', 'modpackVersionSearch', 'instancesCatalogVersionSearch'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.placeholder = t('hero.searchVersion');
+  });
+
   langSelectLabel.textContent = LANG_NAMES[lang];
 
   langSelectList.querySelectorAll('.custom-select-item').forEach(item => {
@@ -6438,6 +6418,7 @@ function applyLanguage(lang) {
   updateRamValue();
   syncResolutionSelectLabel();
   syncGameDirModeLabel();
+  syncUpdateChannelLabel();
   renderInstances();
   renderModsCategoryTabs();
   applyModsCategoryVisibility();
@@ -6491,7 +6472,7 @@ langSelectList.querySelectorAll('.custom-select-item').forEach(item => {
 document.addEventListener('click', () => langSelectWrap.classList.remove('is-open'));
 
 // ============================================
-// Настройки: подвкладки Аккаунт / Лаунчер / Игра
+// Settings sub-tabs: Account / Launcher / Game
 // ============================================
 const settingsSubtabs = document.querySelectorAll('.mods-subtab[data-settings-subtab]');
 const settingsSubviews = document.querySelectorAll('.mods-subview[data-settings-subview]');
@@ -6502,7 +6483,7 @@ function switchSettingsSubtab(target) {
   if (target === 'account') {
     updateSettingsAccountTab();
   }
-  updateSkinViewerRenderState(); // <-- добавь эту строку
+  updateSkinViewerRenderState();
 }
 
 settingsSubtabs.forEach(tab => {
@@ -6538,7 +6519,7 @@ launcherCategoryTabs.forEach(tab => {
 });
 
 // ============================================
-// Выбор системы скинов (пока доступен только Ely.by)
+// Skin provider selection
 // ============================================
 const SKIN_SYSTEM_KEY = 'magma_skin_system';
 function getSkinSystemPref() { return localStorage.getItem(SKIN_SYSTEM_KEY) || 'elyby'; }
@@ -6557,7 +6538,7 @@ document.querySelectorAll('.skin-system-option').forEach(btn => {
 });
 
 // ============================================
-// Модалка "Сменить скин"
+// Change skin modal
 // ============================================
 const skinChangeInfoOverlay = document.getElementById('skinChangeInfoOverlay');
 const skinChangeInfoClose = document.getElementById('skinChangeInfoClose');
@@ -6581,9 +6562,7 @@ skinChangeGoBtn?.addEventListener('click', () => {
 });
 
 // ============================================
-// Автоустановка CustomSkinLoader с конфигом под Ely.by — качается перед
-// каждым запуском, если её ещё нет в текущей папке mods (в т.ч. если игрок
-// удалил её вручную), и настраивается на skinsystem.ely.by.
+
 // ============================================
 const CUSTOM_SKIN_LOADER_SLUG = 'customskinloader';
 const SKIN_LOADER_ENABLED_LOADERS = ['fabric', 'forge', 'neoforge', 'quilt'];
@@ -6627,17 +6606,11 @@ async function ensureCustomSkinLoaderInstalled(loader, version, modsDir, instanc
 }
 
 // ============================================
-// Версии и лоадеры
+// Minecraft versions and loaders
 // ============================================
 
-// Список версий Minecraft: Java Edition, от новых к старым.
-// С 2026 года Mojang перешёл на схему "год.дроп.хотфикс" (26.1, 26.2, ...) —
-// версии 1.21.5–1.21.11 были последними в старом формате.
-// Порядок 26.x по дате выхода: 26.1 (24 марта) -> 26.1.1 -> 26.1.2 (9 апреля) -> 26.2 (июнь).
-// ВАЖНО: версии 26.x требуют Java 25 — но лаунчер теперь сам скачивает нужную
-// версию Java автоматически (см. launcher_core.cpp), вручную ставить не нужно.
-const VERSIONS = [
-  '26.2','26.1.2','26.1.1','26.1',
+let VERSIONS = [
+  '26.3','26.2','26.1.2','26.1.1','26.1',
   '1.21.11','1.21.10','1.21.9','1.21.8','1.21.7','1.21.6','1.21.5',
   '1.21.4','1.21.3','1.21.2','1.21.1','1.21',
   '1.20.6','1.20.5','1.20.4','1.20.3','1.20.2','1.20.1','1.20',
@@ -6662,31 +6635,34 @@ const VERSIONS = [
   '1.1','1.0'
 ];
 
+const VERSIONS_CACHE_KEY = 'magma_versions_cache';
+
 async function refreshVersionsFromMojang() {
+
+  try {
+    const cached = JSON.parse(localStorage.getItem(VERSIONS_CACHE_KEY) || 'null');
+    if (Array.isArray(cached) && cached.length) VERSIONS = cached;
+  } catch {}
+
   if (typeof window.getMinecraftVersions !== 'function') return;
   try {
     const raw = await window.getMinecraftVersions();
     const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (!result.success) return;
-    const releases = (result.versions || [])
-      .filter(v => v.type === 'release')
-      .map(v => v.id);
-    if (releases.length) VERSIONS = releases; // Mojang уже отдаёт новые -> старые
+    const releases = (result.versions || []).filter(v => v.type === 'release').map(v => v.id);
+    if (!releases.length) return;
+
+    VERSIONS = releases;
+    localStorage.setItem(VERSIONS_CACHE_KEY, JSON.stringify(releases));
+    snapshotVersionsCache = (result.versions || []).filter(v => v.type === 'snapshot').map(v => v.id);
+
+    if (versionDropdown.classList.contains('is-open')) renderVersionList(versionSearchEl.value);
+    renderModsTargetVersionList('');
   } catch (err) {
     console.error('[MagmaLauncher] Не удалось обновить список версий:', err);
   }
 }
-
-// Лоадеры и минимальная поддерживаемая версия каждого.
-// Vanilla, Fabric и Forge реально работают через launcher_core.cpp (Forge —
-// через официальный silent-инсталлятор, надёжно начиная примерно с 1.6+,
-// у совсем древних версий инсталлятора с CLI-флагом ещё не было).
-// OptiFine / Forge+OptiFine ВРЕМЕННО ОТКЛЮЧЕНЫ: у optifine.net нет публичного
-// API, скачивание шло через сторонние зеркала (BMCLAPI/FastMCMirror), и это
-// оказалось слишком нестабильно (регулярные ERR_OPTIFINE_DOWNLOAD_FAILED).
-// Помечены supported:false — вкладки показываются серыми с подсказкой
-// "Скоро будет доступно", как и вкладка Microsoft, пока не появится надёжный
-// способ их устанавливать.
+// Supported loaders and minimum versions.
 
 const THEMES = [
   { id: 'magma', name: 'Magma (по умолчанию)', available: true, accent: ['#ff7a1a', '#ff3d1c'] },
@@ -6935,12 +6911,12 @@ function openHeroBgEditor() {
   if (heroBgEditorImageEl) heroBgEditorImageEl.style.backgroundImage = `url("${custom.bgImage}")`;
   applyHeroBgEditorPreview();
   heroBgEditorOverlay?.classList.add('is-open');
-  document.body.classList.add('is-modal-scroll-lock'); // NEW
+  document.body.classList.add('is-modal-scroll-lock');   // NEW
 }
 
 function closeHeroBgEditor() {
   heroBgEditorOverlay?.classList.remove('is-open');
-  document.body.classList.remove('is-modal-scroll-lock'); // NEW
+  document.body.classList.remove('is-modal-scroll-lock');   // NEW
 }
 
 heroBgEditBtn?.addEventListener('click', openHeroBgEditor);
@@ -6960,7 +6936,7 @@ heroBgEditorResetPosBtn?.addEventListener('click', () => {
 
 heroBgEditorFrame?.addEventListener('pointerdown', (e) => {
   e.preventDefault();
-  if (e.button !== 0) return; // теперь только ЛКМ двигает картинку
+  if (e.button !== 0) return;
   e.stopPropagation();
   heroBgEditorDragging = true;
   heroBgEditorFrame.classList.add('is-dragging');
@@ -6978,8 +6954,7 @@ heroBgEditorFrame?.addEventListener('pointermove', (e) => {
   heroBgEditorState.posY = Math.max(0, Math.min(100, heroBgEditorDragStart.posY - dyPercent));
   applyHeroBgEditorPreview();
 });
-// отключаем контекстное меню на самом холсте редактора — иначе ПКМ откроет
-// кастомное контекстное меню вместо перетаскивания
+
 heroBgEditorFrame?.addEventListener('contextmenu', (e) => e.preventDefault());
 function endHeroBgEditorDrag(e) {
   if (!heroBgEditorDragging) return;
@@ -7046,7 +7021,7 @@ async function ensureSnapshotVersions() {
 let activeLoader = 'vanilla';
 let selectedVersion = VERSIONS[0];
 let currentSelectedLoader = 'vanilla';
-let selectedInstanceName = ''; // непусто, если выбран конкретный модпак (см. МОДПАКИ ниже)
+let selectedInstanceName = '';
 
 const LAST_SELECTION_KEY = 'magma_last_selection';
 
@@ -7186,8 +7161,6 @@ function renderVersionList(filter) {
   const loader = LOADERS.find(l => l.id === activeLoader);
   const query = (filter || '').trim().toLowerCase();
 
-  // Вкладка "Modpacks" — вместо версий Minecraft показываем список модпаков,
-  // которые игрок уже создал (те же данные, что и в разделе "Сборки").
   if (loader.isModpacksTab) {
     const packs = getModpacks().filter(p => !query || p.name.toLowerCase().includes(query));
     versionListEl.innerHTML = '';
@@ -7273,13 +7246,11 @@ function renderVersionList(filter) {
     item.addEventListener('click', () => {
       selectedVersion = v;
       currentSelectedLoader = activeLoader;
-      selectedInstanceName = ''; // это обычная сборка, а не модпак
+      selectedInstanceName = '';
       versionBtnLabel.textContent = `${loader.label} ${v}`;
       saveLastSelection();
       closeDropdown();
-      // Явный выбор новой версии/загрузчика — ошибка или прогресс от
-      // предыдущей попытки запуска больше не актуальны, прячем их сразу,
-      // а не ждём следующего клика по "Играть".
+
       setLaunchProgress(false, 0, '');
     });
     versionListEl.appendChild(item);
@@ -7313,11 +7284,7 @@ versionDropdown.addEventListener('click', (e) => e.stopPropagation());
 document.addEventListener('click', () => closeDropdown());
 
 // ============================================
-// Сборки — реальные установленные модпаки (созданные игроком через
-// "+ Создать модпак" или установленные из каталога Modrinth/CurseForge).
-// Модпаки хранятся в localStorage (сами моды физически лежат в
-// instances/<name>/mods на диске, localStorage хранит только метаданные
-// для отрисовки карточек и повторного запуска без переустановки).
+
 // ============================================
 const MODPACKS_KEY = 'magma_modpacks';
 
@@ -7385,7 +7352,6 @@ function renderInstances() {
     }
   });
 
-
   const newCard = document.createElement('div');
   newCard.className = 'instance-card is-new';
   newCard.innerHTML = `<span class="plus">+</span><span>${t('instances.newCard')}</span>`;
@@ -7417,15 +7383,11 @@ async function removeInstanceEverywhere(pack) {
 }
 
 document.getElementById('newInstanceBtn')?.addEventListener('click', openModpackModal);
-// Та же модалка "Создать модпак", но кнопка вызова живёт во вкладке "Моды" —
-// раньше у неё не было обработчика вообще, поэтому нажатие ничего не делало.
+
 document.getElementById('createModpackBtn')?.addEventListener('click', openModpackModal);
 
 // ============================================
-// Модалка "Моды сборки" — открывается кликом по карточке в "Мои сборки".
-// Показывает реальное содержимое instances/<name>/mods (включить/отключить/
-// удалить, как в общей вкладке "Мои моды"), плюс кнопка "Добавить моды",
-// которая переключает во вкладку "Моды" с уже выбранным этим модпаком.
+
 // ============================================
 const instanceModsOverlay = document.getElementById('instanceModsOverlay');
 const instanceModsClose = document.getElementById('instanceModsClose');
@@ -7439,25 +7401,50 @@ instanceModsOverlay?.addEventListener('click', (e) => { if (e.target === instanc
 instanceModsDeleteBtnEl?.addEventListener('click', async () => {
   const pack = currentInstanceModsPack;
   if (!pack) return;
-  const msg = t('instance.confirmDelete').replace('{name}', pack.name);
-  if (!window.confirm(msg)) return;
   closeInstanceModsModal();
   await removeInstanceEverywhere(pack);
 });
 
 let currentInstanceModsPack = null;
+let instanceModsCategory = 'mod';
+
+function instanceContentDir(pack, category) {
+  const gameDir = getGameDir();
+  const cat = MODS_CATEGORIES.find(c => c.id === category) || MODS_CATEGORIES[0];
+  return `${gameDir}\\instances\\${pack.name}\\${cat.dirName}`;
+}
 
 function instanceModsDir(pack) {
-  const gameDir = getGameDir();
-  return `${gameDir}\\instances\\${pack.name}\\mods`;
+  return instanceContentDir(pack, 'mod');
+}
+
+function renderInstanceModsCategoryTabs() {
+  const wrap = document.getElementById('instanceModsCategoryTabs');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  MODS_CATEGORIES.forEach(cat => {
+    const tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = 'mods-category-tab' + (cat.id === instanceModsCategory ? ' is-active' : '');
+    tab.textContent = t(cat.i18nKey);
+    tab.addEventListener('click', () => {
+      if (instanceModsCategory === cat.id || !currentInstanceModsPack) return;
+      instanceModsCategory = cat.id;
+      renderInstanceModsCategoryTabs();
+      loadInstanceModsList(currentInstanceModsPack);
+    });
+    wrap.appendChild(tab);
+  });
 }
 
 async function openInstanceModsModal(pack) {
   currentInstanceModsPack = pack;
+  instanceModsCategory = 'mod';
   if (instanceModsTitleEl) instanceModsTitleEl.textContent = `${t('instance.modsTitle')} — ${pack.name}`;
   if (instanceModsAddBtn) instanceModsAddBtn.textContent = t('instance.addMods');
   const deleteBtnEl = document.getElementById('instanceModsDeleteBtn');
   if (deleteBtnEl) deleteBtnEl.textContent = t('instance.deleteBtn');
+  renderInstanceModsCategoryTabs();
   instanceModsOverlay?.classList.add('is-open');
   await loadInstanceModsList(pack);
 }
@@ -7469,6 +7456,29 @@ function closeInstanceModsModal() {
 
 async function loadInstanceModsList(pack) {
   if (!instanceModsListEl) return;
+  const dir = instanceContentDir(pack, instanceModsCategory);
+
+  if (instanceModsCategory === 'map') {
+    if (typeof window.listMapFolders !== 'function') {
+      instanceModsListEl.innerHTML = `<div class="mod-list-hint">${t('mods.devModeHint')}</div>`;
+      return;
+    }
+    instanceModsListEl.innerHTML = `<div class="mod-list-hint">${t('mods.searching')}</div>`;
+    try {
+      const raw = await window.listMapFolders({ dir });
+      const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (!result.success) {
+        instanceModsListEl.innerHTML = `<div class="mod-list-hint">${translateBackendError(result.error) || t('mods.installed.loadError')}</div>`;
+        return;
+      }
+      renderInstanceMapFoldersList((result.folders || []).filter(f => !f.startsWith('.') && f !== 'manual_import_tmp'), dir, pack);
+    } catch (err) {
+      console.error('[MagmaLauncher] Не удалось прочитать карты сборки:', err);
+      instanceModsListEl.innerHTML = `<div class="mod-list-hint">${t('mods.installed.loadError')}</div>`;
+    }
+    return;
+  }
+
   if (typeof window.listModsInDir !== 'function') {
     instanceModsListEl.innerHTML = `<div class="mod-list-hint">${t('mods.devModeHint')}</div>`;
     return;
@@ -7476,115 +7486,190 @@ async function loadInstanceModsList(pack) {
   instanceModsListEl.innerHTML = `<div class="mod-list-hint">${t('mods.searching')}</div>`;
 
   try {
-    const dir = instanceModsDir(pack);
+    const extPattern = instanceModsCategory === 'mod' ? /\.jar(\.disabled)?$/i : /\.zip(\.disabled)?$/i;
     const raw = await window.listModsInDir({ dir });
     const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (!result.success) {
       instanceModsListEl.innerHTML = `<div class="mod-list-hint">${translateBackendError(result.error) || t('mods.installed.loadError')}</div>`;
       return;
     }
-    const files = (result.files || []).filter(f => /\.jar(\.disabled)?$/i.test(f));
+    const files = (result.files || []).filter(f => extPattern.test(f));
     renderInstanceModsList(files, dir, pack);
   } catch (err) {
-    console.error('[MagmaLauncher] Не удалось прочитать моды сборки:', err);
+    console.error('[MagmaLauncher] Could not read the mods directory:', err);
     instanceModsListEl.innerHTML = `<div class="mod-list-hint">${t('mods.installed.loadError')}</div>`;
   }
 }
 
-async function renderInstanceModsList(files, dir, pack) {
+function renderInstanceMapFoldersList(folders, dir, pack) {
+  hideJsTooltip();
   instanceModsListEl.innerHTML = '';
-  if (files.length === 0) return;
 
-  files.sort((a, b) => modDisplayNameFromFile(a).localeCompare(modDisplayNameFromFile(b)));
-
-  const cardsMeta = [];
-  const seen = new Set();
-
-  files.forEach(filename => {
-    const isDisabled = /\.disabled$/i.test(filename);
-    const baseName = modDisplayNameFromFile(filename);
-    const key = normalizeTitleKey(baseName);
-
-    if (seen.has(key)) return;
-    seen.add(key);
-
-    const slug = findSlugForFilename(filename);
+  if (!folders.length) {
+    const empty = document.createElement('div');
+    empty.className = 'mod-list-empty';
+    empty.textContent = instanceModsInstalledEmptyLabel();
+    instanceModsListEl.appendChild(empty);
+    return;
+  }
+  folders.slice().sort((a, b) => a.localeCompare(b)).forEach(folderName => {
+    const meta = getMapMeta(folderName);
+    const displayName = (meta && meta.title) || stripMcColorCodes(folderName) || folderName;
+    const iconHtml = meta && meta.icon_url
+      ? `<img src="${meta.icon_url}" alt="">`
+      : (displayName.charAt(0) || '?').toUpperCase();
     const card = document.createElement('div');
-    card.className = 'installed-mod-card' + (isDisabled ? ' is-disabled' : '');
+    card.className = 'installed-mod-card';
     card.innerHTML = `
-      <div class="installed-mod-icon">${(baseName.charAt(0) || '?').toUpperCase()}</div>
+      <div class="installed-mod-icon">${iconHtml}</div>
       <div class="installed-mod-info">
-        <div class="installed-mod-name">
-          <span class="installed-mod-name-text">${baseName}</span>
-        </div>
-        ${isDisabled ? `<div class="installed-mod-status">${t('mods.installed.disabled')}</div>` : ''}
+        <div class="installed-mod-name">${displayName} <span class="installed-mod-version-tag">(${pack.mcVersion})</span></div>
       </div>
       <div class="installed-mod-actions">
-        <button type="button" class="installed-mod-btn${isDisabled ? ' is-enable' : ''}">
-          ${isDisabled
-            ? `<svg viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg><span>${t('mods.installed.enable')}</span>`
-            : `<svg viewBox="0 0 24 24"><path d="M12 4v16M4 12h16" transform="rotate(45 12 12)"/></svg><span>${t('mods.installed.disable')}</span>`}
-        </button>
-        <button type="button" class="installed-mod-btn is-delete" data-tooltip="${t('mods.installed.delete')}">
-          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
+        <button type="button" class="installed-mod-btn is-delete" data-tooltip="${t('mods.installed.delete')}" data-tooltip-align="top">
+          <svg viewBox="0 0 24 24"><path d="M6 7h12M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0 1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>
         </button>
       </div>
     `;
 
-    const toggleBtn = card.querySelector('.installed-mod-btn:not(.is-delete)');
-    toggleBtn.addEventListener('click', async () => {
-      if (typeof window.toggleModFile !== 'function') return;
-      toggleBtn.disabled = true;
+    card.querySelector('.installed-mod-btn.is-delete').addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      if (typeof window.deleteMapFolder !== 'function') return;
+      btn.disabled = true;
       try {
-        const raw = await window.toggleModFile({ dir, filename });
+        const raw = await window.deleteMapFolder({ dir, folder: folderName });
         const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
         if (!result.success) throw new Error(translateBackendError(result.error) || t('auth.magma.genericError'));
-        await loadInstanceModsList(pack);
+        removeMapMeta(folderName);
+        loadInstanceModsList(pack);
       } catch (err) {
-        console.error('[MagmaLauncher] Не удалось переключить мод сборки:', err);
-        toggleBtn.disabled = false;
-      }
-    });
-
-    const deleteBtn = card.querySelector('.installed-mod-btn.is-delete');
-    deleteBtn.addEventListener('click', async () => {
-      if (typeof window.deleteModFile !== 'function') return;
-      deleteBtn.disabled = true;
-      try {
-        const raw = await window.deleteModFile({ dir, filename });
-        const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        if (!result.success) throw new Error(translateBackendError(result.error) || t('auth.magma.genericError'));
-        if (slug) unmarkModInstalled('fabric', pack.mcVersion, slug, pack.name);
-        await loadInstanceModsList(pack);
-      } catch (err) {
-        console.error('[MagmaLauncher] Не удалось удалить мод сборки:', err);
-        deleteBtn.disabled = false;
+        console.error('[MagmaLauncher] Не удалось удалить карту сборки:', err);
+        btn.disabled = false;
       }
     });
 
     instanceModsListEl.appendChild(card);
-    cardsMeta.push({ card, filename, slug });
   });
-
-  runWithConcurrencyLimit(cardsMeta, async ({ card, filename, slug }) => {
-    const info = slug
-      ? await fetchModTitleAndIcon(slug).catch(() => null)
-      : await guessModTitleAndIcon(filename).catch(() => null);
-    if (!info) return;
-
-    const nameEl = card.querySelector('.installed-mod-name-text');
-    const iconEl = card.querySelector('.installed-mod-icon');
-    if (nameEl) nameEl.textContent = info.title;
-    if (iconEl && info.icon_url) iconEl.innerHTML = `<img src="${info.icon_url}" alt="">`;
-  }, 5);
 }
 
+let instanceModsRenderId = 0;
+
+function buildInstanceModCard(entry, dir, pack) {
+  const { filename, isDisabled, baseName, slug } = entry;
+  const card = document.createElement('div');
+  card.className = 'installed-mod-card' + (isDisabled ? ' is-disabled' : '');
+  card.innerHTML = `
+    <div class="installed-mod-icon">${(baseName.charAt(0) || '?').toUpperCase()}</div>
+    <div class="installed-mod-info">
+      <div class="installed-mod-name"><span class="installed-mod-name-text">${baseName}</span></div>
+      ${isDisabled ? `<div class="installed-mod-status">${t('mods.installed.disabled')}</div>` : ''}
+    </div>
+    <div class="installed-mod-actions">
+      <button type="button" class="installed-mod-btn${isDisabled ? ' is-enable' : ''}">
+        ${isDisabled
+          ? `<svg viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg><span>${t('mods.installed.enable')}</span>`
+          : `<svg viewBox="0 0 24 24"><path d="M12 4v16M4 12h16" transform="rotate(45 12 12)"/></svg><span>${t('mods.installed.disable')}</span>`}
+      </button>
+      <button type="button" class="installed-mod-btn is-delete" data-tooltip="${t('mods.installed.delete')}" data-tooltip-align="top">
+        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
+      </button>
+    </div>`;
+
+  const toggleBtn = card.querySelector('.installed-mod-btn:not(.is-delete)');
+  toggleBtn.addEventListener('click', async () => {
+    if (typeof window.toggleModFile !== 'function') return;
+    toggleBtn.disabled = true;
+    try {
+      const raw = await window.toggleModFile({ dir, filename });
+      const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (!result.success) throw new Error(translateBackendError(result.error) || t('auth.magma.genericError'));
+      await loadInstanceModsList(pack);
+    } catch (err) {
+      console.error('[MagmaLauncher] Не удалось переключить мод сборки:', err);
+      toggleBtn.disabled = false;
+    }
+  });
+
+  const deleteBtn = card.querySelector('.installed-mod-btn.is-delete');
+  deleteBtn.addEventListener('click', async () => {
+    if (typeof window.deleteModFile !== 'function') return;
+    deleteBtn.disabled = true;
+    try {
+      const raw = await window.deleteModFile({ dir, filename });
+      const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (!result.success) throw new Error(translateBackendError(result.error) || t('auth.magma.genericError'));
+      if (slug) unmarkModInstalled('fabric', pack.mcVersion, slug, pack.name);
+      await loadInstanceModsList(pack);
+    } catch (err) {
+      console.error('[MagmaLauncher] Не удалось удалить мод сборки:', err);
+      deleteBtn.disabled = false;
+    }
+  });
+  return card;
+}
+
+async function renderInstanceModsList(files, dir, pack) {
+  instanceModsListEl.innerHTML = '';
+  if (files.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'mod-list-empty';
+    empty.textContent = instanceModsInstalledEmptyLabel();
+    instanceModsListEl.appendChild(empty);
+    return;
+  }
+  const myRender = ++instanceModsRenderId;
+
+  files.sort((a, b) => modDisplayNameFromFile(a).localeCompare(modDisplayNameFromFile(b)));
+
+  const entries = [];
+  const seen = new Set();
+  files.forEach(filename => {
+    const baseName = modDisplayNameFromFile(filename);
+    const key = normalizeTitleKey(baseName);
+    if (seen.has(key)) return;
+    seen.add(key);
+    entries.push({ filename, baseName, isDisabled: /\.disabled$/i.test(filename), slug: findSlugForFilename(filename) });
+  });
+
+  const observer = new IntersectionObserver((items) => {
+    items.forEach(item => {
+      if (!item.isIntersecting) return;
+      const card = item.target;
+      observer.unobserve(card);
+      const e = card._entry;
+      const apply = (info) => {
+        if (!info) return;
+        const nameEl = card.querySelector('.installed-mod-name-text');
+        const iconEl = card.querySelector('.installed-mod-icon');
+        if (nameEl) nameEl.textContent = info.title;
+        if (iconEl && info.icon_url) iconEl.innerHTML = `<img src="${info.icon_url}" alt="" loading="lazy">`;
+      };
+      if (e.slug) fetchModTitleAndIcon(e.slug).then(apply).catch(() => {});
+      else apply(modGuessCache.get(e.filename));
+    });
+  }, { root: instanceModsOverlay.querySelector('.modal-panel'), rootMargin: '200px' });
+
+  const BATCH = 25;
+  for (let i = 0; i < entries.length; i += BATCH) {
+    if (myRender !== instanceModsRenderId) { observer.disconnect(); return; }
+    const frag = document.createDocumentFragment();
+    entries.slice(i, i + BATCH).forEach(e => {
+      const card = buildInstanceModCard(e, dir, pack);
+      card._entry = e;
+      frag.appendChild(card);
+      observer.observe(card);
+    });
+    instanceModsListEl.appendChild(frag);
+    await new Promise(r => requestAnimationFrame(r));
+  }
+}
 instanceModsAddBtn?.addEventListener('click', async () => {
   if (!currentInstanceModsPack) return;
   const pack = currentInstanceModsPack;
+  const category = instanceModsCategory;
   closeInstanceModsModal();
 
-  modsActiveCategory = 'mod';
+  modsActiveCategory = category;
   modsTargetLoader = 'modpacks';
   modsTargetNonModScope = 'modpack';
   modsTargetInstanceName = pack.name;
@@ -7595,13 +7680,14 @@ instanceModsAddBtn?.addEventListener('click', async () => {
   updateModsMyTabLabel();
 
   await switchToRailView('mods');
+  renderModsCategoryTabs();
 
   modsSubtabs.forEach(tb => tb.classList.toggle('is-active', tb.dataset.subtab === 'browse'));
   modsSubviews.forEach(v => v.classList.toggle('is-active', v.dataset.subview === 'browse'));
 });
 
 // ============================================
-// Вкладки "Мои сборки" / "Каталог" внутри раздела "Сборки".
+
 // ============================================
 const instancesSubtabs = document.querySelectorAll('.mods-subtab[data-instances-subtab]');
 const instancesSubviews = document.querySelectorAll('.mods-subview[data-instances-subview]');
@@ -7615,7 +7701,7 @@ instancesSubtabs.forEach(tab => {
   });
 });
 // ============================================
-// Главная: переключатель "Обзор" / "Обновления"
+
 // ============================================
 const homeSubtabs = document.querySelectorAll('.mods-subtab[data-home-subtab]');
 const homeSubviews = document.querySelectorAll('.mods-subview[data-home-subview]');
@@ -7631,10 +7717,7 @@ homeSubtabs.forEach(tab => {
 });
 
 // ============================================
-// Каталог готовых сборок — реальный поиск модпаков на Modrinth
-// (project_type=modpack) или CurseForge (classId=4471), с установкой через
-// installModpackFromCatalog (см. launcher_core.cpp — полноценно распаковывает
-// .mrpack/CurseForge-манифест, докачивает все моды и копирует overrides).
+
 // ============================================
 const INSTANCES_CATALOG_CLASS_ID = 4471;
 let instancesCatalogSource = localStorage.getItem('magma_instances_catalog_source') || 'modrinth';
@@ -7663,7 +7746,6 @@ const instancesCatalogVersionLabel = document.getElementById('instancesCatalogVe
 const instancesCatalogVersionDropdown = document.getElementById('instancesCatalogVersionDropdown');
 const instancesCatalogVersionSearch = document.getElementById('instancesCatalogVersionSearch');
 const instancesCatalogVersionList = document.getElementById('instancesCatalogVersionList');
-
 
 if (instancesCatalogModrinthLogo) instancesCatalogModrinthLogo.innerHTML = MODRINTH_LOGO;
 if (instancesCatalogCurseForgeLogo) instancesCatalogCurseForgeLogo.innerHTML = CURSEFORGE_LOGO;
@@ -7754,7 +7836,14 @@ function renderInstancesCatalogSortList() {
   });
 }
 
+function sanitizeInstanceName(name) {
+  let clean = (name || '').replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim();
+  clean = clean.replace(/[. ]+$/, '');
+  return clean || 'Modpack';
+}
+
 function uniqueInstanceName(baseName) {
+  baseName = sanitizeInstanceName(baseName);
   const existing = new Set(getModpacks().map(p => p.name));
   let candidate = baseName || 'Modpack';
   let i = 2;
@@ -7767,10 +7856,39 @@ function uniqueInstanceName(baseName) {
 
 const activeCatalogInstalls = new Map();
 
-window.__catalogModpackDone = function (data) {
+function requestCancelCatalogInstall(instanceName) {
+  const entry = activeCatalogInstalls.get(instanceName);
+  if (!entry || entry.cancelled) return;
+  entry.cancelled = true;
+  if (entry.cancelBtn) entry.cancelBtn.disabled = true;
+  if (entry.btn) entry.btn.textContent = '…';
+  const send = () => { if (typeof window.cancelLaunch === 'function') window.cancelLaunch().catch(() => {}); };
+  send();
+  entry.cancelTimer = setInterval(send, 500);
+}
+
+window.__catalogModpackDone = async function (data) {
   const entry = activeCatalogInstalls.get(data.instanceName);
   activeCatalogInstalls.delete(data.instanceName);
   const importStatusEl = document.getElementById('importInstanceStatus');
+
+  if (entry && entry.cancelTimer) clearInterval(entry.cancelTimer);
+  if (entry && entry.cancelBtn) entry.cancelBtn.remove();
+
+  const wasCancelled = !data.success && (data.error === 'CANCELLED' || (entry && entry.cancelled));
+
+  if (wasCancelled) {
+    if (typeof window.deleteInstance === 'function') {
+      try { await window.deleteInstance({ name: data.instanceName, gameDir: getGameDir() }); } catch {}
+    }
+    if (entry && entry.btn) {
+      entry.btn.disabled = false;
+      entry.btn.classList.remove('is-loading');
+      entry.btn.textContent = t('mods.install');
+    }
+    if (importStatusEl) importStatusEl.textContent = '';
+    return;
+  }
 
   if (data.success) {
     saveModpack({
@@ -7791,13 +7909,9 @@ window.__catalogModpackDone = function (data) {
     const btn = entry.btn;
     btn.classList.remove('is-loading');
     const original = t('mods.install');
-    const shortError = (translateBackendError(data.error) || t('auth.magma.genericError')).slice(0, 60);
-    btn.textContent = shortError;
+    btn.textContent = (translateBackendError(data.error) || t('auth.magma.genericError')).slice(0, 60);
     console.error('[MagmaLauncher] Ошибка установки сборки из каталога:', data.error);
-    setTimeout(() => {
-      btn.disabled = false;
-      btn.textContent = original;
-    }, 4000);
+    setTimeout(() => { btn.disabled = false; btn.textContent = original; }, 4000);
   } else if (importStatusEl) {
     importStatusEl.textContent = translateBackendError(data.error) || t('auth.magma.genericError');
   }
@@ -7805,10 +7919,50 @@ window.__catalogModpackDone = function (data) {
 
 function reportCatalogInstallProgress(data) {
   activeCatalogInstalls.forEach(entry => {
+    if (entry.cancelled) return;
     if (entry.btn && !entry.btn.classList.contains('is-installed')) {
       entry.btn.textContent = Math.round((data.progress || 0) * 100) + '%';
     }
   });
+}
+
+async function installCatalogModpack(hit, btn) {
+  if (typeof window.installModpackFromCatalog !== 'function') {
+    btn.textContent = t('mods.devOnlyExe');
+    return;
+  }
+  const id = instancesCatalogSource === 'curseforge' ? String(hit.curseforgeId) : hit.modrinthSlug;
+  if (!id) return;
+
+  const instanceName = uniqueInstanceName(hit.title || 'Modpack');
+  btn.disabled = true;
+  btn.classList.add('is-loading');
+  btn.textContent = t('mods.installing');
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'mod-cancel-btn';
+  cancelBtn.textContent = t('launch.cancelBtn');
+  cancelBtn.addEventListener('click', (e) => { e.stopPropagation(); requestCancelCatalogInstall(instanceName); });
+  btn.insertAdjacentElement('afterend', cancelBtn);
+
+  activeCatalogInstalls.set(instanceName, { btn, cancelBtn, iconUrl: hit.icon_url || '', cancelled: false, cancelTimer: null });
+
+  try {
+    const raw = await window.installModpackFromCatalog({
+      source: instancesCatalogSource, id, version: instancesCatalogVersion,
+      instanceName, gameDir: getGameDir(),
+    });
+    const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!result.started) throw new Error(translateBackendError(result.error) || t('auth.magma.genericError'));
+  } catch (err) {
+    console.error('[MagmaLauncher] Ошибка установки сборки из каталога:', err);
+    activeCatalogInstalls.delete(instanceName);
+    cancelBtn.remove();
+    btn.disabled = false;
+    btn.classList.remove('is-loading');
+    btn.textContent = t('mods.install');
+  }
 }
 
 async function installCatalogModpack(hit, btn) {
@@ -7938,8 +8092,6 @@ async function runInstancesCatalogSearch(page) {
   }
 }
 
-// Запуск модпака: подставляем его данные как текущий выбор и дёргаем обычную
-// кнопку "Играть" — переиспользуем весь существующий прогресс-бар/логику паузы/отмены.
 function launchModpack(pack) {
   selectedVersion = pack.mcVersion;
   currentSelectedLoader = pack.loader;
@@ -7954,47 +8106,21 @@ function launchModpack(pack) {
 }
 
 // ============================================
-// Моды — поиск на Modrinth и установка либо "просто в mods/", либо в состав
-// модпака (внутри модалки создания модпака, см. ниже).
+
 // ============================================
 const modList = document.getElementById('modList');
 const modSearch = document.getElementById('modSearch');
 
-// Настоящие логотипы Modrinth/CurseForge — файлы лежат в frontend/assets/
-// (кладутся рядом с index.html, путь относительный, как и у CSS/JS).
-// Настоящие логотипы Modrinth/CurseForge. ВАЖНО: папка assets/ лежит РЯДОМ
-// с frontend/ (сестринская папка в корне проекта), а не внутри неё — значит
-// из index.html (который лежит в frontend/index.html) путь должен идти на
-// уровень выше: "../assets/...", а не "assets/...". Если позже перенесёшь
-// assets/ внутрь frontend/, поменяй путь обратно на "assets/...".
-
-
-// Источники модов теперь ВЗАИМОИСКЛЮЧАЮЩИЕ: либо только Modrinth, либо
-// только CurseForge, никогда оба одновременно. Раньше оба были включены по
-// умолчанию и результаты сливались в один список с дедупликацией по
-// названию — из-за этого часть модов, которые технически были только на
-// CurseForge, "терялись" внутри слияния, а общее число страниц считалось по
-// смеси двух разных totalCount, из-за чего пагинация не отражала реальное
-// количество модов ни одного из источников. Теперь список строится 1:1 из
-// API выбранного источника — что видно, то и есть на самом деле.
 // ============================================
-// Категория контента внутри раздела "Моды": Моды / Ресурс-паки / Шейдеры /
-// Карты. Модпаки ("сборки") сюда не входят — они в отдельном разделе
-// "Сборки" в левом рейле.
+
 //
-// curseforgeClassId — числовой classId CurseForge для этого типа контента
-// (6 = моды, 12 = ресурс-паки, 17 = карты/миры); null — для этого типа
-// CurseForge не поддержан на их стороне (шейдеры у CurseForge не выделены
-// в отдельную категорию), тогда переключатель источника скрывается и всегда
-// используется Modrinth. modrinthSupported=false — обратный случай (у
-// Modrinth в принципе нет типа "карта/мир" как отдельного project_type),
-// тогда переключатель тоже скрывается и всегда используется CurseForge.
+
 // ============================================
 const MODS_CATEGORIES = [
   { id: 'mod',          i18nKey: 'mods.category.mods',          projectType: 'mod',          dirName: 'mods',          curseforgeClassId: 6,    modrinthSupported: true },
   { id: 'resourcepack', i18nKey: 'mods.category.resourcepacks', projectType: 'resourcepack', dirName: 'resourcepacks', curseforgeClassId: 12,   modrinthSupported: true },
   { id: 'shader',       i18nKey: 'mods.category.shaders',       projectType: 'shader',       dirName: 'shaderpacks',   curseforgeClassId: null, modrinthSupported: true },
-  { id: 'map',          i18nKey: 'mods.category.maps',          projectType: null,           dirName: 'maps',         curseforgeClassId: 17,   modrinthSupported: false },
+  { id: 'map',          i18nKey: 'mods.category.maps',          projectType: null,           dirName: 'saves',         curseforgeClassId: 17,   modrinthSupported: false },
 ];
 
 const MODS_ACTIVE_CATEGORY_KEY = 'magma_mods_active_category';
@@ -8007,6 +8133,14 @@ function currentCategoryDef() {
 const MODS_INSTALL_TARGET_PARTS = {
   ru: { prefix: 'Ставим ', suffix: ' под:' },
   en: { prefix: 'Installing ', suffix: ' for:' },
+  uk: { prefix: 'Встановлюємо ', suffix: ' під:' },
+  fr: { prefix: 'Installation ', suffix: ' pour :' },
+  de: { prefix: 'Installiere ', suffix: ' für:' },
+  es: { prefix: 'Instalando ', suffix: ' para:' },
+  'es-ES': { prefix: 'Instalando ', suffix: ' para:' },
+  it: { prefix: 'Installazione ', suffix: ' per:' },
+  pt: { prefix: 'Instalando ', suffix: ' para:' },
+  id: { prefix: 'Memasang ', suffix: ' untuk:' },
 };
 
 function modsInstallTargetLabel() {
@@ -8023,6 +8157,14 @@ function updateModsInstallTargetLabel() {
 const MODS_SEARCHING_PARTS = {
   ru: { prefix: 'Ищем ', suffix: '...' },
   en: { prefix: 'Searching ', suffix: '...' },
+  uk: { prefix: 'Шукаємо ', suffix: '...' },
+  fr: { prefix: 'Recherche ', suffix: '...' },
+  de: { prefix: 'Suche ', suffix: '...' },
+  es: { prefix: 'Buscando ', suffix: '...' },
+  'es-ES': { prefix: 'Buscando ', suffix: '...' },
+  it: { prefix: 'Ricerca ', suffix: ' in corso...' },
+  pt: { prefix: 'Buscando ', suffix: '...' },
+  id: { prefix: 'Mencari ', suffix: '...' },
 };
 
 function modsSearchingLabel() {
@@ -8043,8 +8185,17 @@ function instancesSearchingLabel() {
 const MODS_MY_TAB_PREFIX = {
   ru: 'Мои ',
   en: 'My ',
+  uk: 'Мої ',
+  fr: 'Mes ',
+  de: 'Meine ',
+  es: 'Mis ',
+  'es-ES': 'Mis ',
+  it: 'I miei ',
+  pt: 'Meus ',
+  ja: 'マイ',
+  ko: '내 ',
+  hi: 'मेरे ',
 };
-
 function modsMyTabLabel() {
   const prefix = MODS_MY_TAB_PREFIX[currentLang];
   if (!prefix) return t('mods.tab.installed');
@@ -8060,12 +8211,30 @@ function updateModsMyTabLabel() {
 const MODS_INSTALLED_EMPTY_SUFFIX = {
   ru: ' ещё не установлены',
   en: ' not installed yet',
+  uk: ' ще не встановлено',
+  fr: ' ne sont pas encore installés',
+  de: ' sind noch nicht installiert',
+  es: ' aún no están instalados',
+  'es-ES': ' aún no están instalados',
+  it: ' non sono ancora installati',
+  pt: ' ainda não instalados',
+  ja: 'はまだインストールされていません',
+  ko: '가 아직 설치되지 않았습니다',
+  hi: ' अभी तक इंस्टॉल नहीं हुए',
+  id: ' belum terinstal',
 };
 
 function modsInstalledEmptyLabel() {
   const suffix = MODS_INSTALLED_EMPTY_SUFFIX[currentLang];
   if (!suffix) return t('mods.installed.empty');
   return t(currentCategoryDef().i18nKey) + suffix;
+}
+
+function instanceModsInstalledEmptyLabel() {
+  const suffix = MODS_INSTALLED_EMPTY_SUFFIX[currentLang];
+  const cat = MODS_CATEGORIES.find(c => c.id === instanceModsCategory) || MODS_CATEGORIES[0];
+  if (!suffix) return t('mods.installed.empty');
+  return t(cat.i18nKey) + suffix;
 }
 
 const MODS_ACTIVE_SOURCE_KEY = 'magma_mods_active_source';
@@ -8151,17 +8320,11 @@ function sortUnifiedHits(hits, sortBy) {
   return arr;
 }
 
-// Независимый от героя выбор "под какую версию/загрузчик ставим моды" —
-// у обычной установки модов (не через модпак) он свой.
 let modsTargetLoader = 'fabric';
 let modsTargetVersion = VERSIONS[0];
-// Непусто, если во вкладке "Моды" выбран не голый загрузчик/версия, а
-// конкретный модпак — тогда моды ставятся в instances/<name>/mods, а не в
-// общий gameDir/mods, и "Мои моды" показывает содержимое именно этой папки.
+
 let modsTargetInstanceName = '';
-// Для категорий без загрузчика (ресурс-паки/шейдеры/карты) не рисуются
-// полноценные "лоадер-табы" — вместо этого простой переключатель "Обычная
-// игра" / "Модпак" ниже, использующий тот же modsTargetInstanceName.
+
 let modsTargetNonModScope = 'vanilla'; // 'vanilla' | 'modpack'
 
 function isModpackScopeActive() {
@@ -8172,14 +8335,8 @@ function hasSelectedModpackTarget() {
   return isModpackScopeActive() && !!modsTargetInstanceName;
 }
 
-// Загрузчик/версия, которые реально нужно слать в Modrinth API и на диск —
-// если выбран модпак, берём его loader/mcVersion, иначе то, что выбрано в
-// табах напрямую.
 function effectiveModsTargetLoader() {
-  // Вне категории "Моды" понятия загрузчика не существует — используем саму
-  // категорию как ключ хранения статуса "установлено" (см. комментарий у
-  // MODS_CATEGORIES выше), она так же однозначно разделяет записи между
-  // ресурс-паками/дата-паками/шейдерами.
+
   if (modsActiveCategory !== 'mod') return modsActiveCategory;
   if (isModpackScopeActive() && modsTargetInstanceName) {
     const pack = getModpacks().find(p => p.name === modsTargetInstanceName);
@@ -8196,10 +8353,7 @@ function effectiveModsTargetVersion() {
 }
 
 // ============================================
-// Память выбора во вкладке "Моды" — какой загрузчик/версия/модпак и какая
-// страница результатов были выбраны. Сохраняется в localStorage, поэтому
-// переживает и простое переключение вкладок, и полный перезапуск лаунчера
-// (restoreModsViewState() вызывается один раз при старте, см. конец файла).
+
 // ============================================
 const MODS_VIEW_STATE_KEY = 'magma_mods_view_state';
 
@@ -8225,7 +8379,7 @@ function restoreModsViewState() {
       const s = JSON.parse(raw);
        if (s) {
         if (s.loader === 'fabric' || s.loader === 'forge' || s.loader === 'neoforge' || s.loader === 'quilt' || s.loader === 'modpacks') modsTargetLoader = s.loader;
-       
+
         if (s.version && VERSIONS.includes(s.version)) modsTargetVersion = s.version;
         if (s.nonModScope === 'vanilla' || s.nonModScope === 'modpack') modsTargetNonModScope = s.nonModScope;
         if (s.instanceName && getModpacks().some(p => p.name === s.instanceName)) modsTargetInstanceName = s.instanceName;
@@ -8236,12 +8390,7 @@ function restoreModsViewState() {
   } catch (err) {
     console.error('[MagmaLauncher] Не удалось восстановить состояние вкладки Моды:', err);
   }
- 
-  // ВАЖНО: modFilterSourceModrinth/CurseForge при своём объявлении ниже по файлу
-  // ставят чекбокс по умолчанию ("Modrinth") ДО того, как эта функция реально
-  // восстановит modsActiveSource из localStorage — без этой синхронизации список
-  // модов после перезапуска лаунчера грузился из восстановленного источника,
-  // а сам переключатель в фильтре продолжал показывать невосстановленное значение.
+
   if (modFilterSourceModrinth) modFilterSourceModrinth.checked = modsActiveSource === 'modrinth';
   if (modFilterSourceCurseForge) modFilterSourceCurseForge.checked = modsActiveSource === 'curseforge';
 }
@@ -8266,11 +8415,7 @@ function syncModsTargetVersionLabel() {
 }
 
 // ============================================
-// Переключатель категорий раздела "Моды" (Моды / Ресурс-паки / Шейдеры /
-// Карты) — управляет тем, какие элементы шапки видны: у ресурс-паков/
-// шейдеров/карт нет понятия "загрузчик", а источник (Modrinth/CurseForge)
-// доступен только там, где его реально поддерживает бэкенд (см.
-// MODS_CATEGORIES выше).
+
 // ============================================
 const modsCategoryTabsEl = document.getElementById('modsCategoryTabs');
 const modsBrowseSubviewEl = document.querySelector('.mods-subview[data-subview="browse"]');
@@ -8317,17 +8462,19 @@ function renderNewsFeed() {
 }
 
 async function loadNewsFeed() {
-  try {
-    const resp = await fetch(NEWS_FEED_URL, { cache: 'no-store' });
-    if (!resp.ok) return;
-    const items = await resp.json();
-    if (Array.isArray(items) && items.length) {
-      newsFeedCache = items;
-      renderNewsFeed();
-    }
-  } catch (err) {
-    console.error('[MagmaLauncher] Не удалось загрузить новости:', err);
-  }
+try {
+const resp = await fetch(NEWS_FEED_URL, { cache: 'no-store' });
+if (!resp.ok) return;
+const items = await resp.json();
+if (Array.isArray(items) && items.length) {
+newsFeedCache = items;
+
+applyLanguage(currentLang);
+renderNewsFeed();
+}
+} catch (err) {
+console.error('[MagmaLauncher] Не удалось загрузить новости:', err);
+}
 }
 
 function resetInstancesViewHeaderTitle() {
@@ -8470,8 +8617,6 @@ async function autoUpdateOnBoot() {
     const installResult = typeof installRaw === 'string' ? JSON.parse(installRaw) : installRaw;
     if (!installResult.started) return false;
 
-    // Приложение закроет само себя (CefQuitMessageLoop после успешной
-    // установки) и перезапустится через .bat — просто держим сплеш открытым.
     await new Promise(() => {});
   } catch (err) {
     console.error('[MagmaLauncher] Автообновление при запуске не удалось:', err);
@@ -8503,11 +8648,6 @@ function openMergedInstancesView() {
 
   mergedInstancesOpen = true;
 
-  // ВАЖНО: сначала полностью собираем разметку "Сборок" (переносим панель
-  // категорий, меняем заголовок, рендерим табы) и только ПОТОМ показываем
-  // саму вкладку — раньше порядок был обратный, из-за чего один кадр
-  // рисовался ещё без перенесённой панели, а следующий — уже с ней,
-  // и это ощущалось как лёгкий скачок экрана.
   const instancesView = document.querySelector('.view[data-view="instances"]');
   const instancesHeader = instancesView ? instancesView.querySelector('.view-header') : null;
   if (modsCategoryTabsEl && instancesView && instancesHeader) {
@@ -8548,13 +8688,6 @@ function switchModsCategory(categoryId) {
   modsActiveCategory = categoryId;
   renderModsCategoryTabs();
 
-  // Раньше здесь безусловно сбрасывался modsTargetInstanceName при уходе из
-  // категории "Моды" — из-за этого выбор модпака "слетал" даже при простом
-  // переключении между ресурс-паками/шейдерами/картами. Теперь instanceName
-  // используется только когда реально активен режим "Модпак" (см.
-  // isModpackScopeActive), поэтому переключать категории можно без потери
-  // выбранного модпака.
-
   const cat = currentCategoryDef();
   if (!cat.modrinthSupported) modsActiveSource = 'curseforge';
   else if (!cat.curseforgeClassId && modsActiveSource === 'curseforge') modsActiveSource = 'modrinth';
@@ -8586,6 +8719,50 @@ const MODS_SOURCE_UNSUPPORTED_TEXT = {
     modrinth: "Modrinth doesn't support maps — only CurseForge is available.",
     curseforge: "CurseForge doesn't support shaders — only Modrinth is available.",
   },
+  uk: {
+    modrinth: 'Modrinth не підтримує карти — доступний лише CurseForge.',
+    curseforge: 'CurseForge не підтримує шейдери — доступний лише Modrinth.',
+  },
+  fr: {
+    modrinth: "Modrinth ne prend pas en charge les cartes — seul CurseForge est disponible.",
+    curseforge: "CurseForge ne prend pas en charge les shaders — seul Modrinth est disponible.",
+  },
+  de: {
+    modrinth: 'Modrinth unterstützt keine Karten — nur CurseForge ist verfügbar.',
+    curseforge: 'CurseForge unterstützt keine Shader — nur Modrinth ist verfügbar.',
+  },
+  es: {
+    modrinth: 'Modrinth no admite mapas — solo CurseForge está disponible.',
+    curseforge: 'CurseForge no admite shaders — solo Modrinth está disponible.',
+  },
+  'es-ES': {
+    modrinth: 'Modrinth no admite mapas — solo CurseForge está disponible.',
+    curseforge: 'CurseForge no admite shaders — solo Modrinth está disponible.',
+  },
+  it: {
+    modrinth: 'Modrinth non supporta le mappe — è disponibile solo CurseForge.',
+    curseforge: 'CurseForge non supporta gli shader — è disponibile solo Modrinth.',
+  },
+  pt: {
+    modrinth: 'O Modrinth não é compatível com mapas — apenas o CurseForge está disponível.',
+    curseforge: 'O CurseForge não é compatível com shaders — apenas o Modrinth está disponível.',
+  },
+  ja: {
+    modrinth: 'Modrinthはマップに対応していません — CurseForgeのみ利用できます。',
+    curseforge: 'CurseForgeはシェーダーに対応していません — Modrinthのみ利用できます。',
+  },
+  ko: {
+    modrinth: 'Modrinth는 맵을 지원하지 않습니다 — CurseForge만 사용할 수 있습니다.',
+    curseforge: 'CurseForge는 셰이더를 지원하지 않습니다 — Modrinth만 사용할 수 있습니다.',
+  },
+  hi: {
+    modrinth: 'Modrinth मैप सपोर्ट नहीं करता — केवल CurseForge उपलब्ध है।',
+    curseforge: 'CurseForge शेडर सपोर्ट नहीं करता — केवल Modrinth उपलब्ध है।',
+  },
+  id: {
+    modrinth: 'Modrinth tidak mendukung peta — hanya CurseForge yang tersedia.',
+    curseforge: 'CurseForge tidak mendukung shader — hanya Modrinth yang tersedia.',
+  },
 };
 
 function applyModsCategoryVisibility() {
@@ -8602,8 +8779,6 @@ function applyModsCategoryVisibility() {
     const sourceRowModrinth = modFilterSourceModrinth.closest('.mod-filter-source-row');
     const sourceRowCurseForge = modFilterSourceCurseForge.closest('.mod-filter-source-row');
 
-    // Обе строки всегда видны — недоступный источник не прячется, а
-    // становится серым и некликабельным, с пояснением почему.
     if (sourceRowModrinth) {
       sourceRowModrinth.style.display = '';
       sourceRowModrinth.classList.toggle('is-disabled', !modrinthOk);
@@ -8630,9 +8805,7 @@ function applyModsCategoryVisibility() {
 const createModpackBtnEl = document.getElementById('createModpackBtn');
 
 const MOD_LOADERS_ONLY = LOADERS.filter(l => l.id === 'fabric' || l.id === 'forge' || l.id === 'neoforge' || l.id === 'quilt');
-// Псевдо-таб "Modpacks" — те же данные, что и в hero-выборе версии, только
-// переключает панель "Моды" на установку внутрь конкретного созданного
-// модпака (instances/<name>/mods), а не в общую gameDir/mods.
+
 const MODPACKS_TARGET_TAB = LOADERS.find(l => l.id === 'modpacks');
 
 function renderModsTargetLoaderTabs() {
@@ -8772,9 +8945,6 @@ function renderModsTargetVersionList(filter) {
   });
 }
 
-// Ставит фиксированно-позиционированную панель (dropdown) ровно под кнопкой,
-// по которой кликнули, и подправляет её так, чтобы она не вылезала за
-// пределы окна лаунчера (окно небольшое, 800x600 по умолчанию).
 function positionDropdownNear(anchorBtn, dropdownEl) {
   dropdownEl.style.position = 'fixed';
   dropdownEl.style.right = 'auto';
@@ -8788,8 +8958,6 @@ function positionDropdownNear(anchorBtn, dropdownEl) {
   const height = dropdownEl.offsetHeight || 380;
   dropdownEl.style.maxHeight = Math.min(320, window.innerHeight - 16) + 'px';
 
-  // Открываем ВВЕРХ от кнопки — вниз список обычно накрывает соседние
-  // настройки страницы; вниз открываем только если сверху не помещается.
   let top = rect.top - height - 8;
   if (top < 8) top = rect.bottom + 8;
   if (top + height > window.innerHeight - 8) top = Math.max(8, window.innerHeight - height - 8);
@@ -8811,7 +8979,6 @@ modsTargetVersionSearch?.addEventListener('input', () => renderModsTargetVersion
 modsTargetVersionDropdown?.addEventListener('click', (e) => e.stopPropagation());
 document.addEventListener('click', () => modsTargetVersionDropdown?.classList.remove('is-open'));
 
-// Простая debounce-обёртка, чтобы не долбить Modrinth API на каждое нажатие клавиши.
 function debounce(fn, ms) {
   let timer = null;
   return (...args) => {
@@ -8866,7 +9033,7 @@ const iconHtml = hit.icon_url
           ${alreadyInstalled ? t('mods.added') : t('mods.install')}
         </button>
         ${alreadyInstalled && filename ? `
-        <button type="button" class="mod-uninstall-btn" data-tooltip="${t('mods.installed.delete')}">
+        <button type="button" class="mod-uninstall-btn" data-tooltip="${t('mods.installed.delete')}" data-tooltip-align="top">
           <svg viewBox="0 0 24 24"><path d="M6 7h12M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0 1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>
         </button>` : ''}
       </div>
@@ -8901,8 +9068,7 @@ if (cardIconImg) {
 }
 
 // ============================================
-// Модалка "О моде" — полное описание + статистика, тянется с Modrinth
-// по клику на карточку (getModDetails -> project endpoint).
+
 // ============================================
 const modDetailsOverlay = document.getElementById('modDetailsOverlay');
 const modDetailsClose = document.getElementById('modDetailsClose');
@@ -8915,22 +9081,10 @@ const modDetailsInstallBtn = document.getElementById('modDetailsInstallBtn');
 modDetailsClose?.addEventListener('click', () => modDetailsOverlay.classList.remove('is-open'));
 modDetailsOverlay?.addEventListener('click', (e) => { if (e.target === modDetailsOverlay) modDetailsOverlay.classList.remove('is-open'); });
 
-// Модринт отдаёт описание в markdown (поле body), и многие авторы модов
-// вперемешку с markdown вставляют сырой HTML прямо в тело (бейджи вида
-// [![Available on Fabric](url)](link), заголовки <h1 id="...">...</h1> и
-// т.п.) — это валидный приём в markdown (raw HTML проходит насквозь), но
-// самодельный regex-парсер, который был здесь раньше, такого не понимал и
-// просто показывал сырые теги/скобки текстом на экране. marked — обкатанный
-// markdown-парсер, который умеет и то, и другое правильно; DOMPurify после
-// него чистит результат от script/style/on*-обработчиков и javascript:-ссылок
-// перед вставкой в DOM. Ссылкам дополнительно проставляем target/rel, чтобы
-// клик по ним не пытался открыть новое окно самого WebView (см. обработчик
-// внешних ссылок ниже — openExternalLinksIn открывает их в системном браузере).
 function mdToSafeHtml(md) {
   if (!md) return '';
   if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
-    // CDN не загрузился (нет сети при первом запуске и т.п.) — показываем
-    // хотя бы неотформатированный текст, а не падаем с ошибкой.
+
     const esc = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     return `<p>${esc.replace(/\n/g, '<br>')}</p>`;
   }
@@ -8943,9 +9097,6 @@ function mdToSafeHtml(md) {
     FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form'],
   });
 
-  // DOMPurify не расставляет target/rel сам — делаем это отдельным проходом
-  // через реальный DOM, заодно навешивая класс на картинки для существующих
-  // CSS-правил .md-img.
   const container = document.createElement('div');
   container.innerHTML = clean;
   container.querySelectorAll('a[href]').forEach(a => {
@@ -8967,8 +9118,7 @@ let modDetailsRequestId = 0;
 function sanitizeCurseForgeHtml(html) {
   const raw = html || '';
   if (typeof DOMPurify === 'undefined') {
-    // Запасной путь на случай недоступного CDN — тот же список опасных
-    // конструкций, что чистил старый ручной вариант.
+
     return raw
       .replace(/<script[\s\S]*?<\/script>/gi, '')
       .replace(/ on[a-z]+="[^"]*"/gi, '')
@@ -9062,13 +9212,7 @@ async function openModDetails(hit, onInstall, alreadyInstalled) {
 }
 
 // ============================================
-// Отслеживание уже установленных модов.
-// Записи хранятся как {slug, filename} — filename нужен, чтобы позже сверить
-// с реальным содержимым mods/ на диске (см. reconcileInstalledMods ниже):
-// если игрок вручную удалил jar, бейдж "Добавлено" должен перестать врать.
-// Записи старого формата (просто строка-slug, без filename — до этого фикса)
-// оставляем как есть при сверке: раз имя файла неизвестно, проверить нечем,
-// но и удалять запись "на всякий случай" тоже неправильно.
+
 // ============================================
 const INSTALLED_MODS_KEY = 'magma_installed_mods';
 
@@ -9099,6 +9243,18 @@ function markModInstalled(loader, version, uid, filename, instanceName) {
 }
 
 async function fetchModsDirFiles(dirPath) {
+  if (modsActiveCategory === 'map') {
+    if (typeof window.listMapFolders !== 'function') return null;
+    try {
+      const raw = await window.listMapFolders({ dir: dirPath });
+      const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (!result.success) return null;
+      return new Set(result.folders || []);
+    } catch (err) {
+      console.error('[MagmaLauncher] Could not read the maps directory:', err);
+      return null;
+    }
+  }
   if (typeof window.listModsInDir !== 'function') return null;
   try {
     const raw = await window.listModsInDir({ dir: dirPath });
@@ -9159,34 +9315,30 @@ function unmarkModInstalled(loader, version, uid, instanceName) {
 let currentRecordUidByHitUid = new Map();
 
 async function modUninstallHandler(uid, filename, btn) {
-  if (!filename || typeof window.deleteModFile !== 'function') return;
+  if (!filename) return;
+  const isMap = modsActiveCategory === 'map';
+  if (isMap && typeof window.deleteMapFolder !== 'function') return;
+  if (!isMap && typeof window.deleteModFile !== 'function') return;
 
   btn.disabled = true;
   try {
-    const raw = await window.deleteModFile({ dir: currentContentDir(), filename });
+    const raw = isMap
+      ? await window.deleteMapFolder({ dir: currentContentDir(), folder: filename })
+      : await window.deleteModFile({ dir: currentContentDir(), filename });
     const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (!result.success) throw new Error(translateBackendError(result.error) || t('auth.magma.genericError'));
 
-    // Если карточка "установлена" была найдена не по своему точному uid, а
-    // по совпадению названия с записью другого источника (см.
-    // resolveCrossSourceMatch ниже), снимать статус нужно с ТОГО, настоящего
-    // uid записи — иначе запись в манифесте останется висеть навсегда.
+    if (isMap) removeMapMeta(filename);
+
     const recordUid = currentRecordUidByHitUid.get(uid) || uid;
     unmarkModInstalled(effectiveModsTargetLoader(), effectiveModsTargetVersion(), recordUid, modsTargetInstanceName);
     loadModsPage(modSearchPage);
   } catch (err) {
-    console.error('[MagmaLauncher] Не удалось удалить мод:', err);
+    console.error('[MagmaLauncher] Could not delete the mod:', err);
     btn.disabled = false;
   }
 }
 
-// Ищет среди уже установленных записей (в рамках текущей связки
-// загрузчик/версия/модпак) мод с таким же названием, но installед из
-// ДРУГОГО источника — используется в двух местах: чтобы не дать поставить
-// один и тот же мод дважды (findConflictingInstalledMod ниже дублирует
-// эту же проверку под установку) и чтобы карточка каталога показывала
-// "Добавлено" и кнопку удаления, даже если сам мод физически ставился не
-// с того источника, который сейчас выбран в фильтре (Modrinth/CurseForge).
 async function resolveCrossSourceMatch(hit, loader, version, instanceName) {
   const records = getInstalledModRecords(loader, version, instanceName);
   const targetKey = normalizeTitleKey(hit.title);
@@ -9209,12 +9361,6 @@ async function resolveCrossSourceMatch(hit, loader, version, instanceName) {
   return null;
 }
 
-// Если мод с таким же названием уже установлен из ДРУГОГО источника под ту
-// же версию/загрузчик/модпак — возвращает его uid (конфликт), иначе null.
-// Одна и та же игра не должна одновременно грузить, например, "Fabric API"
-// и с Modrinth, и с CurseForge — это реальный источник крашей. При смене
-// версии/загрузчика это ограничение снова не действует, так как проверка
-// выполняется в рамках конкретного scope (см. getInstalledModRecords).
 async function findConflictingInstalledMod(hit, loader, version, instanceName) {
   const match = await resolveCrossSourceMatch(hit, loader, version, instanceName);
   return match ? match.uid : null;
@@ -9238,7 +9384,7 @@ async function modInstallHandler(hit, btn) {
       return;
     }
   } catch (err) {
-    console.error('[MagmaLauncher] Не удалось проверить дубликаты модов:', err);
+    console.error('[MagmaLauncher] Could not check for duplicate mods:', err);
   }
 
   try {
@@ -9250,7 +9396,7 @@ async function modInstallHandler(hit, btn) {
     let res2;
     if (category.id !== 'mod') {
       if (hit.curseforgeId && typeof window.installContentCurseForge === 'function') {
-        const raw2 = await window.installContentCurseForge({ modId: String(hit.curseforgeId), version, targetDir: modsDir });
+       const raw2 = await window.installContentCurseForge({ modId: String(hit.curseforgeId), version, targetDir: modsDir, asMap: category.id === 'map' });
         res2 = typeof raw2 === 'string' ? JSON.parse(raw2) : raw2;
       } else if (hit.modrinthSlug && typeof window.installContent === 'function') {
         const raw2 = await window.installContent({ slug: hit.modrinthSlug, version, projectType: category.projectType, targetDir: modsDir });
@@ -9270,7 +9416,13 @@ async function modInstallHandler(hit, btn) {
 
     if (!res2.success) throw new Error(translateBackendError(res2.error) || t('auth.magma.genericError'));
 
-    markModInstalled(loader, version, hit.uid, res2.filename, modsTargetInstanceName);
+    if (category.id !== 'map') {
+      markModInstalled(loader, version, hit.uid, res2.filename, modsTargetInstanceName);
+    } else {
+
+      saveMapMeta(res2.filename, { title: hit.title, icon_url: hit.icon_url });
+      markModInstalled(loader, version, hit.uid, res2.filename, modsTargetInstanceName);
+    }
     btn.classList.remove('is-loading');
     btn.classList.add('is-installed');
     btn.disabled = true;
@@ -9288,7 +9440,7 @@ async function modInstallHandler(hit, btn) {
 const MODS_PAGE_SIZE = 20;
 let modSearchPage = 1;
 let modSearchTotalHits = 0;
-let modSearchRequestId = 0; // отбрасываем ответы устаревших запросов, если игрок быстро листает/меняет фильтры
+let modSearchRequestId = 0;
 
 const modListPaginationEl = document.getElementById('modListPagination');
 
@@ -9317,8 +9469,7 @@ function renderModsPagination(totalPages) {
     if (!opts.disabled && !opts.active) {
       b.addEventListener('click', () => {
         loadModsPage(page);
-        // Явный клик по странице — логично показать её с начала списка, а
-        // не оставлять прокрутку там, где была пагинация (внизу экрана).
+
         if (contentEl) contentEl.scrollTop = 0;
       });
     }
@@ -9327,8 +9478,6 @@ function renderModsPagination(totalPages) {
 
   modListPaginationEl.appendChild(mkBtn('‹', Math.max(1, modSearchPage - 1), { disabled: modSearchPage === 1 }));
 
-  // Небольшое окно вокруг текущей страницы + первая/последняя — как в
-  // оригинале: на 1-й странице это "1 2 … 3520", а не длинный ряд цифр.
   const windowSize = 3;
   let start = Math.max(1, modSearchPage - Math.floor(windowSize / 2));
   let end = Math.min(totalPages, start + windowSize - 1);
@@ -9349,14 +9498,6 @@ function renderModsPagination(totalPages) {
   modListPaginationEl.appendChild(mkBtn('›', Math.min(totalPages, modSearchPage + 1), { disabled: modSearchPage === totalPages }));
 }
 
-// Загружает конкретную страницу результатов с сервера (реальный запрос с
-// offset, а не нарезка уже скачанного списка) и перерисовывает список + пагинацию.
-// Кэш уже загруженных страниц поиска (на время сессии, в памяти) — ключ
-// учитывает загрузчик/версию/запрос/сдвиг. Если страница уже в кэше, рисуем
-// её мгновенно без сетевого похода и без "Ищем моды...". Дополнительно после
-// показа текущей страницы тихо (без ожидания и индикаторов) подгружаем
-// соседние страницы — это и есть "прогрев", о котором просили: к моменту,
-// когда игрок реально нажмёт "дальше/назад", результат уже готов.
 const modSearchCache = new Map();
 const MOD_SEARCH_CACHE_LIMIT = 60;
 
@@ -9434,9 +9575,6 @@ async function fetchModsSearch(query, version, loader, offset) {
 
   const warnings = [];
 
-  // Список рендерится строго из ОДНОГО источника — buildUnifiedHits тут просто
-  // приводит сырые hits к единому формату карточки (uid/иконка/badge и т.п.),
-  // без слияния с другим источником.
   const merged = isModrinth ? buildUnifiedHits(res.hits || [], []) : buildUnifiedHits([], res.hits || []);
   const sorted = sortUnifiedHits(merged, modsSortBy);
   const total = res.total || 0;
@@ -9498,10 +9636,6 @@ async function loadModsPage(page) {
 
     const uidToFilename = verifyInstalledRecords(loader, version, modsTargetInstanceName, filesOnDisk);
 
-    // Довязываем карточки из ДРУГОГО источника, у которых есть уже
-    // установленный мод с тем же названием (см. resolveCrossSourceMatch) —
-    // так "Добавлено" и кнопка удаления показываются одинаково что на
-    // Modrinth, что на CurseForge, если игрок ставил мод только с одного из них.
     const recordUidByHitUid = new Map();
     for (const hit of (result.hits || [])) {
       if (uidToFilename.has(hit.uid)) {
@@ -9524,14 +9658,6 @@ async function loadModsPage(page) {
     });
     renderModsPagination(totalPages);
 
-    // ВАЖНО: раньше здесь был modList.scrollIntoView({block:'start'}) — он
-    // прокручивал .content так, чтобы САМ СПИСОК модов оказался у верхнего
-    // края окна, а это ниже заголовка "Моды"/поиска/вкладок загрузчика.
-    // Из-за этого при каждом заходе на вкладку "Моды" экран открывался
-    // "чуть ниже", а не с самого верха. Явную прокрутку наверх теперь делает
-    // только сам вызывающий код (например клик по странице пагинации, см.
-    // renderModsPagination) — обычная загрузка/смена фильтров прокрутку не
-    // навязывает, и позиция остаётся такой, какую сохранил viewScrollState.
     saveModsViewState();
 
     [modSearchPage + 1, modSearchPage - 1].forEach(p => {
@@ -9558,21 +9684,14 @@ async function runModSearch(page) {
     return;
   }
 
-  // Без явно переданной страницы переиспользуем последнюю, на которой
-  // находился игрок (modSearchPage) — иначе повторный вызов при возврате на
-  // вкладку "Моды" (см. обработчик клика по рейлу) всегда откатывал бы
-  // список обратно на первую страницу, даже если игрок листал дальше.
   await loadModsPage(page || modSearchPage || 1);
 }
 
-// ВАЖНО: раньше здесь стоял debounce(runModSearch, 400) напрямую — это
-// молча пробрасывало DOM-событие ввода как первый аргумент runModSearch.
-// Пока у runModSearch не было параметров, это ничего не ломало, но теперь
-// первый параметр — номер страницы, поэтому событие ввода могло бы попасть
-// туда вместо номера страницы. Явно оборачиваем и всегда просим страницу 1 —
-// новый поисковый запрос должен начинаться с первой страницы результатов.
 const debouncedModSearch = debounce(() => runModSearch(1), 400);
-modSearch?.addEventListener('input', debouncedModSearch);
+modSearch?.addEventListener('input', () => {
+  if (isInstalledTabActive()) { applyInstalledModsSearchFilter(); return; }
+  debouncedModSearch();
+});
 
 const modFilterBtn = document.getElementById('modFilterBtn');
 const modFilterDropdown = document.getElementById('modFilterDropdown');
@@ -9637,7 +9756,7 @@ modFilterSourceCurseForge?.addEventListener('change', () => {
 });
 
 // ============================================
-// "Каталог" / "Мои моды" — переключатель вкладок внутри "Моды".
+
 // ============================================
 const modsSubtabs = document.querySelectorAll('.mods-subtab[data-subtab]');
 const modsSubviews = document.querySelectorAll('.mods-subview[data-subview]');
@@ -9653,30 +9772,17 @@ modsSubtabs.forEach(tab => {
 });
 
 // ============================================
-// "Мои моды" — реальный список файлов из mods/ на диске. Источник истины —
-// сама файловая система (через listModsInDir), а не localStorage, поэтому
-// удалённый вручную мод не может "зависнуть" в интерфейсе как установленный.
-// Отключение мода — стандартный трюк лаунчеров: добавить/убрать суффикс
-// ".disabled" в имени файла (Minecraft грузит только *.jar, поэтому файл
-// остаётся на диске, но игра его игнорирует).
+
 // ============================================
 const installedModListEl = document.getElementById('installedModList');
 const installedModsScopeFilterEl = document.getElementById('installedModsScopeFilter');
 
-// Фильтр "Мои моды": по умолчанию показываем только моды, установленные под
-// ТЕКУЩУЮ выбранную в шапке версию/загрузчик (даже если физически общая папка
-// mods/ одна на все версии сразу) — так список не превращается в свалку
-// модов сразу под все версии, которыми игрок когда-либо пользовался. Второй
-// режим — "Все версии" — показывает вообще все файлы из папки и подписывает
-// каждый мод версией(-ями), под которую он был установлен.
 const INSTALLED_MODS_SCOPE_KEY = 'magma_installed_mods_scope';
 let installedModsScopeFilter = localStorage.getItem(INSTALLED_MODS_SCOPE_KEY) || 'current';
 
 function renderInstalledModsScopeFilter() {
   if (!installedModsScopeFilterEl) return;
-  // Раздел "Модпаки" активен — кнопки не нужны, даже если ни один модпак
-  // ещё не создан/выбран (раньше проверялось только реальное наличие
-  // выбранного модпака, из-за чего кнопки не пропадали).
+
    installedModsScopeFilterEl.style.display = (isModpackScopeActive() || modsActiveCategory === 'map') ? 'none' : 'flex';
   installedModsScopeFilterEl.querySelectorAll('[data-installed-scope]').forEach(btn => {
     const scope = btn.dataset.installedScope;
@@ -9694,10 +9800,6 @@ installedModsScopeFilterEl?.querySelectorAll('[data-installed-scope]').forEach(b
   });
 });
 
-// Ищет ВСЕ версии/загрузчики (ключи вида "loader:version" в INSTALLED_MODS_KEY,
-// без модпаков), под которые конкретный файл был установлен через лаунчер —
-// нужно и для фильтра "Текущая версия" (скрыть файлы чужой версии), и для
-// подписи версии рядом с названием мода в режиме "Все версии".
 const LOADER_DISPLAY_LABELS = { fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge', quilt: 'Quilt', vanilla: 'Vanilla' };
 
 function getAllInstalledModVersionsForFilename(filename) {
@@ -9719,9 +9821,6 @@ function getAllInstalledModVersionsForFilename(filename) {
   return entries;
 }
 
-// Приоритет — реальный манифест на диске (.magma_mods.json, см. getModsManifest
-// в C++), он не теряется между сессиями/машинами в отличие от localStorage.
-// localStorage остаётся запасным источником для старых записей/ручных установок.
 function getModVersionEntriesForFilename(filename, manifestMap) {
   const base = filename.replace(/\.disabled$/i, '');
   if (manifestMap && manifestMap[base] && manifestMap[base].version) {
@@ -9738,9 +9837,7 @@ function currentContentDir() {
   }
   return `${gameDir}\\${dirName}`;
 }
-// Старое имя оставлено алиасом — им пользуются места кода, написанные ещё
-// до появления категорий (например манифест совместимости модов), которым
-// всегда нужна именно папка mods/, а не текущая активная категория.
+
 function currentModsDir() {
   const gameDir = getGameDir();
   if (modsTargetInstanceName) {
@@ -9754,10 +9851,36 @@ function modDisplayNameFromFile(filename) {
   return base;
 }
 
-// Ищет slug мода по имени файла среди ВСЕХ сохранённых записей (по всем
-// связкам загрузчик:версия и всем модпакам) — нужен для "Моих модов",
-// потому что общая mods/ (не-модпак игра) физически одна на все версии/
-// загрузчики сразу, а не только на текущий выбранный в шапке.
+function stripMcColorCodes(str) {
+
+  return (str || '').replace(/[§?][0-9a-fk-or]/gi, '').replace(/\s+/g, ' ').trim();
+}
+
+// ============================================
+
+// ============================================
+const MAP_META_KEY = 'magma_map_meta';
+function getMapMetaMap() {
+  try { return JSON.parse(localStorage.getItem(MAP_META_KEY) || '{}'); } catch { return {}; }
+}
+function saveMapMeta(folderName, info) {
+  if (!folderName || !info) return;
+  const all = getMapMetaMap();
+  all[folderName] = { title: info.title, icon_url: info.icon_url || '' };
+  try { localStorage.setItem(MAP_META_KEY, JSON.stringify(all)); } catch (err) {
+    console.error('[MagmaLauncher] Не удалось сохранить название карты:', err);
+  }
+}
+function getMapMeta(folderName) {
+  return getMapMetaMap()[folderName] || null;
+}
+function removeMapMeta(folderName) {
+  const all = getMapMetaMap();
+  if (!(folderName in all)) return;
+  delete all[folderName];
+  try { localStorage.setItem(MAP_META_KEY, JSON.stringify(all)); } catch {}
+}
+
 function findSlugForFilename(filename) {
   const base = filename.replace(/\.disabled$/i, '');
   try {
@@ -9805,11 +9928,7 @@ async function fetchModTitleAndIcon(uid) {
 }
 
 // ============================================
-// Угадывание названия/иконки мода по имени файла, когда slug неизвестен
-// (мод не ставился через каталог лаунчера, а просто лежит в mods/) — чистим
-// версии/загрузчик из имени файла и ищем совпадение через обычный поиск
-// Modrinth. Эвристика: совпадение не гарантировано, поэтому при неуверенном
-// результате мод просто остаётся с дефолтной буквой, как и раньше.
+
 // ============================================
 const MOD_GUESS_CACHE_KEY = 'magma_mod_guess_cache';
 const modGuessCache = new Map();
@@ -9817,7 +9936,7 @@ try {
   const rawGuessCache = JSON.parse(localStorage.getItem(MOD_GUESS_CACHE_KEY) || '{}');
   Object.keys(rawGuessCache).forEach(k => modGuessCache.set(k, rawGuessCache[k]));
 } catch {}
- 
+
 function saveModGuessCache() {
   try {
     const obj = {};
@@ -9827,7 +9946,7 @@ function saveModGuessCache() {
     console.error('[MagmaLauncher] Не удалось сохранить кэш угадывания модов:', err);
   }
 }
- 
+
 function cleanFilenameForModSearch(filename) {
   let base = modDisplayNameFromFile(filename);
   base = base.replace(/mc[\s_-]?\d+(\.\d+){1,3}/gi, ' ');
@@ -9837,50 +9956,45 @@ function cleanFilenameForModSearch(filename) {
   base = base.replace(/\s+/g, ' ').trim();
   return base;
 }
- 
+
 function titlesLooselyMatch(title, query) {
   const kt = normalizeTitleKey(title);
   const kq = normalizeTitleKey(query);
   if (!kt || !kq) return false;
   return kt === kq || kt.includes(kq) || kq.includes(kt);
 }
- 
+
 async function guessModTitleAndIcon(filename) {
   if (modGuessCache.has(filename)) return modGuessCache.get(filename);
   if (modsActiveCategory !== 'mod') return null;
-  if (typeof window.searchMods !== 'function') return null;
- 
+
   const query = cleanFilenameForModSearch(filename);
   if (!query) { modGuessCache.set(filename, null); saveModGuessCache(); return null; }
- 
+
   const guessLoader = (() => {
     const l = effectiveModsTargetLoader();
     return (l === 'fabric' || l === 'forge') ? l : 'fabric';
   })();
- 
-  try {
-    const raw = await window.searchMods({ query, version: effectiveModsTargetVersion(), loader: guessLoader, offset: 0 });
-    const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if (!result.success || !result.hits || !result.hits.length) {
-      modGuessCache.set(filename, null); saveModGuessCache(); return null;
+
+  const tryEngine = async (fn) => {
+    if (typeof fn !== 'function') return null;
+    try {
+      const raw = await fn({ query, version: effectiveModsTargetVersion(), loader: guessLoader, offset: 0 });
+      const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (!result.success || !result.hits || !result.hits.length) return null;
+      const bestHit = result.hits.find(h => titlesLooselyMatch(h.title, query));
+      return bestHit ? { title: bestHit.title, icon_url: bestHit.icon_url || null } : null;
+    } catch {
+      return null;
     }
- 
-    const bestHit = result.hits.find(h => titlesLooselyMatch(h.title, query)) || null;
-    if (!bestHit) { modGuessCache.set(filename, null); saveModGuessCache(); return null; }
- 
-    const info = { title: bestHit.title, icon_url: bestHit.icon_url || null };
-    modGuessCache.set(filename, info);
-    saveModGuessCache();
-    return info;
-  } catch (err) {
-    console.error('[MagmaLauncher] Не удалось угадать мод по имени файла:', err);
-    return null;
-  }
+  };
+
+  const info = (await tryEngine(window.searchMods)) || (await tryEngine(window.searchModsCurseForge));
+  modGuessCache.set(filename, info);
+  saveModGuessCache();
+  return info;
 }
 
-// Ограничивает число одновременно летящих промисов — иначе список из
-// десятков модов разом бьёт по сети и перегружает главный поток на
-// первые секунды отрисовки (наблюдаемый "фриз при открытии сборки").
 async function runWithConcurrencyLimit(items, worker, limit = 5) {
   let index = 0;
   async function runNext() {
@@ -9890,6 +10004,42 @@ async function runWithConcurrencyLimit(items, worker, limit = 5) {
     }
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, runNext));
+}
+
+function isInstalledTabActive() {
+  return !!document.querySelector('.mods-subtab[data-subtab="installed"]')?.classList.contains('is-active');
+}
+
+function applyInstalledModsSearchFilter() {
+  if (!installedModListEl) return;
+  const query = normalizeTitleKey(modSearch ? modSearch.value : '');
+  const cards = installedModListEl.querySelectorAll('.installed-mod-card');
+  let visible = 0;
+  cards.forEach(card => {
+    const nameEl = card.querySelector('.installed-mod-name');
+    const haystack = normalizeTitleKey(nameEl ? nameEl.textContent : '');
+    const match = !query || haystack.includes(query);
+    card.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+
+  let noMatchEl = installedModListEl.querySelector('.installed-mod-no-match');
+  if (cards.length > 0 && visible === 0) {
+    if (!noMatchEl) {
+      noMatchEl = document.createElement('div');
+      noMatchEl.className = 'mod-list-empty installed-mod-no-match';
+      noMatchEl.textContent = t('mods.notFound');
+      installedModListEl.appendChild(noMatchEl);
+    }
+  } else if (noMatchEl) {
+    noMatchEl.remove();
+  }
+}
+
+if (installedModListEl) {
+  const debouncedInstalledFilter = debounce(applyInstalledModsSearchFilter, 120);
+  new MutationObserver(() => debouncedInstalledFilter())
+    .observe(installedModListEl, { childList: true, subtree: true, characterData: true });
 }
 
 async function loadInstalledMods() {
@@ -9928,23 +10078,25 @@ async function loadInstalledMods() {
     let manifestMap = {};
     if (typeof window.getModsManifest === 'function') {
       try {
-        const rawManifest = await window.getModsManifest({ dir: currentContentDir() });
-        const manifestResult = typeof rawManifest === 'string' ? JSON.parse(rawManifest) : rawManifest;
-        if (manifestResult.success) manifestMap = manifestResult.manifest || {};
-      } catch (err) {}
+        const manifestRaw = await window.getModsManifest({ dir: currentContentDir() });
+        const manifestResult = typeof manifestRaw === 'string' ? JSON.parse(manifestRaw) : manifestRaw;
+        if (manifestResult?.success && manifestResult.manifest) {
+          manifestMap = manifestResult.manifest;
+        }
+      } catch (manifestError) {
+        console.warn('[MagmaLauncher] Could not read the mods manifest:', manifestError);
+      }
     }
 
     renderInstalledMods(files, manifestMap);
   } catch (err) {
-    console.error('[MagmaLauncher] Не удалось прочитать папку mods:', err);
+    console.error('[MagmaLauncher] Could not read the mods directory:', err);
     installedModListEl.innerHTML = `<div class="mod-list-hint">${t('mods.installed.loadError')}</div>`;
   }
 }
 
 // ============================================
-// "Мои карты" — карта это ПАПКА, а не файл, поэтому свой листинг
-// (listMapFolders вместо listModsInDir) и своя отрисовка — без переключателя
-// включить/отключить (для мира это не имеет смысла) и без версии.
+
 // ============================================
 async function loadInstalledMapFolders() {
   if (typeof window.listMapFolders !== 'function') {
@@ -9963,12 +10115,13 @@ async function loadInstalledMapFolders() {
     }
     renderInstalledMapFolders(result.folders || []);
   } catch (err) {
-    console.error('[MagmaLauncher] Не удалось прочитать папку карт:', err);
+    console.error('[MagmaLauncher] Could not read the maps directory:', err);
     installedModListEl.innerHTML = `<div class="mod-list-hint">${t('mods.installed.loadError')}</div>`;
   }
 }
 
 function renderInstalledMapFolders(folders) {
+  folders = folders.filter(f => !f.startsWith('.') && f !== 'manual_import_tmp');
   hideJsTooltip();
   installedModListEl.innerHTML = '';
 
@@ -9981,16 +10134,22 @@ function renderInstalledMapFolders(folders) {
   }
 
   const dir = currentContentDir();
+  const versionTag = `<span class="installed-mod-version-tag">(${effectiveModsTargetVersion()})</span>`;
   folders.slice().sort((a, b) => a.localeCompare(b)).forEach(folderName => {
+    const meta = getMapMeta(folderName);
+    const displayName = (meta && meta.title) || stripMcColorCodes(folderName) || folderName;
+    const iconHtml = meta && meta.icon_url
+      ? `<img src="${meta.icon_url}" alt="">`
+      : (displayName.charAt(0) || '?').toUpperCase();
     const card = document.createElement('div');
     card.className = 'installed-mod-card';
     card.innerHTML = `
-      <div class="installed-mod-icon">${(folderName.charAt(0) || '?').toUpperCase()}</div>
+      <div class="installed-mod-icon">${iconHtml}</div>
       <div class="installed-mod-info">
-        <div class="installed-mod-name">${folderName}</div>
+        <div class="installed-mod-name">${displayName} ${versionTag}</div>
       </div>
       <div class="installed-mod-actions">
-        <button type="button" class="installed-mod-btn is-delete" data-tooltip="${t('mods.installed.delete')}">
+        <button type="button" class="installed-mod-btn is-delete" data-tooltip="${t('mods.installed.delete')}" data-tooltip-align="top">
           <svg viewBox="0 0 24 24"><path d="M6 7h12M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0 1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>
         </button>
       </div>
@@ -9999,15 +10158,15 @@ function renderInstalledMapFolders(folders) {
     card.querySelector('.installed-mod-btn.is-delete').addEventListener('click', async (e) => {
       const btn = e.currentTarget;
       if (typeof window.deleteMapFolder !== 'function') return;
-      if (!window.confirm(t('mods.installed.confirmDelete'))) return;
       btn.disabled = true;
       try {
         const raw = await window.deleteMapFolder({ dir, folder: folderName });
         const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
         if (!result.success) throw new Error(translateBackendError(result.error) || t('auth.magma.genericError'));
+        removeMapMeta(folderName);
         loadInstalledMapFolders();
       } catch (err) {
-        console.error('[MagmaLauncher] Не удалось удалить карту:', err);
+        console.error('[MagmaLauncher] Could not delete the map:', err);
         btn.disabled = false;
       }
     });
@@ -10041,9 +10200,6 @@ function renderInstalledMods(files, manifestMap = {}) {
     const isDisabled = /\.disabled$/i.test(filename);
     const slug = findSlugForFilename(filename);
 
-    // В режиме "Все версии" рядом с названием показываем, под какую
-    // версию/загрузчик этот конкретный файл был установлен — иначе список
-    // становится неотличимой мешаниной модов сразу под все версии игрока.
     const versionPrefix = (showAllVersions && !isModpackScopeActive())
   ? (() => {
       const entries = getModVersionEntriesForFilename(filename, manifestMap);
@@ -10071,7 +10227,7 @@ function renderInstalledMods(files, manifestMap = {}) {
             ? `<svg viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg><span>${t('mods.installed.enable')}</span>`
             : `<svg viewBox="0 0 24 24"><path d="M12 4v16M4 12h16" transform="rotate(45 12 12)"/></svg><span>${t('mods.installed.disable')}</span>`}
         </button>
-        <button type="button" class="installed-mod-btn is-delete" data-tooltip="${t('mods.installed.delete')}">
+        <button type="button" class="installed-mod-btn is-delete" data-tooltip="${t('mods.installed.delete')}" data-tooltip-align="top">
           <svg viewBox="0 0 24 24"><path d="M6 7h12M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0 1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>
         </button>
       </div>
@@ -10084,8 +10240,6 @@ if (cardIconImg) {
   }, { once: true });
 }
 
-    // Подтягиваем красивое название и аватарку с Modrinth, если знаем slug —
-    // до этого показываем аккуратное имя из файла, а не сырое "some-mod-1.2.3.jar".
     if (slug) {
       fetchModTitleAndIcon(slug).then(info => {
         if (!info) return;
@@ -10105,7 +10259,7 @@ if (cardIconImg) {
         if (iconEl && info.icon_url) iconEl.innerHTML = `<img src="${info.icon_url}" alt="">`;
       }).catch(() => {});
     }
- 
+
     const toggleBtn = card.querySelector('.installed-mod-btn:not(.is-delete)');
     toggleBtn.addEventListener('click', async () => {
       if (typeof window.toggleModFile !== 'function') return;
@@ -10116,7 +10270,7 @@ if (cardIconImg) {
         if (!result.success) throw new Error(translateBackendError(result.error) || t('auth.magma.genericError'));
         loadInstalledMods();
       } catch (err) {
-        console.error('[MagmaLauncher] Не удалось переключить мод:', err);
+        console.error('[MagmaLauncher] Could not toggle the mod:', err);
         toggleBtn.disabled = false;
       }
     });
@@ -10132,7 +10286,7 @@ if (cardIconImg) {
         if (slug) unmarkModInstalled(effectiveModsTargetLoader(), effectiveModsTargetVersion(), slug, modsTargetInstanceName);
         loadInstalledMods();
       } catch (err) {
-        console.error('[MagmaLauncher] Не удалось удалить мод:', err);
+        console.error('[MagmaLauncher] Could not delete the mod:', err);
         deleteBtn.disabled = false;
       }
     });
@@ -10142,7 +10296,7 @@ if (cardIconImg) {
 }
 
 // ============================================
-// Модалка "Создать модпак"
+
 // ============================================
 const modpackOverlay = document.getElementById('modpackOverlay');
 const modpackModalClose = document.getElementById('modpackModalClose');
@@ -10160,8 +10314,6 @@ const modpackProgressFill = document.getElementById('modpackProgressFill');
 const modpackProgressLabel = document.getElementById('modpackProgressLabel');
 const modpackSubmit = document.getElementById('modpackSubmit');
 
-// Рекомендуемые моды по умолчанию для каждого загрузчика — совпадает с тем,
-// что просил игрок: для Fabric сразу отмечены Fabric API и Sodium.
 const DEFAULT_MODS_BY_LOADER = {
   fabric: [
     { slug: 'fabric-api', label: 'Fabric API', desc: { ru: 'Библиотека, нужна почти всем модам на Fabric', en: 'Library required by almost every Fabric mod' }, checked: true },
@@ -10258,11 +10410,6 @@ modpackLoaderTabsEl?.querySelectorAll('.loader-tab').forEach(tab => {
   });
 });
 
-// Раздел "Добавить ещё моды" (поиск + добавление произвольных модов прямо в
-// модалке создания модпака) убран по просьбе — модпак теперь собирается
-// только из рекомендуемых модов по умолчанию, а расширять список модов можно
-// уже после создания через вкладку "Моды" -> "Мои моды" в папке модпака.
-
 window.__modpackProgress = function (data) {
   modpackProgress.style.display = 'block';
   modpackProgressFill.style.width = Math.round((data.progress || 0) * 100) + '%';
@@ -10292,8 +10439,9 @@ window.__modpackDone = function (data) {
 modpackSubmit?.addEventListener('click', async () => {
   hideError(modpackError);
 
-  const name = modpackNameInput.value.trim();
-  if (!name) { showError(modpackError, t('mods.nameRequired')); return; }
+  const rawName = modpackNameInput.value.trim();
+  if (!rawName) { showError(modpackError, t('mods.nameRequired')); return; }
+  const name = sanitizeInstanceName(rawName);
   if (getModpacks().some(m => m.name === name)) { showError(modpackError, t('mods.nameTaken')); return; }
 
   const allMods = [...modpackDefaultModsEl.querySelectorAll('input[type="checkbox"]:checked')]
@@ -10332,7 +10480,7 @@ modpackSubmit?.addEventListener('click', async () => {
 });
 
 // ============================================
-// Настройки — плавный слайдер ОЗУ
+
 // ============================================
 const ramSlider = document.getElementById('ramSlider');
 const ramValue = document.getElementById('ramValue');
@@ -10378,7 +10526,7 @@ function updateRamValue() {
 }
 
 // ============================================
-// Полноэкранный режим / разрешение окна.
+
 // ============================================
 let resolutionMode = 'default';
 const RESOLUTION_LABEL_KEYS = { default: 'settings.resolution.default', custom: 'settings.resolution.custom' };
@@ -10425,8 +10573,6 @@ function updateFullscreenDependentUI() {
   if (resolutionHeightInputEl) resolutionHeightInputEl.disabled = fullscreenOn;
 }
 
-// Возвращает {width, height} для передачи в launchGame — оба 0, если
-// выбрано "По умолчанию" (значит --width/--height вообще не передаются).
 function getLaunchResolution() {
   if (resolutionMode === 'default') return { width: 0, height: 0 };
   if (resolutionMode === 'custom') {
@@ -10443,9 +10589,7 @@ resolutionWidthInputEl?.addEventListener('change', saveLauncherSettings);
 resolutionHeightInputEl?.addEventListener('change', saveLauncherSettings);
 
 // ============================================
-// Аргументы JVM — упрощённый переключатель (Стандартные / G1GC) вместо
-// голого текстового поля. "Свои флаги" остаются доступны за раскрывашкой
-// для тех, кому реально нужен произвольный набор параметров.
+
 // ============================================
 function syncJvmModeButtons() {
   if (!jvmModeOptionsEl) return;
@@ -10475,7 +10619,7 @@ jvmAdvancedToggleEl?.addEventListener('click', () => {
 });
 
 // ============================================
-// Аргументы JVM — свободный текст + пресеты.
+
 // ============================================
 const JVM_PRESET_G1GC =
   '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 ' +
@@ -10488,7 +10632,7 @@ const JVM_PRESET_G1GC =
 jvmArgsInputEl?.addEventListener('change', () => { syncJvmModeButtons(); saveLauncherSettings(); });
 
 // ============================================
-// Java: автоопределение и нативный выбор файла.
+
 // ============================================
 document.getElementById('javaAutoDetectBtn')?.addEventListener('click', async (e) => {
   const btn = e.currentTarget;
@@ -10535,7 +10679,7 @@ document.getElementById('javaBrowseBtn')?.addEventListener('click', async (e) =>
 });
 
 // ============================================
-// Папка игры: режим (MagmaLauncher / .minecraft / своя), обзор, перенос.
+
 // ============================================
 const GAME_DIR_MODE_KEY = 'magma_game_dir_mode';
 let gameDirMode = localStorage.getItem(GAME_DIR_MODE_KEY) || 'magma';
@@ -10559,10 +10703,7 @@ function syncGameDirModeLabel() {
   gameDirModeSelectList?.querySelectorAll('.custom-select-item').forEach(item => {
     item.classList.toggle('is-selected', item.dataset.value === gameDirMode);
   });
-  // В режиме "MagmaLauncher"/".minecraft" путь подставляется автоматически —
-  // редактировать поле вручную можно только в режиме "Своя папка", иначе
-  // получилось бы, что игрок правит путь, а он тут же перезаписывается при
-  // следующем переключении режима.
+
   if (gameDirInputEl) gameDirInputEl.readOnly = gameDirMode !== 'custom';
 }
 
@@ -10578,8 +10719,7 @@ gameDirModeSelectList?.querySelectorAll('.custom-select-item').forEach(item => {
     gameDirModeSelectWrap?.classList.remove('is-open');
 
     if (gameDirMode !== 'custom' && gameDirInputEl) {
-      // Заменяем последнюю папку в уже известном пути на MagmaLauncher/.minecraft —
-      // родительская папка (обычно %APPDATA%\Roaming) остаётся той же.
+
       const base = gameDirInputEl.value.replace(/[\\/][^\\/]+[\\/]?$/, '');
       const suffix = gameDirMode === 'magma' ? 'MagmaLauncher' : '.minecraft';
       gameDirInputEl.value = `${base}\\${suffix}`;
@@ -10652,8 +10792,7 @@ document.getElementById('gameDirMoveBtn')?.addEventListener('click', async (e) =
 });
 
 // ============================================
-// Настройки (Java-путь, папка игры, ОЗУ, JVM, экран) — сохраняем локально
-// на этой машине.
+
 // ============================================
 const SETTINGS_KEY = 'magma_launcher_settings';
 
@@ -10759,7 +10898,7 @@ versionRefreshBtnEl?.addEventListener('click', async () => {
 });
 
 // ============================================
-// Модалка авторизации
+
 // ============================================
 const authOverlay = document.getElementById('authOverlay');
 const accountTrigger = document.getElementById('accountTrigger');
@@ -10769,9 +10908,7 @@ const authModalClose = document.getElementById('authModalClose');
 let isLoggedIn = false;
 
 // ============================================
-// Список локально известных аккаунтов (гости переключаются мгновенно,
-// Magma/Microsoft — только показываются в списке и подставляют email в форму
-// входа при клике, т.к. пароли нигде не хранятся).
+
 // ============================================
 const ACCOUNTS_KEY = 'magma_accounts';
 const ACTIVE_ACCOUNT_KEY = 'magma_active_account_id';
@@ -10826,8 +10963,7 @@ function currentAccountType() {
 }
 
 // ============================================
-// Головы скинов из аватарки Ely.by — рисуем face(8,8)+hat(40,8) на канвасе,
-// с фолбэком на букву ника, если скин не найден (гость / чистый ник).
+
 // ============================================
 function elyBySkinUrl(nickname, cacheBust = false) {
   const nick = encodeURIComponent((nickname || '').trim());
@@ -10839,8 +10975,6 @@ function elyByHeadUrl(nickname) {
   return elyBySkinUrl(nickname, false);
 }
 
-// Официальная текстура Стива от Mojang — подставляется, если у ely.by нет
-// скина для ника (гость, или аккаунт, который скин ни разу не менял).
 const DEFAULT_STEVE_SKIN_URL = '../assets/steve.png';
 
 function drawSkinHead(canvas, img) {
@@ -10864,10 +10998,6 @@ function drawSkinHeadFallback(canvas, nickname) {
   ctx.fillText((nickname || '?').charAt(0).toUpperCase(), canvas.width / 2, canvas.height / 2 + 1);
 }
 
-// Ключ — сам canvas: у каждого своя "версия" запроса. Если пока грузился
-// старый запрос (например, дефолтный "Steve" при старте) успел прийти новый
-// (реальный ник после входа), результат старого запроса просто отбрасывается,
-// вместо того чтобы затереть уже нарисованный правильный скин.
 const skinHeadRequestIds = new WeakMap();
 
 async function loadSkinHeadInto(canvas, nickname) {
@@ -10877,8 +11007,6 @@ async function loadSkinHeadInto(canvas, nickname) {
   skinHeadRequestIds.set(canvas, myId);
   const isCurrent = () => skinHeadRequestIds.get(canvas) === myId;
 
-  // Сразу чистим канвас заглушкой — иначе видно скин ПРЕДЫДУЩЕГО аккаунта,
-  // пока грузится новый.
   drawSkinHeadFallback(canvas, nickname);
 
   const drawFromUrl = (url) => new Promise((resolve) => {
@@ -10905,8 +11033,6 @@ async function loadSkinHeadInto(canvas, nickname) {
     } catch (err) {}
   }
 
-  // Скина на Ely.by нет (или сеть недоступна) — всегда показываем Стива,
-  // без лишних повторных запросов.
   if (!isCurrent()) return;
   const fallback = await drawFromUrl(await defaultSteveSkinBlobUrl());
   if (!fallback && isCurrent()) drawSkinHeadFallback(canvas, nickname);
@@ -10915,7 +11041,7 @@ async function loadSkinHeadInto(canvas, nickname) {
 function renderAccountAvatar() {
   const canvas = document.getElementById('accountAvatarCanvas');
   const nick = (accountName && accountName.textContent) || '';
-  return loadSkinHeadInto(canvas, nick); // добавили return
+  return loadSkinHeadInto(canvas, nick);
 }
 
 function base64ToUint8Array(base64) {
@@ -10925,8 +11051,6 @@ function base64ToUint8Array(base64) {
   return bytes;
 }
 
-// Дефолтный Стив кэшируется одним Blob URL на всё время жизни страницы —
-// пересоздавать его на каждый запрос смысла нет, файл один и тот же.
 let cachedDefaultSteveBlobUrl = null;
 async function defaultSteveSkinBlobUrl() {
   if (cachedDefaultSteveBlobUrl) return cachedDefaultSteveBlobUrl;
@@ -10962,12 +11086,7 @@ async function loadSkinBlobUrl(nickname) {
   try {
     const raw = await window.fetchSkinBytes({ url: elyBySkinUrl(nickname, true) });
     const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    // ВАЖНО: раньше тут возвращался сырой путь DEFAULT_STEVE_SKIN_URL
-    // напрямую — для обычного 2D-канваса (иконка в шапке) это ещё худо-бедно
-    // работало, но WebGL (3D-вьюер скина) отдельно проверяет "чистоту"
-    // источника текстуры и молча отказывался её загружать с file://.
-    // Прогоняем через тот же Blob-путь, что и настоящий скин с ely.by —
-    // Blob URL для WebGL всегда "чистый", независимо от происхождения байт.
+
     if (!result.success) return await defaultSteveSkinBlobUrl();
     const bytes = base64ToUint8Array(result.dataBase64);
     const blob = new Blob([bytes], { type: 'image/png' });
@@ -10981,9 +11100,10 @@ async function loadSkinBlobUrl(nickname) {
 let accountSkinViewer = null;
 let accountSkinViewerBlobUrl = null;
 let accountSkinViewerRequestId = 0;
-let accountSkinViewerNick = null;     // чей скин сейчас реально показан
+let accountSkinViewerNick = null;
 let accountSkinViewerLoadedAt = 0;
-let accountSkinViewerPending = null;  // текущая загрузка (ждём её на экране загрузки)
+let accountSkinViewerPending = null;
+let accountSkinViewerContextLossBound = false;
 
 function setSkinViewerHint(key) {
   const hintEl = document.querySelector('.account-skin-viewer-hint');
@@ -10991,66 +11111,15 @@ function setSkinViewerHint(key) {
 }
 
 function releaseSkinBlobUrl(url) {
-  // кэшированного Стива не трогаем — он переиспользуется
+
   if (url && url.startsWith('blob:') && url !== cachedDefaultSteveBlobUrl) URL.revokeObjectURL(url);
-}
-
-function bindAccountSkinViewerContextLossRecovery(canvas) {
-  if (accountSkinViewerContextLossBound) return;
-  accountSkinViewerContextLossBound = true;
-  canvas.addEventListener('webglcontextlost', (e) => {
-    e.preventDefault();
-    accountSkinViewer = null;
-    accountSkinViewerNick = null;
-  });
-  canvas.addEventListener('webglcontextrestored', () => {
-    const nick = (accountName && accountName.textContent) || '';
-    if (nick) refreshAccountSkinViewer(nick);
-  });
-}
-
-// skipVisibilityWait=true — создаём вьюер, даже если вкладка скрыта (на экране загрузки)
-async function ensureAccountSkinViewer(skipVisibilityWait = true) {
-  const canvas = document.getElementById('accountSkinViewerCanvas');
-  if (!canvas || typeof skinview3d === 'undefined') return null;
-  if (accountSkinViewer) return accountSkinViewer;
-
-  if (!skipVisibilityWait) await waitForNonZeroCanvasSize(canvas, 60);
-  bindAccountSkinViewerContextLossRecovery(canvas);
-
-  try {
-    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-    if (!gl) {
-      console.error('[MagmaLauncher] WebGL недоступен для 3D-вьюера скина.');
-      return null;
-    }
-    accountSkinViewer = new skinview3d.SkinViewer({
-      canvas, width: 240, height: 320, zoom: 0.8, renderPaused: true,
-    });
-    if (accountSkinViewer.renderer && typeof accountSkinViewer.renderer.setPixelRatio === 'function') {
-      accountSkinViewer.renderer.setPixelRatio(1);
-    }
-    accountSkinViewer.controls.enableZoom = false;
-    accountSkinViewer.animation = new skinview3d.IdleAnimation();
-  } catch (err) {
-    console.error('[MagmaLauncher] Не удалось создать 3D-вьюер скина:', err);
-    accountSkinViewer = null;
-    return null;
-  }
-  updateSkinViewerRenderState(); // сам решит: рисовать или держать на паузе
-  return accountSkinViewer;
-}
-
-function refreshAccountSkinViewer(nickname) {
-  accountSkinViewerPending = doRefreshAccountSkinViewer(nickname);
-  return accountSkinViewerPending;
 }
 
 async function doRefreshAccountSkinViewer(nickname) {
   if (!nickname) return;
 
   const nickChanged = accountSkinViewerNick !== nickname;
-  // тот же ник и скин недавно грузился — ничего не делаем
+
   if (!nickChanged && accountSkinViewer && Date.now() - accountSkinViewerLoadedAt < 60000) return;
 
   const myRequestId = ++accountSkinViewerRequestId;
@@ -11067,7 +11136,6 @@ async function doRefreshAccountSkinViewer(nickname) {
     return;
   }
 
-  // Другой аккаунт: сразу убираем старую модель и пишем "Загрузка..."
   if (nickChanged) {
     viewer.resetSkin();
     accountSkinViewerNick = null;
@@ -11094,7 +11162,7 @@ async function doRefreshAccountSkinViewer(nickname) {
 
   if (!loaded) {
     releaseSkinBlobUrl(blobUrl);
-    setSkinViewerHint('settings.account.viewerLoadError'); // ошибка — только если реально не вышло
+    setSkinViewerHint('settings.account.viewerLoadError');
     return;
   }
 
@@ -11147,7 +11215,7 @@ function bindAccountSkinViewerContextLossRecovery(canvas) {
 async function ensureAccountSkinViewer() {
   const canvas = document.getElementById('accountSkinViewerCanvas');
   if (!canvas || typeof skinview3d === 'undefined') return null;
-  if (accountSkinViewer) return accountSkinViewer; // не пересоздаём, если уже есть
+  if (accountSkinViewer) return accountSkinViewer;
 
   await waitForNonZeroCanvasSize(canvas, 60);
   bindAccountSkinViewerContextLossRecovery(canvas);
@@ -11168,8 +11236,6 @@ async function ensureAccountSkinViewer() {
       renderPaused: false
     });
 
-    // Саму 3D-модель, скин и IdleAnimation не меняем.
-    // Уменьшаем только внутренний WebGL-буфер на дисплеях с масштабированием Windows.
     if (accountSkinViewer.renderer && typeof accountSkinViewer.renderer.setPixelRatio === 'function') {
       accountSkinViewer.renderer.setPixelRatio(1);
     }
@@ -11186,67 +11252,22 @@ async function ensureAccountSkinViewer() {
   return accountSkinViewer;
 }
 
-async function refreshAccountSkinViewer(nickname) {
-  if (!nickname) return;
-  if (!isSkinViewerCanvasVisible()) return;
-  const hintEl = document.querySelector('.account-skin-viewer-hint');
-
-  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  if (!isSkinViewerCanvasVisible()) return;
-
-  if (typeof skinview3d === 'undefined') {
-    if (hintEl) hintEl.textContent = t('settings.account.viewerLoadError');
-    return;
-  }
-
-  if (!viewer) {
-    if (hintEl) hintEl.textContent = t('settings.account.viewerLoadError');
-    return;
-  }
-
-  const myRequestId = ++accountSkinViewerRequestId;
-  const blobUrl = await loadSkinBlobUrl(nickname);
-  if (myRequestId !== accountSkinViewerRequestId) return;
-
-  const tryLoad = async (attempt) => {
-    try {
-      await viewer.loadSkin(blobUrl);
-      if (hintEl) hintEl.textContent = t('settings.account.rotateHint');
-    } catch (err) {
-      console.error('[MagmaLauncher] Не удалось загрузить модель скина:', err);
-      if (attempt < 3) {
-        await new Promise(r => setTimeout(r, 300 * (attempt + 1)));
-        if (myRequestId !== accountSkinViewerRequestId) return;
-        return tryLoad(attempt + 1);
-      }
-      if (myRequestId === accountSkinViewerRequestId) {
-        viewer = await ensureAccountSkinViewer(true);
-        if (viewer) {
-          try {
-            await viewer.loadSkin(blobUrl);
-            if (hintEl) hintEl.textContent = t('settings.account.rotateHint');
-            return;
-          } catch (err2) {
-            console.error('[MagmaLauncher] Не удалось загрузить модель скина после пересоздания вьюера:', err2);
-          }
-        }
-      }
-      if (hintEl) hintEl.textContent = t('settings.account.viewerLoadError');
-    }
-  };
-  await tryLoad(0);
-
-  if (accountSkinViewerBlobUrl && accountSkinViewerBlobUrl.startsWith('blob:')) {
-    URL.revokeObjectURL(accountSkinViewerBlobUrl);
-  }
-  accountSkinViewerBlobUrl = blobUrl.startsWith('blob:') ? blobUrl : null;
+function refreshAccountSkinViewer(nickname) {
+  if (!nickname || !isSkinViewerCanvasVisible()) return Promise.resolve();
+  const task = (async () => {
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    if (!isSkinViewerCanvasVisible()) return;
+    await doRefreshAccountSkinViewer(nickname);
+    updateSkinViewerRenderState();
+  })().finally(() => { if (accountSkinViewerPending === task) accountSkinViewerPending = null; });
+  accountSkinViewerPending = task;
+  return task;
 }
 
 function isSkinViewerCanvasVisible() {
   const canvas = document.getElementById('accountSkinViewerCanvas');
   if (!canvas) return false;
-  
-  // Проверяем не только размер, но и что родитель не скрыт
+
   let el = canvas;
   while (el && el !== document.body) {
     const style = window.getComputedStyle(el);
@@ -11255,7 +11276,7 @@ function isSkinViewerCanvasVisible() {
     }
     el = el.parentElement;
   }
-  
+
   const rect = canvas.getBoundingClientRect();
   return rect.width > 0 && rect.height > 0;
 }
@@ -11376,17 +11397,6 @@ async function switchToAccount(acc) {
     return;
   }
 
-  // ВАЖНО: раньше переключение на уже добавленный Magma-аккаунт делало
-  // await supabaseClient.auth.setSession(...) и ТОЛЬКО ПОСЛЕ ответа сети
-  // (иногда 20-30 секунд, а на второй раз — вообще с ошибкой из-за ротации
-  // refresh_token у Supabase) показывало результат. Никнейм аккаунта у нас
-  // и так уже надёжно закеширован локально (acc.nickname) — для самого
-  // переключения в лаунчере (кому показываем ник, каким скином играем)
-  // реальный поход в сеть не нужен вообще. Поэтому переключаемся мгновенно
-  // по кешу, а сессию Supabase (нужна только для повторного успешного
-  // access/refresh на будущее) тихо освежаем в фоне, не блокируя интерфейс
-  // и никогда не показывая форму входа/регистрации при переключении между
-  // уже известными аккаунтами.
   if (acc.type === 'magma') {
     localStorage.setItem(ACTIVE_ACCOUNT_KEY, acc.id);
     finishLogin(acc.nickname);
@@ -11410,8 +11420,6 @@ async function switchToAccount(acc) {
     return;
   }
 
-  // Совсем новый Magma-аккаунт без сохранённых токенов (такое в списке
-  // "Аккаунты" в норме не встречается, но на всякий случай) — просим пароль.
   resetAuthModalForms();
   authTabs.forEach(tb => tb.classList.toggle('is-active', tb.dataset.tab === 'magma'));
   authPanes.forEach(p => p.classList.toggle('is-active', p.dataset.pane === 'magma'));
@@ -11439,23 +11447,29 @@ function openSettingsAccountTab() {
   restoreViewScroll('settings');
 }
 
-function updateSkinViewerRenderState() {
-  if (!accountSkinViewer) return;
-
-  const accountTabActive = document.querySelector('.mods-subtab[data-settings-subtab="account"]')?.classList.contains('is-active');
-  const settingsViewActive = document.querySelector('.view[data-view="settings"]')?.classList.contains('is-active');
-  const canvasVisible = isSkinViewerCanvasVisible();
-  const windowUnfocused = typeof document.hasFocus === 'function' && !document.hasFocus();
-  const pauseUnfocused = getPauseSkinUnfocusedPref();
-
-  // WebGL работает только когда вьюер реально виден.
-  accountSkinViewer.renderPaused =
-    !settingsViewActive ||
-    !accountTabActive ||
-    !canvasVisible ||
-    (pauseUnfocused && windowUnfocused);
+function isAnyModalOpen() {
+  return !!document.querySelector('.modal-overlay.is-open');
 }
 
+function syncModalOpenState() {
+  document.body.classList.toggle('has-modal-open', isAnyModalOpen());
+  updateSkinViewerRenderState();
+}
+
+const modalObserver = new MutationObserver(syncModalOpenState);
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  modalObserver.observe(el, { attributes: true, attributeFilter: ['class'] });
+});
+
+function updateSkinViewerRenderState() {
+  if (!accountSkinViewer) return;
+  const accountTabActive = document.querySelector('.mods-subtab[data-settings-subtab="account"]')?.classList.contains('is-active');
+  const settingsViewActive = document.querySelector('.view[data-view="settings"]')?.classList.contains('is-active');
+  const windowUnfocused = typeof document.hasFocus === 'function' && !document.hasFocus();
+  accountSkinViewer.renderPaused =
+    !settingsViewActive || !accountTabActive || !isSkinViewerCanvasVisible() ||
+    isAnyModalOpen() || (getPauseSkinUnfocusedPref() && windowUnfocused);
+}
 accountTrigger?.addEventListener('click', (e) => {
   e.stopPropagation();
   updateSettingsAccountTab();
@@ -11494,13 +11508,7 @@ async function tryRestoreActiveAccount() {
   }
 
   if (acc.type === 'magma') {
-    // Раньше это было "всё или ничего" — если поход в сеть за сессией не
-    // успевал мгновенно, функция целиком возвращала false, и человек видел
-    // окно входа заново, хотя ник и сам факт входа у нас и так надёжно
-    // закешированы локально. Теперь, как и при переключении между уже
-    // известными аккаунтами (см. switchToAccount), логиним сразу по кешу,
-    // а сессию Supabase освежаем в фоне — разовый сбой сети больше никогда
-    // не выглядит как "нужно войти заново".
+
     if (!acc.nickname) return false;
 
     finishLogin(acc.nickname);
@@ -11573,11 +11581,13 @@ authOverlay?.addEventListener('click', (e) => {
 });
 
 function showError(el, message) {
+  if (!el) return;
   el.style.color = '';
   el.textContent = message;
   el.classList.add('is-visible');
 }
 function hideError(el) {
+  if (!el) return;
   el.textContent = '';
   el.classList.remove('is-visible');
 }
@@ -11596,7 +11606,6 @@ function restoreButton(button) {
   button.classList.remove('is-loading');
 }
 
-// --- Глазок показать/скрыть пароль ---
 document.querySelectorAll('.auth-eye-toggle').forEach(btn => {
   btn.addEventListener('click', () => {
     const input = document.getElementById(btn.dataset.target);
@@ -11612,7 +11621,6 @@ document.querySelectorAll('.auth-eye-toggle').forEach(btn => {
   });
 });
 
-// --- Переключение вкладок Гость / Magma / Microsoft ---
 const authTabs = document.querySelectorAll('.auth-tab');
 const authPanes = document.querySelectorAll('.auth-pane');
 
@@ -11626,7 +11634,6 @@ authTabs.forEach(tab => {
   });
 });
 
-// --- Гость: вход по никнейму ---
 const guestError = document.getElementById('guestError');
 
 document.getElementById('guestSubmit')?.addEventListener('click', () => {
@@ -11648,7 +11655,7 @@ document.getElementById('guestSubmit')?.addEventListener('click', () => {
 });
 
 // ============================================
-// Валидация ввода
+
 // ============================================
 function isValidMinecraftNick(nick) {
   return /^[A-Za-z0-9_]{3,16}$/.test(nick);
@@ -11670,9 +11677,9 @@ const magmaGoogleSetupError = document.getElementById('magmaGoogleSetupError');
 const magmaGoogleSetupDesc = document.getElementById('magmaGoogleSetupDesc');
 
 function showMagmaStep(step) {
-  magmaLoginForm.style.display = step === 'login' ? 'flex' : 'none';
-  magmaRegisterForm.style.display = step === 'register' ? 'flex' : 'none';
-  magmaGoogleSetupForm.style.display = step === 'google-setup' ? 'flex' : 'none';
+  if (magmaLoginForm) magmaLoginForm.style.display = step === 'login' ? 'flex' : 'none';
+  if (magmaRegisterForm) magmaRegisterForm.style.display = step === 'register' ? 'flex' : 'none';
+  if (magmaGoogleSetupForm) magmaGoogleSetupForm.style.display = step === 'google-setup' ? 'flex' : 'none';
 }
 
 document.getElementById('showMagmaRegister')?.addEventListener('click', (e) => {
@@ -11698,7 +11705,6 @@ document.getElementById('magmaGoogleSetupBack')?.addEventListener('click', () =>
   showMagmaStep('login');
 });
 
-// --- Вход в существующий Magma-аккаунт ---
 document.getElementById('magmaLoginSubmit')?.addEventListener('click', async (e) => {
   const identifier = document.getElementById('magmaLoginEmail').value.trim();
   const password = document.getElementById('magmaLoginPassword').value;
@@ -11776,7 +11782,7 @@ document.getElementById('magmaLoginSubmit')?.addEventListener('click', async (e)
 });
 
 // ============================================
-// Вход/регистрация через Google OAuth
+
 // ============================================
 let profileRepairUserId = null;
 
@@ -11922,7 +11928,6 @@ document.getElementById('magmaGoogleSetupSubmit')?.addEventListener('click', asy
   }
 });
 
-// --- Microsoft: вход по лицензии Minecraft через Xbox Live ---
 window.msAuthState = null; // { username, uuid, accessToken } | null
 
 const msErrorEl = document.getElementById('msError');
@@ -11963,7 +11968,7 @@ document.getElementById('msSubmit')?.addEventListener('click', async (e) => {
 });
 
 // ============================================
-// Enter в полях авторизации
+
 // ============================================
 function chainEnterKeys(elements) {
   for (let i = 0; i < elements.length - 1; i++) {
@@ -12000,11 +12005,7 @@ chainEnterKeys([
 ]);
 
 // ============================================
-// Экран загрузки при старте — прогружаем сессию/настройки заранее, чтобы
-// потом при работе с лаунчером не дёргались пустые состояния и задержки
-// (например поход в Supabase за аккаунтом). Не делаем его длинным:
-// минимум показываем чуть-чуть (чтобы не было "моргания"), максимум ждём
-// сети — дальше открываем лаунчер как есть.
+
 // ============================================
 const bootSplash = document.getElementById('bootSplash');
 const bootBarFill = document.getElementById('bootBarFill');
@@ -12019,17 +12020,54 @@ function hideBootSplash() {
   setTimeout(() => bootSplash.remove(), 450);
 }
 
+const INSTALL_CONFIG_APPLIED_KEY = 'magma_install_config_applied';
+
+async function applyInstallConfigOnce() {
+  if (typeof window.getInstallConfig !== 'function') return;
+  try {
+    const raw = await window.getInstallConfig();
+    const res = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!res.success) return;
+    const cfg = res.config || {};
+    const installId = cfg.installId || '';
+    const appliedId = localStorage.getItem(INSTALL_CONFIG_APPLIED_KEY);
+    if (installId ? appliedId === installId : !!appliedId) return;
+
+    if (cfg.lang && I18N[cfg.lang]) applyLanguage(cfg.lang);
+
+    if (cfg.gameDir) {
+      let saved = {};
+      try { saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch {}
+      saved.gameDir = sanitizeGameDirPath(cfg.gameDir);
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(saved));
+
+      gameDirMode = ['magma', 'vanilla', 'custom'].includes(cfg.gameDirMode) ? cfg.gameDirMode : 'custom';
+      localStorage.setItem(GAME_DIR_MODE_KEY, gameDirMode);
+    }
+      localStorage.setItem(INSTALL_CONFIG_APPLIED_KEY, installId || '1');
+  } catch (err) {
+    console.error('[MagmaLauncher] Не удалось применить install_config.json:', err);
+  }
+}
+
 async function bootSequence() {
-  const MIN_VISIBLE_MS = 500;    // не даём экрану загрузки мелькнуть слишком быстро
-  const SAFETY_TIMEOUT_MS = 12000; // страховка на случай совсем мёртвой сети — не решение,
-                                    // а именно предохранитель, чтобы не зависнуть навсегда
+  const MIN_VISIBLE_MS = 1100;
+  const SAFETY_TIMEOUT_MS = 12000;
+
   const startedAt = Date.now();
 
-  setBootProgress(0.2);
+  let bootTickerCurrent = 0;
+  const bootTicker = setInterval(() => {
+    bootTickerCurrent = Math.min(0.88, bootTickerCurrent + 0.015);
+    setBootProgress(bootTickerCurrent);
+  }, 60);
+
+  setBootProgress(0.05);
+  await applyInstallConfigOnce();
   restoreLauncherSettings();
   updateRamValue();
   initPrivacySettings();
-  defaultSteveSkinBlobUrl().catch(() => {}); // заранее прогреваем дефолтного Стива 
+  defaultSteveSkinBlobUrl().catch(() => {});
   if (getPrivacyPref(PRIVACY_AUTO_DELETE_LOGS_KEY, false) && typeof window.cleanOldGameLogs === 'function') {
     window.cleanOldGameLogs({ gameDir: getGameDir(), days: 14 }).catch(() => {});
   }
@@ -12050,40 +12088,24 @@ document.getElementById('autoCheckUpdatesToggle') && (document.getElementById('a
 if (autoCheck !== '0') {
   const autoInstallOn = localStorage.getItem(AUTO_INSTALL_UPDATES_KEY) !== '0';
   if (autoInstallOn) {
-    await autoUpdateOnBoot(); // если найдёт обновление — скачает и перезапустит лаунчер, дальше код не выполнится
+    await autoUpdateOnBoot();
   } else {
     checkForLauncherUpdate(false);
   }
 }
 loadNewsFeed();
+refreshVersionsFromMojang();
 
-  // "Прогреваем" соединение с Modrinth API прямо сейчас, параллельно с
-  // остальной загрузкой — специально НЕ дожидаемся результата (await), чтобы
-  // не удлинять экран загрузки: это просто заранее устанавливает
-  // DNS/TLS-соединение, чтобы к моменту открытия вкладки "Моды" первый
-  // реальный поиск не был первым, кто платит за холодное соединение, и не
-  // падал по случайному таймауту на медленной сети.
   if (typeof window.warmupModrinth === 'function') {
     window.warmupModrinth().catch(() => {});
   }
-  // Дополнительно тихо тянем саму первую страницу модов по умолчанию
-  // (Fabric + 1.21.4, пустой запрос) прямо в кэш — если игрок откроет вкладку
-  // "Моды" без смены фильтров, список отрисуется мгновенно, а не после
-  // "Ищем моды...".
+
   if (typeof window.searchMods === 'function') {
     fetchModsSearch('', modsTargetVersion, modsTargetLoader, 0).catch(() => {});
   }
 
   setBootProgress(0.5);
 
-  // ВАЖНО: раньше здесь была гонка (Promise.race) между реальной проверкой
-  // сессии Supabase и таймаутом в 4с. Promise.race не отменяет проигравшего —
-  // если Supabase отвечал дольше 4с, таймаут "побеждал", лаунчер открывал
-  // окно входа, а через мгновение доехавший ответ Supabase сам вызывал
-  // finishLogin() -> closeAuthModal(), из-за чего окно входа мелькало и
-  // резко захлопывалось. Теперь по-настоящему ждём результат проверки —
-  // предзагрузка (в том числе Supabase) действительно завершается ДО того,
-  // как решаем, показывать окно входа или нет.
   let restored = false;
   try {
     restored = await Promise.race([
@@ -12091,8 +12113,7 @@ loadNewsFeed();
       new Promise((_, reject) => setTimeout(() => reject(new Error('boot-safety-timeout')), SAFETY_TIMEOUT_MS)),
     ]);
   } catch (err) {
-    // Сработал только предохранитель (сеть действительно не отвечает) —
-    // открываем лаунчер как гостя/с окном входа, ждать дальше нет смысла.
+
     console.error('[MagmaLauncher] Восстановление сессии не уложилось в таймаут:', err);
     restored = false;
   }
@@ -12104,7 +12125,8 @@ loadNewsFeed();
     ]);
 }
 
-  setBootProgress(0.9);
+ clearInterval(bootTicker);
+  setBootProgress(0.94);
 
   const elapsed = Date.now() - startedAt;
   if (elapsed < MIN_VISIBLE_MS) {
@@ -12112,6 +12134,7 @@ loadNewsFeed();
   }
 
   setBootProgress(1);
+  await new Promise(resolve => setTimeout(resolve, 220));
   hideBootSplash();
   updateSettingsAccountTab();
 
@@ -12120,9 +12143,7 @@ loadNewsFeed();
 }
 
 // ============================================
-// F11 — полноэкранный режим. Слушаем нажатие клавиши здесь и просто зовём
-// нативный биндинг toggleFullscreen из main.cpp (реализован через WinAPI,
-// разворачивает само окно лаунчера, а не только веб-контент внутри него).
+
 // ============================================
 document.addEventListener('keydown', async (e) => {
   if (e.key !== 'F11') return;
@@ -12141,18 +12162,7 @@ document.addEventListener('keydown', async (e) => {
 });
 
 // ============================================
-// Внешние ссылки (описания модов, CurseForge HTML и т.п.) — открываем в
-// системном браузере пользователя, а не даём WebView открыть их сам.
-// Раньше клик по такой ссылке (target="_blank", как в mdToSafeHtml выше)
-// заставлял сам webview поднимать НОВОЕ окно — а это окно не проходит через
-// нормальную настройку сети/TLS основного окна лаунчера, из-за чего страницы
-// в нём иногда не грузились вовсе (ERR_QUIC_PROTOCOL_ERROR и т.п.) и в любом
-// случае выглядело как случайное левое окно поверх лаунчера, а не как
-// открытие ссылки в браузере пользователя. Перехватываем клик на самой
-// ранней стадии (capture:true, до того как WebView успеет его обработать),
-// отменяем стандартное поведение и просим C++-бэкенд открыть ссылку через
-// системный ShellExecute — то же самое, что уже делает страница согласия
-// Google при входе (см. main.cpp -> googleOAuthSignIn).
+
 // ============================================
 const nativeWindowOpen = window.open ? window.open.bind(window) : null;
 const nativeOpenExternalUrl = typeof window.openExternalUrl === 'function' ? window.openExternalUrl : null;
@@ -12168,16 +12178,7 @@ async function openLinkInBrowser(url) {
 }
 
 // ============================================
-// Жёсткая защита от посторонних всплывающих окон. Перехват клика
-// по <a href> (см. ниже) закрывает почти все случаи, но что угодно из
-// стороннего контента (например HTML-описания модов с CurseForge) в теории
-// может вызвать window.open(...) напрямую, иногда с некорректным
-// аргументом (не строкой) — именно так получалось окно вида
-// file:///.../frontend/[object%20Object] вместо настоящей ссылки: движок
-// пытался открыть НОВОЕ окно по мусорному относительному пути. Полностью
-// переопределяем window.open: настоящая http(s)-ссылка всегда уходит в
-// системный браузер через openExternalUrl, всё остальное просто
-// блокируется, а не открывает битое окно поверх лаунчера.
+
 window.open = function (url) {
   const href = typeof url === 'string' ? url : '';
   if (/^https?:\/\//i.test(href)) {
@@ -12191,32 +12192,20 @@ window.open = function (url) {
 document.addEventListener('click', (e) => {
   const link = e.target.closest && e.target.closest('a[href]');
   if (!link) return;
-  // ВАЖНО: preventDefault теперь ставится ДО проверки протокола. Раньше при
-  // невалидном href (например, битая ссылка внутри чьего-то описания мода)
-  // функция выходила без preventDefault — браузерный движок сам обрабатывал
-  // клик как обычную навигацию и открывал отдельное окно с относительным путём
-  // (тот самый "файл не найден" на скрине). Теперь переход блокируется
-  // всегда, а в системный браузер уходят только настоящие http/https ссылки.
-  e.preventDefault();
-  e.stopPropagation();
   const href = link.getAttribute('href') || '';
+
   if (/^https?:\/\//i.test(href)) {
+    e.preventDefault();
+    e.stopPropagation();
     openLinkInBrowser(href);
+    return;
   }
+
+  e.preventDefault();
 }, { capture: true });
 
 // ============================================
-// Ручная прокрутка колесом мыши для основной области контента.
-// Раньше во вкладке "Моды" список модов был отдельным вложенным
-// overflow-контейнером — из-за двойной вложенной прокрутки (внешний
-// .content + внутренний список) колесо мыши в используемом здесь WebView
-// иногда вообще не долистывало до конца. Список модов теперь больше НЕ
-// скроллится сам по себе (см. правки в style.css: .mod-list/.installed-
-// mod-list — обычный блочный поток) — скроллится только один-единственный
-// .content, как и на остальных вкладках. Этот форвардер — доп. страховка на
-// случай, если родное колесо мыши в этом WebView всё равно не долистывает
-// какой-то конкретный overflow-контейнер: находим ближайший скроллящийся
-// элемент под курсором и явно двигаем его scrollTop сами.
+
 // ============================================
 function findScrollableAncestor(el) {
   let node = el;
@@ -12284,6 +12273,39 @@ document.addEventListener('wheel', (e) => {
   e.preventDefault();
 }, { passive: false, capture: true });
 
+let lastPointerX = window.innerWidth / 2;
+let lastPointerY = window.innerHeight / 2;
+document.addEventListener('pointermove', (e) => {
+  lastPointerX = e.clientX;
+  lastPointerY = e.clientY;
+}, { passive: true });
+
+document.addEventListener('keydown', (e) => {
+  if (e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
+  if (!['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(e.key)) return;
+
+  const active = document.activeElement;
+  if (active && active.matches && active.matches('input, textarea, select, [contenteditable="true"]')) return;
+
+  const openModalPanel = document.querySelector('.modal-overlay.is-open .modal-panel');
+  const under = document.elementFromPoint(lastPointerX, lastPointerY);
+  let target = findScrollableAncestor(under || document.body);
+
+  if (openModalPanel && !openModalPanel.contains(target)) {
+    target = openModalPanel.scrollHeight > openModalPanel.clientHeight ? openModalPanel : null;
+  }
+  if (!target || target.scrollHeight <= target.clientHeight) return;
+
+  e.preventDefault();
+  const page = Math.max(80, target.clientHeight * 0.9);
+  if (e.key === 'ArrowDown') smoothScrollBy(target, 70);
+  else if (e.key === 'ArrowUp') smoothScrollBy(target, -70);
+  else if (e.key === 'PageDown') smoothScrollBy(target, page);
+  else if (e.key === 'PageUp') smoothScrollBy(target, -page);
+  else if (e.key === 'Home') { cancelPendingSmoothScroll(target); smoothScrollBy(target, -target.scrollTop); }
+  else if (e.key === 'End') { cancelPendingSmoothScroll(target); smoothScrollBy(target, target.scrollHeight - target.clientHeight - target.scrollTop); }
+});
+
 (function enableGrabScroll() {
   let dragState = null;
   const DRAG_THRESHOLD = 6;
@@ -12295,7 +12317,7 @@ function isInteractiveTarget(el) {
     '.mod-name, .mod-desc, .mod-downloads, .server-name, .server-desc, .server-meta, ' +
     '.mod-details-title, .mod-details-stats, #instanceModsTitle, .news-card h3, .news-card p, ' +
     '.launcher-category-placeholder-title, .launcher-category-placeholder-hint, .launcher-link-title, .launcher-link-desc, ' +
-    '.hero-bg-editor-frame' // ← добавили
+    '.hero-bg-editor-frame'
   ));
 }
   document.addEventListener('pointerdown', (e) => {
@@ -12340,7 +12362,6 @@ function isInteractiveTarget(el) {
   document.addEventListener('pointercancel', endDrag, { capture: true });
 })();
 
-// ПКМ полностью отключён: CEF также очищает стандартное Chromium-меню.
 const customContextMenuEl = document.createElement('div');
 customContextMenuEl.className = 'custom-context-menu';
 document.body.appendChild(customContextMenuEl);
@@ -12348,7 +12369,6 @@ document.body.appendChild(customContextMenuEl);
 function hideCustomContextMenu() {
   customContextMenuEl.classList.remove('is-visible');
 }
-
 
 async function runContextMenuCommand(cmd, target) {
   target.focus();
@@ -12367,7 +12387,7 @@ async function runContextMenuCommand(cmd, target) {
       target.dispatchEvent(new Event('change', { bubbles: true }));
       return;
     } catch (err) {
-      // Нет доступа к буферу обмена — пробуем execCommand как запасной путь.
+
     }
   }
 
@@ -12487,11 +12507,9 @@ function showInstanceContextMenu(pack, x, y) {
   deleteBtn.className = 'custom-context-menu-item';
   deleteBtn.innerHTML = `${CONTEXT_MENU_ICONS.cut}<span>${t('instance.deleteBtn')}</span>`;
   deleteBtn.addEventListener('click', async () => {
-    hideCustomContextMenu();
-    const msg = t('instance.confirmDelete').replace('{name}', pack.name);
-    if (!window.confirm(msg)) return;
-    await removeInstanceEverywhere(pack);
-  });
+  hideCustomContextMenu();
+  await removeInstanceEverywhere(pack);
+});
   customContextMenuEl.appendChild(deleteBtn);
 
   customContextMenuEl.classList.add('is-visible');
@@ -12524,11 +12542,11 @@ document.addEventListener('contextmenu', (e) => {
     return;
   }
   hideCustomContextMenu();
-  // В остальных местах возвращаем обычное контекстное меню Windows/CEF.
+
 }, { capture: true });
 
 // ============================================
-// Инициализация
+
 // ============================================
 function arrayBufferToBase64(buffer) {
   let binary = '';
@@ -12607,7 +12625,8 @@ const instanceModsManualInputEl = document.getElementById('instanceModsManualInp
 
 instanceModsManualBtnEl?.addEventListener('click', () => {
   if (!currentInstanceModsPack) return;
-  openManualInstallModal('instanceMod', instanceModsDir(currentInstanceModsPack), () => {
+  const kind = instanceModsCategory === 'mod' ? 'instanceMod' : instanceModsCategory;
+  openManualInstallModal(kind, instanceContentDir(currentInstanceModsPack, instanceModsCategory), () => {
     loadInstanceModsList(currentInstanceModsPack);
   });
 });
@@ -12619,7 +12638,8 @@ instanceModsListEl?.addEventListener('drop', async (e) => {
   instanceModsListEl.classList.remove('is-drop-target');
   const files = await collectFilesFromDataTransfer(e.dataTransfer);
   if (!files.length || !currentInstanceModsPack) return;
-  const result = await installFilesForCategory(files, 'instanceMod', instanceModsDir(currentInstanceModsPack));
+  const kind = instanceModsCategory === 'mod' ? 'instanceMod' : instanceModsCategory;
+  const result = await installFilesForCategory(files, kind, instanceContentDir(currentInstanceModsPack, instanceModsCategory));
   if (result.success) loadInstanceModsList(currentInstanceModsPack);
 });
 
@@ -13058,6 +13078,26 @@ accountDeleteConfirmBtn?.addEventListener('click', async () => {
     restoreButton(accountDeleteConfirmBtn);
   }
 });
+const I18N_UPDATES_SETTINGS_PATCH = {
+  ru: { 'settings.updates.checking':'Проверяем...','settings.updates.channel.label':'Канал обновлений','settings.updates.channel.hint':'Бета может содержать необкатанные функции','settings.updates.channel.stable':'Стабильный','settings.updates.channel.beta':'Бета','settings.updates.autoInstall.label':'Устанавливать автоматически','settings.updates.autoInstall.hint':'Сразу скачивать и ставить обновление, если оно найдено','settings.updates.lastCheck.label':'Последняя проверка' },
+  en: { 'settings.updates.autoCheck.label':'Check for updates on launch','settings.updates.autoCheck.hint':'The launcher will check for a new version automatically','settings.updates.current.label':'Current version','settings.updates.checkBtn':'Check for updates','settings.updates.installBtn':'Download and install','settings.updates.newVersion':'Version available','settings.updates.upToDate':"You're on the latest version",'settings.updates.checking':'Checking...','settings.updates.channel.label':'Update channel','settings.updates.channel.hint':'Beta may contain untested features','settings.updates.channel.stable':'Stable','settings.updates.channel.beta':'Beta','settings.updates.autoInstall.label':'Install automatically','settings.updates.autoInstall.hint':"Download and install updates as soon as they're found",'settings.updates.lastCheck.label':'Last checked' },
+  uk: { 'settings.updates.autoCheck.label':'Перевіряти оновлення під час запуску','settings.updates.autoCheck.hint':'Лаунчер сам перевірить, чи є нова версія','settings.updates.current.label':'Поточна версія','settings.updates.checkBtn':'Перевірити оновлення','settings.updates.installBtn':'Завантажити та встановити','settings.updates.newVersion':'Доступна версія','settings.updates.upToDate':'У вас остання версія','settings.updates.checking':'Перевіряємо...','settings.updates.channel.label':'Канал оновлень','settings.updates.channel.hint':'Бета може містити необкатані функції','settings.updates.channel.stable':'Стабільний','settings.updates.channel.beta':'Бета','settings.updates.autoInstall.label':'Встановлювати автоматично','settings.updates.autoInstall.hint':'Одразу завантажувати і ставити оновлення, якщо його знайдено','settings.updates.lastCheck.label':'Остання перевірка' },
+  fr: { 'settings.updates.autoCheck.label':'Vérifier les mises à jour au démarrage','settings.updates.autoCheck.hint':"Le launcher vérifiera automatiquement s'il existe une nouvelle version",'settings.updates.current.label':'Version actuelle','settings.updates.checkBtn':'Vérifier les mises à jour','settings.updates.installBtn':'Télécharger et installer','settings.updates.newVersion':'Version disponible','settings.updates.upToDate':'Vous avez la dernière version','settings.updates.checking':'Vérification...','settings.updates.channel.label':'Canal de mise à jour','settings.updates.channel.hint':'La bêta peut contenir des fonctionnalités non testées','settings.updates.channel.stable':'Stable','settings.updates.channel.beta':'Bêta','settings.updates.autoInstall.label':'Installer automatiquement','settings.updates.autoInstall.hint':"Télécharger et installer la mise à jour dès qu'elle est trouvée",'settings.updates.lastCheck.label':'Dernière vérification' },
+  de: { 'settings.updates.autoCheck.label':'Beim Start nach Updates suchen','settings.updates.autoCheck.hint':'Der Launcher prüft automatisch auf eine neue Version','settings.updates.current.label':'Aktuelle Version','settings.updates.checkBtn':'Nach Updates suchen','settings.updates.installBtn':'Herunterladen und installieren','settings.updates.newVersion':'Version verfügbar','settings.updates.upToDate':'Du hast die neueste Version','settings.updates.checking':'Wird geprüft...','settings.updates.channel.label':'Update-Kanal','settings.updates.channel.hint':'Beta kann ungetestete Funktionen enthalten','settings.updates.channel.stable':'Stabil','settings.updates.channel.beta':'Beta','settings.updates.autoInstall.label':'Automatisch installieren','settings.updates.autoInstall.hint':'Update sofort herunterladen und installieren, sobald es gefunden wird','settings.updates.lastCheck.label':'Letzte Prüfung' },
+  es: { 'settings.updates.autoCheck.label':'Buscar actualizaciones al iniciar','settings.updates.autoCheck.hint':'El launcher comprobará automáticamente si hay una nueva versión','settings.updates.current.label':'Versión actual','settings.updates.checkBtn':'Buscar actualizaciones','settings.updates.installBtn':'Descargar e instalar','settings.updates.newVersion':'Versión disponible','settings.updates.upToDate':'Tienes la última versión','settings.updates.checking':'Comprobando...','settings.updates.channel.label':'Canal de actualización','settings.updates.channel.hint':'La beta puede contener funciones sin probar','settings.updates.channel.stable':'Estable','settings.updates.channel.beta':'Beta','settings.updates.autoInstall.label':'Instalar automáticamente','settings.updates.autoInstall.hint':'Descargar e instalar la actualización en cuanto se encuentre','settings.updates.lastCheck.label':'Última comprobación' },
+  it: { 'settings.updates.autoCheck.label':"Controlla aggiornamenti all'avvio",'settings.updates.autoCheck.hint':"Il launcher controllerà automaticamente se c'è una nuova versione",'settings.updates.current.label':'Versione attuale','settings.updates.checkBtn':'Controlla aggiornamenti','settings.updates.installBtn':'Scarica e installa','settings.updates.newVersion':'Versione disponibile','settings.updates.upToDate':"Hai l'ultima versione",'settings.updates.checking':'Controllo in corso...','settings.updates.channel.label':'Canale di aggiornamento','settings.updates.channel.hint':'La beta potrebbe contenere funzionalità non testate','settings.updates.channel.stable':'Stabile','settings.updates.channel.beta':'Beta','settings.updates.autoInstall.label':'Installa automaticamente','settings.updates.autoInstall.hint':"Scarica e installa l'aggiornamento non appena viene trovato",'settings.updates.lastCheck.label':'Ultimo controllo' },
+  pt: { 'settings.updates.autoCheck.label':'Verificar atualizações ao iniciar','settings.updates.autoCheck.hint':'O launcher verificará automaticamente se há uma nova versão','settings.updates.current.label':'Versão atual','settings.updates.checkBtn':'Verificar atualizações','settings.updates.installBtn':'Baixar e instalar','settings.updates.newVersion':'Versão disponível','settings.updates.upToDate':'Você está na versão mais recente','settings.updates.checking':'Verificando...','settings.updates.channel.label':'Canal de atualização','settings.updates.channel.hint':'A beta pode conter recursos não testados','settings.updates.channel.stable':'Estável','settings.updates.channel.beta':'Beta','settings.updates.autoInstall.label':'Instalar automaticamente','settings.updates.autoInstall.hint':'Baixar e instalar a atualização assim que for encontrada','settings.updates.lastCheck.label':'Última verificação' },
+  ja: { 'settings.updates.autoCheck.label':'起動時にアップデートを確認','settings.updates.autoCheck.hint':'ランチャーが新しいバージョンを自動的に確認します','settings.updates.current.label':'現在のバージョン','settings.updates.checkBtn':'アップデートを確認','settings.updates.installBtn':'ダウンロードしてインストール','settings.updates.newVersion':'新しいバージョンがあります','settings.updates.upToDate':'最新バージョンです','settings.updates.checking':'確認中...','settings.updates.channel.label':'更新チャンネル','settings.updates.channel.hint':'ベータには未検証の機能が含まれる場合があります','settings.updates.channel.stable':'安定版','settings.updates.channel.beta':'ベータ','settings.updates.autoInstall.label':'自動的にインストール','settings.updates.autoInstall.hint':'アップデートが見つかり次第、ダウンロードしてインストールします','settings.updates.lastCheck.label':'最終確認' },
+  ko: { 'settings.updates.autoCheck.label':'시작할 때 업데이트 확인','settings.updates.autoCheck.hint':'런처가 새 버전이 있는지 자동으로 확인합니다','settings.updates.current.label':'현재 버전','settings.updates.checkBtn':'업데이트 확인','settings.updates.installBtn':'다운로드 및 설치','settings.updates.newVersion':'새 버전 사용 가능','settings.updates.upToDate':'최신 버전을 사용 중입니다','settings.updates.checking':'확인 중...','settings.updates.channel.label':'업데이트 채널','settings.updates.channel.hint':'베타에는 검증되지 않은 기능이 포함될 수 있습니다','settings.updates.channel.stable':'안정 버전','settings.updates.channel.beta':'베타','settings.updates.autoInstall.label':'자동으로 설치','settings.updates.autoInstall.hint':'업데이트를 찾으면 바로 다운로드하여 설치합니다','settings.updates.lastCheck.label':'마지막 확인' },
+  hi: { 'settings.updates.autoCheck.label':'शुरू होने पर अपडेट जांचें','settings.updates.autoCheck.hint':'लॉन्चर खुद जांच लेगा कि नया वर्शन है या नहीं','settings.updates.current.label':'मौजूदा वर्शन','settings.updates.checkBtn':'अपडेट जांचें','settings.updates.installBtn':'डाउनलोड करें और इंस्टॉल करें','settings.updates.newVersion':'नया वर्शन उपलब्ध है','settings.updates.upToDate':'आपके पास नवीनतम वर्शन है','settings.updates.checking':'जांच रहे हैं...','settings.updates.channel.label':'अपडेट चैनल','settings.updates.channel.hint':'बीटा में बिना जांचे फीचर हो सकते हैं','settings.updates.channel.stable':'स्थिर','settings.updates.channel.beta':'बीटा','settings.updates.autoInstall.label':'अपने आप इंस्टॉल करें','settings.updates.autoInstall.hint':'अपडेट मिलते ही तुरंत डाउनलोड और इंस्टॉल करें','settings.updates.lastCheck.label':'आखिरी जांच' },
+  id: { 'settings.updates.autoCheck.label':'Periksa pembaruan saat memulai','settings.updates.autoCheck.hint':'Launcher akan otomatis memeriksa apakah ada versi baru','settings.updates.current.label':'Versi saat ini','settings.updates.checkBtn':'Periksa pembaruan','settings.updates.installBtn':'Unduh dan instal','settings.updates.newVersion':'Versi tersedia','settings.updates.upToDate':'Anda menggunakan versi terbaru','settings.updates.checking':'Memeriksa...','settings.updates.channel.label':'Saluran pembaruan','settings.updates.channel.hint':'Beta mungkin berisi fitur yang belum teruji','settings.updates.channel.stable':'Stabil','settings.updates.channel.beta':'Beta','settings.updates.autoInstall.label':'Instal otomatis','settings.updates.autoInstall.hint':'Unduh dan instal pembaruan segera setelah ditemukan','settings.updates.lastCheck.label':'Pemeriksaan terakhir' },
+};
+Object.keys(I18N_UPDATES_SETTINGS_PATCH).forEach(lang => {
+  if (!I18N[lang]) I18N[lang] = {};
+  Object.assign(I18N[lang], I18N_UPDATES_SETTINGS_PATCH[lang]);
+});
+I18N['es-ES'] = I18N.es;
+
 applyActiveTheme();
 restoreLastSelection();
 restoreModsViewState();

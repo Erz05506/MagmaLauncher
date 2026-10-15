@@ -1,10 +1,11 @@
 secret.h
 .vscode/
+installer/*.exe
 
 **/cef/
 **/build/
 **/vcpkg/
-**/vpckg_installed/
+**/vcpkg_installed/
 
 *.dll
 *.exe

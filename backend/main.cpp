@@ -1,3 +1,5 @@
+// MagmaLauncher — native entry point
+
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
@@ -80,11 +82,6 @@ static std::string wideToUtf8(const std::wstring& wide) {
     return utf8;
 }
 
-// Общий IFileOpenDialog-хелпер: pickFolders=true — диалог выбора папки
-// (FOS_PICKFOLDERS), иначе — диалог выбора файла с фильтром по имени/маске
-// (например, "java.exe" для выбора именно java.exe). Вызывается всегда из
-// отдельного потока (см. ApiHandler ниже) — сам диалог модальный и блокирует
-// вызывающий поток, поэтому вызывать его прямо на CEF UI thread нельзя.
 static bool showNativePickerDialog(bool pickFolders, const std::wstring& filterName,
                                     const std::wstring& filterSpec, const std::wstring& initialDir,
                                     std::wstring& pathOut) {
@@ -106,10 +103,6 @@ static bool showNativePickerDialog(bool pickFolders, const std::wstring& filterN
             pDialog->SetFileTypeIndex(1);
         }
 
-        // Открываем диалог сразу в нужной папке (последняя выбранная папка
-        // игры/Java), а не там, где Windows открыл его в прошлый раз (обычно
-        // "Документы") — раньше initialDir никак не передавался, и обзор
-        // всегда стартовал непонятно откуда.
         if (!initialDir.empty()) {
             IShellItem* pFolderItem = nullptr;
             if (SUCCEEDED(SHCreateItemFromParsingName(initialDir.c_str(), nullptr, IID_PPV_ARGS(&pFolderItem)))) {
@@ -138,6 +131,58 @@ static bool showNativePickerDialog(bool pickFolders, const std::wstring& filterN
 
     if (comInitializedHere) CoUninitialize();
     return ok;
+}
+
+static std::filesystem::path getExeDir() {
+    wchar_t buf[MAX_PATH];
+    GetModuleFileNameW(nullptr, buf, MAX_PATH);
+    return std::filesystem::path(buf).parent_path();
+}
+
+static std::filesystem::path getFrontendDir() {
+    std::filesystem::path local = getExeDir() / "frontend";
+    std::error_code ec;
+    if (std::filesystem::exists(local / "index.html", ec)) return local;
+    return std::filesystem::path(PROJECT_DIR);
+}
+
+static void applyWindowIcon(HWND hwnd) {
+    if (!hwnd) return;
+    HWND root = GetAncestor(hwnd, GA_ROOT);
+    if (root) hwnd = root;
+
+    static HICON bigIcon = nullptr;
+    static HICON smallIcon = nullptr;
+    if (!bigIcon) {
+        HINSTANCE hInst = GetModuleHandleW(nullptr);
+        bigIcon = (HICON)LoadImageW(hInst, MAKEINTRESOURCEW(1), IMAGE_ICON,
+            GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), LR_DEFAULTCOLOR);
+        smallIcon = (HICON)LoadImageW(hInst, MAKEINTRESOURCEW(1), IMAGE_ICON,
+            GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR);
+    }
+    if (!bigIcon) {
+        std::filesystem::path candidates[] = {
+            getExeDir() / "magmalauncher.ico",
+            getExeDir() / "assets" / "magmalauncher.ico",
+        };
+        for (const auto& p : candidates) {
+            std::error_code ec;
+            if (!std::filesystem::exists(p, ec)) continue;
+            bigIcon = (HICON)LoadImageW(nullptr, p.c_str(), IMAGE_ICON,
+                GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), LR_LOADFROMFILE);
+            smallIcon = (HICON)LoadImageW(nullptr, p.c_str(), IMAGE_ICON,
+                GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_LOADFROMFILE);
+            if (bigIcon) break;
+        }
+    }
+    if (bigIcon) {
+        SendMessageW(hwnd, WM_SETICON, ICON_BIG, (LPARAM)bigIcon);
+        SetClassLongPtrW(hwnd, GCLP_HICON, (LONG_PTR)bigIcon);
+    }
+    if (smallIcon) {
+        SendMessageW(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)smallIcon);
+        SetClassLongPtrW(hwnd, GCLP_HICONSM, (LONG_PTR)smallIcon);
+    }
 }
 
 static std::vector<unsigned char> base64Decode(const std::string& in) {
@@ -560,7 +605,7 @@ public:
             result["success"] = false;
             result["error"] = "Недопустимый путь";
         } else {
-            std::filesystem::path fullPath = std::filesystem::path(PROJECT_DIR) / ".." / "assets" / relPath;
+            std::filesystem::path fullPath = getFrontendDir() / ".." / "assets" / relPath;
             std::ifstream in(fullPath, std::ios::binary);
             if (!in) {
                 result["success"] = false;
@@ -577,6 +622,23 @@ public:
     }).detach();
     return true;
 }
+if (name == "getInstallConfig") {
+    json r;
+    std::ifstream in(getExeDir() / "install_config.json", std::ios::binary);
+    if (!in) { r["success"] = false; r["error"] = "install_config.json not found"; }
+    else {
+        try {
+            std::stringstream ss; ss << in.rdbuf();
+            r["config"] = json::parse(ss.str());
+            r["success"] = true;
+        } catch (const std::exception& e) {
+            r["success"] = false; r["error"] = e.what();
+        }
+    }
+    callback->Success(r.dump());
+    return true;
+}
+
 if (name == "getLauncherVersion") {
     json r; r["version"] = MAGMA_LAUNCHER_VERSION;
     callback->Success(r.dump());
@@ -608,7 +670,7 @@ if (name == "installLauncherUpdate") {
             }, err);
         json done; done["success"] = ok; if (!ok) done["error"] = err;
         PushJs(browser, "window.__updateDone && window.__updateDone(" + done.dump() + ");");
-        if (ok) PostUi([]() { CefQuitMessageLoop(); }); // закрываем лаунчер, .bat подхватит
+        if (ok) PostUi([]() { CefQuitMessageLoop(); }); 
     }).detach();
     json started; started["started"] = true;
     callback->Success(started.dump());
@@ -642,7 +704,7 @@ if (name == "installLauncherUpdate") {
             }
 
             if (name == "warmupModrinth") {
-                // Не блокируем CEF UI thread DNS/TLS запросом к Modrinth.
+                
                 std::thread([callback]() {
                     bool ok = launcher::modrinthWarmup();
                     json result; result["success"] = ok;
@@ -819,8 +881,7 @@ if (name == "installLauncherUpdate") {
             }
 
             if (name == "getMinecraftVersions") {
-                // Получение version_manifest_v2.json — сетевой запрос, поэтому
-                // выполняем его вне CEF UI thread, иначе окно визуально подвисает.
+
                 std::thread([callback]() {
                     std::string raw, err;
                     bool ok = launcher::fetchMinecraftVersionList(raw, err);
@@ -916,16 +977,21 @@ if (name == "installLauncherUpdate") {
                 return true;
             }
 
-                if (name == "getModsManifest") {
+            if (name == "getModsManifest") {
                 std::string dir = arg0.value("dir", "");
-                std::string raw, err;
-                bool ok = launcher::getModsManifestJson(dir, raw, err);
-                json result; result["success"] = ok;
-                if (ok) result["manifest"] = json::parse(raw); else result["error"] = err;
-                callback->Success(result.dump());
+                std::thread([callback, dir]() {
+                    std::string raw, err;
+                    bool ok = launcher::getModsManifestJson(dir, raw, err);
+                    json result; result["success"] = ok;
+                    if (ok) {
+                        try { result["manifest"] = json::parse(raw); }
+                        catch (const std::exception& e) { result["success"] = false; result["error"] = e.what(); }
+                    } else result["error"] = err;
+                    std::string payload = result.dump();
+                    PostUi([callback, payload]() { callback->Success(payload); });
+                }).detach();
                 return true;
             }
-
             if (name == "closeLauncher") {
                 bool reopenAfterGame = arg0.value("reopenAfterGame", false);
                 if (reopenAfterGame) {
@@ -944,11 +1010,17 @@ if (name == "installLauncherUpdate") {
 
             if (name == "getModDetails") {
                 std::string slug = arg0.value("slug", "");
-                std::string raw, err;
-                bool ok = launcher::modrinthProjectDetails(slug, raw, err);
-                json result; result["success"] = ok;
-                if (ok) result["project"] = json::parse(raw); else result["error"] = err;
-                callback->Success(result.dump());
+                std::thread([callback, slug]() {
+                    std::string raw, err;
+                    bool ok = launcher::modrinthProjectDetails(slug, raw, err);
+                    json result; result["success"] = ok;
+                    if (ok) {
+                        try { result["project"] = json::parse(raw); }
+                        catch (const std::exception& e) { result["success"] = false; result["error"] = e.what(); }
+                    } else result["error"] = err;
+                    std::string payload = result.dump();
+                    PostUi([callback, payload]() { callback->Success(payload); });
+                }).detach();
                 return true;
             }
 
@@ -958,16 +1030,22 @@ if (name == "installLauncherUpdate") {
                 std::string loader = arg0.value("loader", "fabric");
                 int offset = arg0.value("offset", 0);
 
-                std::string raw, err;
-                bool ok = launcher::modrinthSearch(query, mcVersion, loader, raw, err, offset);
-
-                json result; result["success"] = ok;
-                if (ok) {
-                    json parsed = json::parse(raw);
-                    result["hits"] = parsed.value("hits", json::array());
-                    result["total"] = parsed.value("total_hits", 0);
-                } else result["error"] = err;
-                callback->Success(result.dump());
+                std::thread([callback, query, mcVersion, loader, offset]() {
+                    std::string raw, err;
+                    bool ok = launcher::modrinthSearch(query, mcVersion, loader, raw, err, offset);
+                    json result; result["success"] = ok;
+                    if (ok) {
+                        try {
+                            json parsed = json::parse(raw);
+                            result["hits"] = parsed.value("hits", json::array());
+                            result["total"] = parsed.value("total_hits", 0);
+                        } catch (const std::exception& e) {
+                            result["success"] = false; result["error"] = e.what();
+                        }
+                    } else result["error"] = err;
+                    std::string payload = result.dump();
+                    PostUi([callback, payload]() { callback->Success(payload); });
+                }).detach();
                 return true;
             }
 
@@ -977,60 +1055,83 @@ if (name == "installLauncherUpdate") {
                 std::string projectType = arg0.value("projectType", "resourcepack");
                 int offset = arg0.value("offset", 0);
 
-                std::string raw, err;
-                bool ok = launcher::modrinthSearchByType(query, mcVersion, projectType, raw, err, offset);
-
-                json result; result["success"] = ok;
-                if (ok) {
-                    json parsed = json::parse(raw);
-                    result["hits"] = parsed.value("hits", json::array());
-                    result["total"] = parsed.value("total_hits", 0);
-                } else result["error"] = err;
-                callback->Success(result.dump());
+                std::thread([callback, query, mcVersion, projectType, offset]() {
+                    std::string raw, err;
+                    bool ok = launcher::modrinthSearchByType(query, mcVersion, projectType, raw, err, offset);
+                    json result; result["success"] = ok;
+                    if (ok) {
+                        try {
+                            json parsed = json::parse(raw);
+                            result["hits"] = parsed.value("hits", json::array());
+                            result["total"] = parsed.value("total_hits", 0);
+                        } catch (const std::exception& e) {
+                            result["success"] = false; result["error"] = e.what();
+                        }
+                    } else result["error"] = err;
+                    std::string payload = result.dump();
+                    PostUi([callback, payload]() { callback->Success(payload); });
+                }).detach();
                 return true;
             }
-
             if (name == "installContent") {
                 std::string slug = arg0.value("slug", "");
                 std::string mcVersion = arg0.value("version", "");
                 std::string projectType = arg0.value("projectType", "resourcepack");
                 std::string targetDir = arg0.value("targetDir", "");
-                std::string fileName, err;
-                bool ok = launcher::installContentToDir(slug, mcVersion, projectType, targetDir, fileName, err);
-                json result; result["success"] = ok;
-                if (ok) result["filename"] = fileName; else result["error"] = err;
-                callback->Success(result.dump());
+                std::thread([callback, slug, mcVersion, projectType, targetDir]() {
+                    std::string fileName, err;
+                    bool ok = launcher::installContentToDir(slug, mcVersion, projectType, targetDir, fileName, err);
+                    json result; result["success"] = ok;
+                    if (ok) result["filename"] = fileName; else result["error"] = err;
+                    std::string payload = result.dump();
+                    PostUi([callback, payload]() { callback->Success(payload); });
+                }).detach();
                 return true;
             }
 
-            if (name == "searchContentCurseForge") {
+           if (name == "searchContentCurseForge") {
                 std::string query = arg0.value("query", "");
                 std::string mcVersion = arg0.value("version", "");
                 int classId = arg0.value("classId", 6);
                 int offset = arg0.value("offset", 0);
 
-                std::string raw, err;
-                bool ok = launcher::curseforgeSearchByClass(classId, query, mcVersion, raw, err, offset);
-
-                json result; result["success"] = ok;
-                if (ok) {
-                    json parsed = json::parse(raw);
-                    result["hits"] = parsed.value("hits", json::array());
-                    result["total"] = parsed.value("total_hits", 0);
-                } else result["error"] = err;
-                callback->Success(result.dump());
+                std::thread([callback, query, mcVersion, classId, offset]() {
+                    std::string raw, err;
+                    bool ok = launcher::curseforgeSearchByClass(classId, query, mcVersion, raw, err, offset);
+                    json result; result["success"] = ok;
+                    if (ok) {
+                        try {
+                            json parsed = json::parse(raw);
+                            result["hits"] = parsed.value("hits", json::array());
+                            result["total"] = parsed.value("total_hits", 0);
+                        } catch (const std::exception& e) {
+                            result["success"] = false; result["error"] = e.what();
+                        }
+                    } else result["error"] = err;
+                    std::string payload = result.dump();
+                    PostUi([callback, payload]() { callback->Success(payload); });
+                }).detach();
                 return true;
             }
 
-            if (name == "installContentCurseForge") {
+                        if (name == "installContentCurseForge") {
                 std::string modId = arg0.value("modId", "");
                 std::string mcVersion = arg0.value("version", "");
                 std::string targetDir = arg0.value("targetDir", "");
-                std::string fileName, err;
-                bool ok = launcher::installContentCurseForge(modId, mcVersion, targetDir, fileName, err);
-                json result; result["success"] = ok;
-                if (ok) result["filename"] = fileName; else result["error"] = err;
-                callback->Success(result.dump());
+                bool asMap = arg0.value("asMap", false);
+                std::thread([callback, modId, mcVersion, targetDir, asMap]() {
+                    std::string fileName, err;
+                    bool ok = false;
+                    try {
+                        ok = launcher::installContentCurseForge(modId, mcVersion, targetDir, fileName, err, asMap);
+                    } catch (const std::exception& e) {
+                        err = e.what();
+                    }
+                    json result; result["success"] = ok;
+                    if (ok) result["filename"] = fileName; else result["error"] = err;
+                    std::string payload = result.dump();
+                    PostUi([callback, payload]() { callback->Success(payload); });
+                }).detach();
                 return true;
             }
 
@@ -1130,120 +1231,152 @@ if (name == "installLauncherUpdate") {
                 std::string loader = arg0.value("loader", "fabric");
                 int offset = arg0.value("offset", 0);
 
-                std::string raw, err;
-                bool ok = launcher::curseforgeSearch(query, mcVersion, loader, raw, err, offset);
-
-                json result; result["success"] = ok;
-                if (ok) {
-                    json parsed = json::parse(raw);
-                    result["hits"] = parsed.value("hits", json::array());
-                    result["total"] = parsed.value("total_hits", 0);
-                } else result["error"] = err;
-                callback->Success(result.dump());
+                std::thread([callback, query, mcVersion, loader, offset]() {
+                    std::string raw, err;
+                    bool ok = launcher::curseforgeSearch(query, mcVersion, loader, raw, err, offset);
+                    json result; result["success"] = ok;
+                    if (ok) {
+                        try {
+                            json parsed = json::parse(raw);
+                            result["hits"] = parsed.value("hits", json::array());
+                            result["total"] = parsed.value("total_hits", 0);
+                        } catch (const std::exception& e) {
+                            result["success"] = false; result["error"] = e.what();
+                        }
+                    } else result["error"] = err;
+                    std::string payload = result.dump();
+                    PostUi([callback, payload]() { callback->Success(payload); });
+                }).detach();
                 return true;
             }
 
             if (name == "getModDetailsCurseForge") {
                 std::string modId = arg0.value("modId", "");
-                std::string html, err;
-                bool ok = launcher::curseforgeProjectDescription(modId, html, err);
-                json result; result["success"] = ok;
-                if (ok) result["html"] = html; else result["error"] = err;
-                callback->Success(result.dump());
+                std::thread([callback, modId]() {
+                    std::string html, err;
+                    bool ok = launcher::curseforgeProjectDescription(modId, html, err);
+                    json result; result["success"] = ok;
+                    if (ok) result["html"] = html; else result["error"] = err;
+                    std::string payload = result.dump();
+                    PostUi([callback, payload]() { callback->Success(payload); });
+                }).detach();
                 return true;
             }
 
-            if (name == "getModInfoCurseForge") {
+         if (name == "getModInfoCurseForge") {
                 std::string modId = arg0.value("modId", "");
-                std::string title, iconUrl, err;
-                bool ok = launcher::curseforgeModInfo(modId, title, iconUrl, err);
-                json result; result["success"] = ok;
-                if (ok) { result["title"] = title; result["icon_url"] = iconUrl; } else result["error"] = err;
-                callback->Success(result.dump());
+                std::thread([callback, modId]() {
+                    std::string title, iconUrl, err;
+                    bool ok = launcher::curseforgeModInfo(modId, title, iconUrl, err);
+                    json result; result["success"] = ok;
+                    if (ok) { result["title"] = title; result["icon_url"] = iconUrl; } else result["error"] = err;
+                    std::string payload = result.dump();
+                    PostUi([callback, payload]() { callback->Success(payload); });
+                }).detach();
                 return true;
             }
 
-            if (name == "installModCurseForge") {
+          if (name == "installModCurseForge") {
                 std::string modId = arg0.value("modId", "");
                 std::string mcVersion = arg0.value("version", "");
                 std::string loader = arg0.value("loader", "fabric");
                 std::string modsDir = arg0.value("modsDir", "");
-                std::string fileName, err;
-                bool ok = launcher::installModCurseForge(modId, mcVersion, loader, modsDir, fileName, err);
-                json result; result["success"] = ok;
-                if (ok) result["filename"] = fileName; else result["error"] = err;
-                callback->Success(result.dump());
+                std::thread([callback, modId, mcVersion, loader, modsDir]() {
+                    std::string fileName, err;
+                    bool ok = launcher::installModCurseForge(modId, mcVersion, loader, modsDir, fileName, err);
+                    json result; result["success"] = ok;
+                    if (ok) result["filename"] = fileName; else result["error"] = err;
+                    std::string payload = result.dump();
+                    PostUi([callback, payload]() { callback->Success(payload); });
+                }).detach();
                 return true;
             }
 
-            if (name == "installMod") {
+          if (name == "installMod") {
                 std::string slug = arg0.value("slug", "");
                 std::string mcVersion = arg0.value("version", "");
                 std::string loader = arg0.value("loader", "fabric");
                 std::string modsDir = arg0.value("modsDir", "");
-                std::string fileName, err;
-                bool ok = launcher::installModToDir(slug, mcVersion, loader, modsDir, fileName, err);
-                json result; result["success"] = ok;
-                if (ok) result["filename"] = fileName; else result["error"] = err;
-                callback->Success(result.dump());
+                std::thread([callback, slug, mcVersion, loader, modsDir]() {
+                    std::string fileName, err;
+                    bool ok = launcher::installModToDir(slug, mcVersion, loader, modsDir, fileName, err);
+                    json result; result["success"] = ok;
+                    if (ok) result["filename"] = fileName; else result["error"] = err;
+                    std::string payload = result.dump();
+                    PostUi([callback, payload]() { callback->Success(payload); });
+                }).detach();
                 return true;
             }
 
             if (name == "listModsInDir") {
                 std::string dir = arg0.value("dir", "");
-                std::vector<std::string> files;
-                std::string err;
-                bool ok = launcher::listDirFileNames(dir, files, err);
-                json result; result["success"] = ok;
-                if (ok) result["files"] = files; else result["error"] = err;
-                callback->Success(result.dump());
+                std::thread([callback, dir]() {
+                    std::vector<std::string> files;
+                    std::string err;
+                    bool ok = launcher::listDirFileNames(dir, files, err);
+                    json result; result["success"] = ok;
+                    if (ok) result["files"] = files; else result["error"] = err;
+                    std::string payload = result.dump();
+                    PostUi([callback, payload]() { callback->Success(payload); });
+                }).detach();
                 return true;
             }
 
-            if (name == "listMapFolders") {
+               if (name == "listMapFolders") {
     std::string dir = arg0.value("dir", "");
-    std::vector<std::string> folders;
-    std::string err;
-    bool ok = launcher::listDirFolderNames(dir, folders, err);
-    json result; result["success"] = ok;
-    if (ok) result["folders"] = folders; else result["error"] = err;
-    callback->Success(result.dump());
+    std::thread([callback, dir]() {
+        std::vector<std::string> folders;
+        std::string err;
+        bool ok = launcher::listDirFolderNames(dir, folders, err);
+        json result; result["success"] = ok;
+        if (ok) result["folders"] = folders; else result["error"] = err;
+        std::string payload = result.dump();
+        PostUi([callback, payload]() { callback->Success(payload); });
+    }).detach();
     return true;
 }
 
             if (name == "toggleModFile") {
                 std::string dir = arg0.value("dir", "");
                 std::string filename = arg0.value("filename", "");
-                std::string newName, err;
-                bool ok = launcher::toggleModEnabled(dir, filename, newName, err);
-                json result; result["success"] = ok;
-                if (ok) result["filename"] = newName; else result["error"] = err;
-                callback->Success(result.dump());
+                std::thread([callback, dir, filename]() {
+                    std::string newName, err;
+                    bool ok = launcher::toggleModEnabled(dir, filename, newName, err);
+                    json result; result["success"] = ok;
+                    if (ok) result["filename"] = newName; else result["error"] = err;
+                    std::string payload = result.dump();
+                    PostUi([callback, payload]() { callback->Success(payload); });
+                }).detach();
                 return true;
             }
 
             if (name == "deleteModFile") {
                 std::string dir = arg0.value("dir", "");
                 std::string filename = arg0.value("filename", "");
-                std::string err;
-                bool ok = launcher::deleteModFile(dir, filename, err);
-                json result; result["success"] = ok;
-                if (!ok) result["error"] = err;
-                callback->Success(result.dump());
+                std::thread([callback, dir, filename]() {
+                    std::string err;
+                    bool ok = launcher::deleteModFile(dir, filename, err);
+                    json result; result["success"] = ok;
+                    if (!ok) result["error"] = err;
+                    std::string payload = result.dump();
+                    PostUi([callback, payload]() { callback->Success(payload); });
+                }).detach();
                 return true;
             }
 
             if (name == "deleteMapFolder") {
     std::string dir = arg0.value("dir", "");
     std::string folder = arg0.value("folder", "");
-    std::string err;
-    bool ok = launcher::deleteMapFolder(dir, folder, err);
-    json result; result["success"] = ok;
-    if (!ok) result["error"] = err;
-    callback->Success(result.dump());
+    std::thread([callback, dir, folder]() {
+        std::string err;
+        bool ok = launcher::deleteMapFolder(dir, folder, err);
+        json result; result["success"] = ok;
+        if (!ok) result["error"] = err;
+        std::string payload = result.dump();
+        PostUi([callback, payload]() { callback->Success(payload); });
+    }).detach();
     return true;
 }
-
             if (name == "createModpack") {
                 launcher::ModpackRequest mr;
                 mr.name = arg0.value("name", "");
@@ -1395,17 +1528,15 @@ public:
         void OnAfterCreated(CefRefPtr<CefBrowser> browser) override {
     CEF_REQUIRE_UI_THREAD();
     browser_list_.push_back(browser);
+    applyWindowIcon(browser->GetHost()->GetWindowHandle());
 
     HWND hwnd = browser->GetHost()->GetWindowHandle();
     if (hwnd) {
+        applyWindowIcon(hwnd);
         HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
         MONITORINFO mi{ sizeof(MONITORINFO) };
         GetMonitorInfo(monitor, &mi);
 
-        // Один ShowWindow(SW_MAXIMIZE) не всегда разворачивает окно сразу
-        // после CreateBrowser — сначала явно растягиваем на рабочую область
-        // монитора, и только потом просим состояние "развёрнуто", чтобы
-        // кнопка restore/maximize в шапке тоже вела себя правильно.
         SetWindowPos(hwnd, nullptr,
             mi.rcWork.left, mi.rcWork.top,
             mi.rcWork.right - mi.rcWork.left,
@@ -1425,6 +1556,7 @@ public:
                 mi2.rcWork.bottom - mi2.rcWork.top,
                 SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
             ShowWindow(hwnd, SW_MAXIMIZE);
+            applyWindowIcon(hwnd);
         }), 250);
 
         RECT rc{};
@@ -1435,17 +1567,6 @@ public:
     }
 }
 
-    // Блокирует создание попап-окон CEF (target="_blank", window.open и т.п.)
-    // на уровне самого браузерного движка — JS-перехват в app.js работает
-    // только для случаев, которые доходят до скрипта страницы, а анкоры с
-    // target="_blank" (например в описаниях модов с CurseForge/Modrinth)
-    // CEF обрабатывает раньше и сам открывает новое нативное окно, минуя JS.
-    // Раньше это создавало отдельное окно (иногда с ERR_FILE_NOT_FOUND, если
-    // ссылка была относительной), и закрытие этого окна могло утащить за
-    // собой весь message loop приложения. Вместо попапа просто открываем
-    // ссылку в системном браузере пользователя — тем же способом, что и
-    // openExternalUrl в ApiHandler — и возвращаем true, чтобы CEF вообще не
-    // создавал новое окно.
     bool OnBeforePopup(CefRefPtr<CefBrowser> browser,
                     CefRefPtr<CefFrame> frame,
                     int popup_id,                             
@@ -1467,7 +1588,7 @@ public:
             ShellExecuteA(nullptr, "open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
         }
 
-        return true; // отменяем создание попапа полностью
+        return true; 
     }
 
     bool DoClose(CefRefPtr<CefBrowser> browser) override {
@@ -1512,14 +1633,6 @@ public:
                                     CefRefPtr<CefCommandLine> command_line) override {
     command_line->AppendSwitch("allow-file-access-from-files");
 
-    // WebGL для skinview3d.
-    //
-    // Раньше здесь принудительно включался SwiftShader — программный
-    // рендеринг через CPU. После появления 3D-скина это могло тормозить
-    // весь CEF-интерфейс.
-    //
-    // Сам код 3D-модели в app.js не меняем: используем аппаратный
-    // ANGLE/D3D11 backend Windows.
     command_line->AppendSwitchWithValue("use-gl", "angle");
     command_line->AppendSwitchWithValue("use-angle", "d3d11");
     command_line->AppendSwitch("ignore-gpu-blocklist");
@@ -1547,7 +1660,7 @@ public:
     CefRefPtr<MagmaClient> handler(new MagmaClient());
     CefRefPtr<CefClient> client = handler.get();
 
-    std::string url = "file:///" + std::string(PROJECT_DIR) + "/index.html";
+    std::string url = "file:///" + wideToUtf8(getFrontendDir().generic_wstring()) + "/index.html";
 
     CefBrowserHost::CreateBrowser(windowInfo, client, url, browserSettings, nullptr, nullptr);
 }
@@ -1583,7 +1696,7 @@ private:
         static const char* names[] = {
             "googleOAuthSignIn", "openExternalUrl", "warmupModrinth", "deleteInstance", "resetVersionCache",
             "browseJavaExe", "browseFolder", "autoDetectJava", "moveGameFolder",
-            "openGameFolder", "getLauncherVersion", "checkLauncherUpdate", "installLauncherUpdate","fetchSkinBytes", "fetchLocalAsset", "installArchiveMods", "installArchiveMap", "installArchiveContent", "installLocalFile",
+            "openGameFolder", "getInstallConfig", "getLauncherVersion", "checkLauncherUpdate", "installLauncherUpdate","fetchSkinBytes", "fetchLocalAsset", "installArchiveMods", "installArchiveMap", "installArchiveContent", "installLocalFile",
             "getMinecraftVersions", "pauseLaunch", "resumeLaunch", "cancelLaunch", "launchGame", "listMapFolders", "deleteMapFolder",
             "getModDetails", "searchMods", "searchContent", "installContent", "searchContentCurseForge",
             "installContentCurseForge", "installModpackFromCatalog", "installModpackFromLocalFile",
@@ -1644,13 +1757,21 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int) {
     settings.no_sandbox = true;
     settings.background_color = CefColorSetARGB(255, 10, 10, 12);
 
-    const char* appDataEnv = std::getenv("APPDATA");
-    if (appDataEnv) {
-        std::string cachePath = std::string(appDataEnv) + "\\MagmaLauncher\\cef_cache";
-        std::error_code ec;
-        std::filesystem::create_directories(cachePath, ec);
-        CefString(&settings.cache_path).FromString(cachePath);
-    }
+    const char* localAppDataEnv = std::getenv("LOCALAPPDATA");
+const char* appDataEnv = std::getenv("APPDATA");
+
+if (appDataEnv) {
+    std::error_code oldEc;
+    std::filesystem::remove_all(std::string(appDataEnv) + "\\MagmaLauncher\\cef_cache", oldEc);
+}
+
+const char* cacheBase = localAppDataEnv ? localAppDataEnv : appDataEnv;
+if (cacheBase) {
+    std::string cachePath = std::string(cacheBase) + "\\MagmaLauncher\\cef_cache";
+    std::error_code ec;
+    std::filesystem::create_directories(cachePath, ec);
+    CefString(&settings.cache_path).FromString(cachePath);
+}
 
     CefInitialize(main_args, settings, app.get(), nullptr);
     CefRunMessageLoop();

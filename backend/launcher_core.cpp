@@ -1,3 +1,5 @@
+// MagmaLauncher — launcher core
+
 #include "launcher_core.h"
 #include "secret.h"
 
@@ -24,22 +26,15 @@ using json = nlohmann::json;
 
 namespace launcher {
 
-// Определение флага паузы, объявленного в launcher_core.h.
 std::atomic<bool> g_paused{false};
-// Определение флага отмены, объявленного в launcher_core.h.
+
 std::atomic<bool> g_cancelled{false};
 
 std::atomic<bool> g_gameProcessActive{false};
 std::atomic<unsigned long> g_gameProcessId{0};
 
-// ============================================
-// Мелкие HTTP-хелперы
-// ============================================
 namespace {
-// ============================================
-// Discord Rich Presence / IPC
-// Объявляем и реализуем IPC-хелперы ДО первого использования.
-// ============================================
+
 HANDLE g_discordPipe = INVALID_HANDLE_VALUE;
 std::atomic<bool> g_discordConnected{false};
 
@@ -106,10 +101,6 @@ bool discordConnectPipe() {
     return false;
 }
 
-
-// Блокирует поток закачки, пока стоит пауза, и сообщает, была ли за это
-// время (или до него) запрошена отмена — тогда вызывающий код должен сразу
-// прекратить текущий шаг с errorOut == "CANCELLED".
 bool waitWhilePausedOrCancelled(std::string& errorOut) {
     while (g_paused.load()) {
         if (g_cancelled.load()) { errorOut = "CANCELLED"; return false; }
@@ -129,18 +120,6 @@ size_t writeToFile(char* ptr, size_t size, size_t nmemb, std::ofstream* out) {
     return size * nmemb;
 }
 
-// Возвращая ненулевое значение, curl прерывает текущую передачу — используем
-// это, чтобы отмена срабатывала мгновенно даже посреди скачивания одного
-// большого файла (client.jar, ассеты, Java runtime), а не только между ними.
-//
-// ВАЖНО: раньше пауза проверялась только между файлами (waitWhilePausedOrCancelled
-// вызывался в начале каждой итерации цикла) — если пользователь ставил на паузу
-// во время закачки одного большого файла (client.jar, крупная библиотека,
-// Java runtime, установщик Forge), ничего не происходило, пока этот файл не
-// докачается полностью. На медленной сети это могло занимать минуты — с точки
-// зрения игрока пауза выглядела просто нерабочей. curl дёргает этот колбэк
-// прямо во время передачи, поэтому блокировка здесь реально останавливает
-// именно приём байтов, а не просто откладывает следующий файл.
 int abortIfCancelledCallback(void*, curl_off_t, curl_off_t, curl_off_t, curl_off_t) {
     while (g_paused.load()) {
         if (g_cancelled.load()) return 1;
@@ -164,14 +143,6 @@ bool withRetries(Fn&& operation, int maxAttempts, std::string& errorOut,
     return false;
 }
 
-// Общие опции, применяемые к КАЖДОМУ curl-запросу в файле (GET, download,
-// прогрев) — вынесены в одно место, чтобы не повторять и не забыть где-то.
-// CURLOPT_IPRESOLVE=V4 — главная причина добавления: "Could not resolve
-// hostname" на части сетей на самом деле означает не то, что хост реально не
-// резолвится, а что резолвер вернул AAAA (IPv6) запись, а исходящего IPv6
-// на машине/провайдере по факту нет — curl пытается достучаться по нему и
-// падает с ошибкой резолва/подключения. Принудительный IPv4 — стандартный
-// обходной путь для этого (тот же приём использует и curl.exe -4).
 void applyCommonCurlOpts(CURL* curl) {
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
@@ -211,14 +182,6 @@ bool httpGetString(const std::string& url, std::string& out, std::string& errorO
     }, 4, errorOut);
 }
 
-// Отдельная, более "нервная" версия для интерактивных запросов к Modrinth API
-// (поиск модов, описание мода, разрешение файла для установки) — эти вызовы
-// напрямую блокируют UI (модалка "О моде" висит на "Загружаем описание...",
-// список модов висит на "Ищем моды..."), поэтому им нужен короткий таймаут и
-// мало попыток: лучше быстро показать понятную ошибку, чем держать игрока
-// перед замёрзшим экраном до 2 минут (как было бы с httpGetString: 4 попытки
-// по 30 секунд). Для скачивания больших файлов (client.jar, библиотеки,
-// ассеты) по-прежнему используется терпеливый httpGetString/httpDownloadFile.
 bool httpGetStringOnceFast(const std::string& url, std::string& out, std::string& errorOut) {
     CURL* curl = curl_easy_init();
     if (!curl) { errorOut = "curl_easy_init failed"; return false; }
@@ -228,7 +191,7 @@ bool httpGetStringOnceFast(const std::string& url, std::string& out, std::string
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeToString);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &out);
     applyCommonCurlOpts(curl);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 8L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 12L);
 
     CURLcode res = curl_easy_perform(curl);
     long httpCode = 0;
@@ -244,10 +207,7 @@ bool httpGetStringOnceFast(const std::string& url, std::string& out, std::string
 }
 
 bool httpGetStringFast(const std::string& url, std::string& out, std::string& errorOut) {
-    // Было 2 попытки — увеличено до 4: DNS-сбои ("Could not resolve hostname")
-    // валятся почти мгновенно (никакого реального ожидания таймаута), так что
-    // пара лишних попыток не делает "быстрый" путь заметно медленнее для
-    // игрока, зато переживает кратковременные сбои локального резолвера.
+
     return withRetries([&](std::string& attemptError) {
         return httpGetStringOnceFast(url, out, attemptError);
     }, 4, errorOut);
@@ -268,10 +228,7 @@ bool httpGetStringOnceWithHeader(const std::string& url, const std::string& head
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeToString);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &out);
     applyCommonCurlOpts(curl);
-    // Было 10с — на некоторых сетях запрос к CurseForge (за Cloudflare) не
-    // укладывался в этот срок и валился по таймауту ещё до получения ответа,
-    // хотя сервер в итоге бы ответил. 15с даёт больше шансов дождаться ответа,
-    // а withRetries ниже всё равно переспрашивает при неудаче.
+
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
 
     CURLcode res = curl_easy_perform(curl);
@@ -282,12 +239,7 @@ bool httpGetStringOnceWithHeader(const std::string& url, const std::string& head
 
     if (res != CURLE_OK) { errorOut = std::string("ERR_NETWORK||") + curl_easy_strerror(res); return false; }
     if (httpCode < 200 || httpCode >= 300) {
-        // ВАЖНО: раньше в ошибку попадал только код ответа, без тела — а тело
-        // как раз обычно содержит причину ("Invalid API Key", "Forbidden",
-        // "Rate limit exceeded" и т.п.). Без этого текста бэкенд молча
-        // "терял" моды с CurseForge (фронтенд просто получал пустой список),
-        // и было невозможно отличить "мода правда нет" от "ключ/лимит
-        // сломаны". Добавляем короткий фрагмент тела ответа в текст ошибки.
+
         std::string bodySnippet = out.size() > 200 ? out.substr(0, 200) : out;
         errorOut = "ERR_HTTP_STATUS||HTTP " + std::to_string(httpCode) + " (" + url + ")" +
                    (bodySnippet.empty() ? "" : (": " + bodySnippet));
@@ -303,33 +255,6 @@ bool httpGetStringWithHeader(const std::string& url, const std::string& headerLi
     }, 4, errorOut);
 }
 
-// resumeFrom > 0 — докачиваем уже частично скачанный .part-файл с того места,
-// где оборвались, вместо того чтобы начинать заново. Особенно важно для
-// больших файлов (ассеты, JDK, Java runtime): раньше любой сетевой сбой типа
-// "Failure when receiving data from the peer" на 190-мегабайтном файле
-// заставлял качать его с нуля заново все 4 попытки — на нестабильной сети
-// это могло вообще никогда не завершиться. httpDownloadFile (обёртка ниже)
-// сама определяет, сколько уже лежит в .part, и передаёт это сюда.
-//
-// lowSpeedTimeSec — сколько секунд подряд скорость может держаться ниже
-// ~200 байт/с, прежде чем curl решит, что соединение зависло, и оборвёт
-// попытку. Значение по умолчанию (90с) специально очень терпеливое — это
-// нужно для ассетов/библиотек Mojang, которые часть провайдеров реально
-// дросселирует (но закачка всё равно ползёт и в итоге доедет). Для менее
-// критичных источников (например, зеркала вроде BMCLAPI/Adoptium, у которых
-// есть разумная альтернатива в виде повторной попытки) стоит передавать
-// значение поменьше, чтобы не создавать впечатление "зависания" на 15+ минут.
-// absoluteTimeoutSec — жёсткий потолок на ОДНУ попытку целиком (0 = без
-// потолка, как раньше — нужно для больших файлов вроде ассетов/библиотек
-// Mojang, где длинная, но живая закачка — это нормально). CONNECTTIMEOUT и
-// LOW_SPEED_TIME в теории должны сами обрывать все "зависшие" случаи, но на
-// практике попадались отчёты про соединения, которые не попадают ни под
-// одно из этих условий (например, TLS-хендшейк подвисает уже после того,
-// как TCP-коннект технически установился) — тогда закачка просто "висела"
-// без ошибки и без прогресса. absoluteTimeoutSec — предохранитель именно от
-// этого: используется для небольших файлов с известным разумным потолком
-// времени (установщик OptiFine, portable JDK), где долгая закачка и так не
-// ожидается.
 bool httpDownloadFileOnce(const std::string& url, const fs::path& destPath, std::string& errorOut,
                            curl_off_t resumeFrom = 0, long connectTimeoutSec = 30, long lowSpeedTimeSec = 90,
                            long absoluteTimeoutSec = 0) {
@@ -354,14 +279,9 @@ bool httpDownloadFileOnce(const std::string& url, const fs::path& destPath, std:
         curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, connectTimeoutSec);
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
         curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, abortIfCancelledCallback);
-        // Некоторые зеркала (BMCLAPI, GitHub releases за Adoptium) время от
-        // времени рвут HTTP/2-стримы посреди передачи — это и проявлялось как
-        // "Failure when receiving data from the peer". HTTP/1.1 стабильнее
-        // именно для длинных однопоточных закачек больших файлов.
+
         curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-        // Вместо жёсткого потолка на всю передачу (раньше CURLOPT_TIMEOUT=120с —
-        // на медленной сети большой файл мог не успеть докачаться и посреди
-        // прогресса) прерываем только настоящий "зависший" коннект.
+
         curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 200L);
         curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, lowSpeedTimeSec);
         if (absoluteTimeoutSec > 0) {
@@ -379,23 +299,13 @@ bool httpDownloadFileOnce(const std::string& url, const fs::path& destPath, std:
 
         if (res != CURLE_OK) { errorOut = std::string("ERR_NETWORK||") + curl_easy_strerror(res); return false; }
 
-        // Докачку просили (Range), а сервер её не поддержал и прислал файл
-        // заново с нуля (код 200 вместо 206) — то, что мы дописали поверх
-        // старого .part, теперь битый мусор. Удаляем .part целиком, чтобы
-        // следующая попытка (уже без resumeFrom, raз файла больше нет)
-        // началась честно с чистого листа, а не продолжила портить файл.
         if (resumeFrom > 0 && httpCode == 200) {
             out.close();
             fs::remove(tmpPath, ec);
             errorOut = "Сервер не поддержал докачку файла, начинаем заново";
             return false;
         }
-        // 416 Range Not Satisfiable — офсет в .part не совпадает с тем, что
-        // реально есть на сервере (например, .part остался от давней неудачной
-        // попытки и уже не соответствует текущему файлу, или его размер
-        // почему-то оказался БОЛЬШЕ настоящего). Раньше это просто валило
-        // загрузку с голым "HTTP 416" — на деле это всегда чинится тем же
-        // способом: выкинуть подозрительный .part и красиво перекачать с нуля.
+
         if (resumeFrom > 0 && httpCode == 416) {
             out.close();
             fs::remove(tmpPath, ec);
@@ -431,10 +341,6 @@ bool httpDownloadFile(const std::string& url, const fs::path& destPath, std::str
     }, maxAttempts, errorOut, onRetry);
 }
 
-// ============================================
-// Диагностика запуска java.exe
-// ============================================
-
 std::string winErrorMessage(DWORD code) {
     LPSTR buf = nullptr;
     DWORD len = FormatMessageA(
@@ -446,8 +352,28 @@ std::string winErrorMessage(DWORD code) {
     return msg;
 }
 
-// Ищет java.exe уже установленную в системе: сначала через PATH, потом по
-// типовым папкам установки JDK.
+std::string quoteWinArg(const std::string& arg) {
+    if (!arg.empty() && arg.find_first_of(" \t\n\v\"") == std::string::npos) return arg;
+    std::string out = "\"";
+    size_t backslashes = 0;
+    for (char c : arg) {
+        if (c == '\\') {
+            backslashes++;
+        } else if (c == '"') {
+            out.append(backslashes * 2 + 1, '\\');
+            out.push_back('"');
+            backslashes = 0;
+        } else {
+            out.append(backslashes, '\\');
+            backslashes = 0;
+            out.push_back(c);
+        }
+    }
+    out.append(backslashes * 2, '\\');
+    out.push_back('"');
+    return out;
+}
+
 std::optional<fs::path> findFallbackJava() {
     char buf[MAX_PATH];
     if (SearchPathA(nullptr, "java.exe", nullptr, MAX_PATH, buf, nullptr) > 0) {
@@ -476,20 +402,6 @@ std::optional<fs::path> findFallbackJava() {
     return best;
 }
 
-// Запускает "java -version" и парсит major-версию из stderr (java пишет
-// версию именно туда, не в stdout). Нужно, чтобы не подсунуть игре, скажем,
-// системную Java 8 вместо требуемой Java 21/25 — иначе игра просто не
-// запустится с невнятной ошибкой JVM про несовместимую версию класса.
-// Возвращает -1, если версию определить не удалось.
-//
-// ВАЖНО: раньше это делалось через _popen(), а не через CreateProcessA —
-// _popen на Windows в GUI-приложении (сабсистем WINDOWS, без своей консоли)
-// сам создаёт для дочернего процесса новую консоль и никак не даёт её
-// скрыть, поэтому при каждой проверке версии Java на долю секунды мелькало
-// чёрное окно. CreateProcessA с CREATE_NO_WINDOW/SW_HIDE и перенаправлением
-// вывода в анонимный pipe даёт тот же результат (текст "java -version"),
-// но без какого-либо видимого окна — тем же способом, каким уже запускаются
-// javac/java для установки OptiFine и инсталлятор Forge (см. выше).
 int detectJavaMajorVersion(const fs::path& javaExe) {
     SECURITY_ATTRIBUTES sa{};
     sa.nLength = sizeof(SECURITY_ATTRIBUTES);
@@ -498,8 +410,7 @@ int detectJavaMajorVersion(const fs::path& javaExe) {
 
     HANDLE hReadPipe = nullptr, hWritePipe = nullptr;
     if (!CreatePipe(&hReadPipe, &hWritePipe, &sa, 0)) return -1;
-    // Читающий конец не должен наследоваться дочерним процессом — иначе он
-    // никогда не закроет свою копию хэндла и ReadFile ниже не дождётся EOF.
+
     SetHandleInformation(hReadPipe, HANDLE_FLAG_INHERIT, 0);
 
     std::string cmdLine = "\"" + javaExe.string() + "\" -version";
@@ -516,7 +427,7 @@ int detectJavaMajorVersion(const fs::path& javaExe) {
     PROCESS_INFORMATION pi{};
     BOOL ok = CreateProcessA(nullptr, cmdBuf.data(), nullptr, nullptr, TRUE,
                               CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi);
-    CloseHandle(hWritePipe); // родителю больше не нужен пишущий конец — иначе ReadFile не увидит EOF
+    CloseHandle(hWritePipe); 
 
     if (!ok) { CloseHandle(hReadPipe); return -1; }
 
@@ -539,13 +450,13 @@ int detectJavaMajorVersion(const fs::path& javaExe) {
     std::string verStr = output.substr(verPos, verEnd - verPos);
 
     try {
-        // Старый формат версий: "1.8.0_411" -> Java 8.
+        
         if (verStr.rfind("1.", 0) == 0) {
             size_t dotPos = verStr.find('.', 2);
             if (dotPos == std::string::npos) return -1;
             return std::stoi(verStr.substr(2, dotPos - 2));
         }
-        // Новый формат: "21.0.4" -> Java 21, "25" -> Java 25.
+        
         size_t dotPos = verStr.find('.');
         std::string majorStr = (dotPos == std::string::npos) ? verStr : verStr.substr(0, dotPos);
         return std::stoi(majorStr);
@@ -554,22 +465,12 @@ int detectJavaMajorVersion(const fs::path& javaExe) {
     }
 }
 
-// ============================================
-// Автозагрузка portable Java runtime от Mojang — то же самое, что делает
-// официальный лаунчер и TLauncher: скачивает готовую сборку JRE под нужную
-// версию игры (component берётся из version.json -> javaVersion.component)
-// в свою изолированную папку внутри gameDir/runtime, без установки в систему.
-// Индекс всех доступных рантаймов Mojang публикует по постоянному URL:
-// https://launchermeta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json
-// ============================================
 bool ensureBundledJavaRuntime(const std::string& component, const fs::path& runtimeRoot,
                                const ProgressFn& onProgress, fs::path& javaExeOut, std::string& errorOut) {
     fs::path componentDir = runtimeRoot / component;
     fs::path javaExe = componentDir / "bin" / "java.exe";
     fs::path markerFile = componentDir / ".installed";
 
-    // Уже скачано раньше — переиспользуем, не качаем повторно (маркер
-    // ставится только после успешной полной загрузки всех файлов рантайма).
     if (fs::exists(javaExe) && fs::exists(markerFile)) {
         javaExeOut = javaExe;
         return true;
@@ -586,7 +487,6 @@ bool ensureBundledJavaRuntime(const std::string& component, const fs::path& runt
     try { index = json::parse(indexRaw); }
     catch (const std::exception& e) { errorOut = std::string("ERR_JAVA_INDEX||") + e.what(); return false; }
 
-    // Windows x64 — единственная целевая платформа этой сборки лаунчера (см. CMakeLists.txt).
     if (!index.contains("windows-x64") || !index["windows-x64"].contains(component) ||
         index["windows-x64"][component].empty()) {
         errorOut = "ERR_JAVA_NO_BUILD||" + component;
@@ -622,8 +522,7 @@ bool ensureBundledJavaRuntime(const std::string& component, const fs::path& runt
             continue;
         }
         if (type == "link") {
-            // Символические ссылки в манифестах Windows-рантаймов практически
-            // не встречаются (это в основном macOS/Linux-специфика) — пропускаем.
+
             continue;
         }
 
@@ -635,7 +534,7 @@ bool ensureBundledJavaRuntime(const std::string& component, const fs::path& runt
         const auto& raw = entry["downloads"]["raw"];
 
         fs::path tmpDest = dest;
-        if (fs::exists(tmpDest)) continue; // уже скачан этот конкретный файл — не перекачиваем
+        if (fs::exists(tmpDest)) continue; 
 
         if (!httpDownloadFile(raw.value("url", ""), dest, errorOut)) return false;
     }
@@ -651,10 +550,6 @@ bool ensureBundledJavaRuntime(const std::string& component, const fs::path& runt
     return true;
 }
 
-// ============================================
-// SHA1 — нужен для проверки целостности уже скачанных файлов (Mojang для
-// каждого файла в манифестах присылает эталонный sha1).
-// ============================================
 struct Sha1Ctx {
     uint32_t state[5];
     uint32_t count[2];
@@ -710,14 +605,6 @@ std::string sha1HexOfFile(const fs::path& path) {
         }
     }
 
-    // ВАЖНО: здесь раньше происходило переполнение stack-buffer.
-    // Если остаток файла был >= 56 байт, padLen мог быть до 64, а buf имел
-    // только 64 байта. В итоге запись выходила за границы buf и повреждала
-    // соседние локальные переменные (в Debug это проявлялось как:
-    // "Run-Time Check Failure #2 - Stack around the variable 'chunk' was corrupted").
-    //
-    // Для финального блока SHA-1 нужен максимум 128 байт: текущий остаток +
-    // padding + 64-битная длина.
     uint8_t finalBuf[128] = {};
     std::memcpy(finalBuf, buf, bufLen);
 
@@ -754,9 +641,6 @@ bool ensureFile(const std::string& url, const fs::path& destPath, const std::str
     return httpDownloadFile(url, destPath, errorOut);
 }
 
-// ============================================
-// Мини-ZIP-ридер (только чтение) — извлекает нативные .dll из библиотек LWJGL.
-// ============================================
 bool extractZipFlatIgnoringDirsAndMeta(const fs::path& zipPath, const fs::path& outDir) {
     std::ifstream in(zipPath, std::ios::binary);
     if (!in) return false;
@@ -851,13 +735,6 @@ bool extractZipFlatIgnoringDirsAndMeta(const fs::path& zipPath, const fs::path& 
     return true;
 }
 
-// ============================================
-// Полная распаковка zip с сохранением структуры каталогов — в отличие от
-// extractZipFlatIgnoringDirsAndMeta (которая специально "плющит" всё в одну
-// папку, это нужно для нативных .dll из библиотек LWJGL), тут нужен честный
-// vендерево — используется для распаковки скачанного portable JDK
-// (см. ensureJdkForOptifineStub ниже), у которого важна структура bin/, lib/ и т.п.
-// ============================================
 bool extractZipPreservingStructure(const fs::path& zipPath, const fs::path& outDir, std::string& errorOut) {
     std::ifstream in(zipPath, std::ios::binary);
     if (!in) { errorOut = "Не удалось открыть архив " + zipPath.string(); return false; }
@@ -904,9 +781,24 @@ bool extractZipPreservingStructure(const fs::path& zipPath, const fs::path& outD
 
         std::string name(nameLen, '\0');
         in.read(name.data(), nameLen);
+
+        uint16_t gpFlag = (uint16_t)((uint8_t)hdr[8] | ((uint8_t)hdr[9] << 8));
+        bool isUtf8Flag = (gpFlag & 0x0800) != 0;
+        if (!isUtf8Flag && !name.empty()) {
+            int wlen = MultiByteToWideChar(437, 0, name.c_str(), (int)name.size(), nullptr, 0);
+            if (wlen > 0) {
+                std::wstring wide(wlen, L'\0');
+                MultiByteToWideChar(437, 0, name.c_str(), (int)name.size(), wide.data(), wlen);
+                int u8len = WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), wlen, nullptr, 0, nullptr, nullptr);
+                if (u8len > 0) {
+                    std::string utf8(u8len, '\0');
+                    WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), wlen, utf8.data(), u8len, nullptr, nullptr);
+                    name = utf8;
+                }
+            }
+        }
         in.seekg(extraLen + commentLen, std::ios::cur);
 
-        // Zip-слеши всегда '/', даже на Windows — приводим к нативному разделителю.
         std::string normalized = name;
         std::replace(normalized.begin(), normalized.end(), '\\', '/');
         bool isDir = !normalized.empty() && normalized.back() == '/';
@@ -946,7 +838,7 @@ bool extractZipPreservingStructure(const fs::path& zipPath, const fs::path& outD
             inflateEnd(&zs);
         } else {
             in.seekg(cdReturnPos);
-            continue; // неизвестный метод сжатия — пропускаем этот файл, не валим всю распаковку
+            continue; 
         }
 
         std::error_code ec;
@@ -959,9 +851,6 @@ bool extractZipPreservingStructure(const fs::path& zipPath, const fs::path& outD
     return true;
 }
 
-// ============================================
-// Оценка "rules" (allow/disallow по ОС)
-// ============================================
 bool rulesAllowWindows(const json& rules) {
     if (!rules.is_array()) return true;
     bool allowed = false;
@@ -1062,10 +951,6 @@ std::string offlineUuidFromUsername(const std::string& username) {
            fixedHex.substr(16,4) + "-" + fixedHex.substr(20,12);
 }
 
-// ============================================
-// Fabric — подтягиваем готовый профиль запуска через официальный
-// Fabric Meta API (meta.fabricmc.net).
-// ============================================
 fs::path mavenCoordToPath(const std::string& coord) {
     std::vector<std::string> parts;
     std::stringstream ss(coord);
@@ -1198,11 +1083,6 @@ bool prepareQuilt(const std::string& mcVersion, const fs::path& librariesDir,
     return true;
 }
 
-// ============================================
-// Простой синхронный запуск процесса с ожиданием короткими интервалами
-// (чтобы "Отмена" могла прервать и его), плюс перенаправление stdout/stderr
-// в лог-файл — используется установщиком Forge и (ниже) хелпером OptiFine.
-// ============================================
 bool runProcessSyncWithLog(const std::string& cmdLine, const fs::path& workDir, const fs::path& logPath,
                             DWORD& exitCodeOut, std::string& errorOut, DWORD maxWaitMs = 120000) {
     SECURITY_ATTRIBUTES sa{};
@@ -1221,11 +1101,7 @@ bool runProcessSyncWithLog(const std::string& cmdLine, const fs::path& workDir, 
         si.hStdOutput = hLog;
         si.hStdError = hLog;
     }
-    // CREATE_NO_WINDOW само по себе иногда не до конца подавляет консоль у
-    // консольных приложений (javac.exe/java.exe оба собраны под консольный
-    // сабсистем) — на некоторых системах она всё равно мелькает на долю
-    // секунды перед закрытием. STARTF_USESHOWWINDOW + SW_HIDE — стандартная
-    // "подстраховка" поверх CREATE_NO_WINDOW, убирающая и это мелькание.
+
     si.dwFlags |= STARTF_USESHOWWINDOW;
     si.wShowWindow = SW_HIDE;
     PROCESS_INFORMATION pi{};
@@ -1271,21 +1147,6 @@ std::string readLogTail(const fs::path& logPath, size_t maxChars = 2000) {
     return full.size() > maxChars ? full.substr(full.size() - maxChars) : full;
 }
 
-// ============================================
-// Forge — используем ОФИЦИАЛЬНЫЙ инсталлятор Forge в тихом режиме
-// (--installClient <dir>), а не пытаемся переизобретать его "processors"
-// (бинарные патчи клиента, генерацию SRG-имён и т.п. для 1.13+) — это именно
-// то, что делает сам инсталлятор внутри себя. Мы просто скачиваем jar
-// инсталлятора с maven.minecraftforge.net и запускаем его как процесс.
-//
-// ОГРАНИЧЕНИЕ: тихий флаг --installClient есть у инсталляторов начиная
-// примерно с Forge под MC 1.6 — у совсем древних версий (1.1–1.5.x) единого
-// формата инсталлятора с CLI ещё не было, и автоматическая установка для них
-// может не сработать. Пользователю в этом случае вернётся понятная ошибка.
-// ============================================
-
-// Читает содержимое одного файла (entryName) внутри zip/jar без распаковки
-// всего архива на диск — нужен, чтобы достать install_profile.json.
 std::optional<std::string> readZipEntryToString(const fs::path& zipPath, const std::string& entryName) {
     std::ifstream in(zipPath, std::ios::binary);
     if (!in) return std::nullopt;
@@ -1366,8 +1227,6 @@ std::optional<std::string> readZipEntryToString(const fs::path& zipPath, const s
     return std::nullopt;
 }
 
-// Официальный Forge публикует "рекомендованную"/"последнюю" сборку под
-// каждую версию MC в этом json — берём оттуда, чтобы не гадать номер сборки.
 bool resolveForgeVersion(const std::string& mcVersion, std::string& forgeVersionOut, std::string& errorOut) {
     std::string raw;
     if (!httpGetString("https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json", raw, errorOut))
@@ -1420,16 +1279,6 @@ bool resolveNeoForgeVersion(const std::string& mcVersion, std::string& neoforgeV
     return true;
 }
 
-// Официальный инсталлятор Forge (net.minecraftforge.installer) перед установкой
-// проверяет, что в целевой папке есть launcher_profiles.json — так он убеждается,
-// что это действительно рабочая папка Minecraft-лаунчера, а не случайная папка.
-// Если файла нет, он падает с "There is no Minecraft launcher profile in ...,
-// you need to run the launcher first!" (код возврата 1) — именно эту ошибку
-// ловил игрок. Наш лаунчер никогда такой файл не создавал, потому что сам
-// ведёт список версий/инстансов по-своему и обычно он ему не нужен — но
-// инсталлятору Forge он нужен просто как признак "это папка лаунчера".
-// Создаём минимальный валидный файл, если его ещё нет — большего инсталлятору
-// не требуется.
 void ensureLauncherProfilesFile(const fs::path& root) {
     fs::path profilesPath = root / "launcher_profiles.json";
     if (fs::exists(profilesPath)) return;
@@ -1454,15 +1303,10 @@ void ensureLauncherProfilesFile(const fs::path& root) {
     if (out) out << profiles.dump(2);
 }
 
-// Скачивает и запускает официальный инсталлятор Forge в тихом режиме, затем
-// вливает получившиеся библиотеки/аргументы/mainClass в ванильный vjson —
-// дальше по общему циклу их скачает и запустит как обычно.
 bool prepareForge(const std::string& mcVersion, const fs::path& root, const std::string& javaPath,
                    json& vjson, const ProgressFn& onProgress, std::string& errorOut) {
     onProgress("libraries", 0.0, "Определяем версию Forge...");
 
-    // См. комментарий у ensureLauncherProfilesFile выше — без этого файла
-    // инсталлятор Forge стабильно отказывался ставиться с кодом 1.
     ensureLauncherProfilesFile(root);
 
     std::string forgeVersion;
@@ -1479,8 +1323,6 @@ bool prepareForge(const std::string& mcVersion, const fs::path& root, const std:
         if (!httpDownloadFile(installerUrl, installerPath, errorOut)) return false;
     }
 
-    // Современные инсталляторы Forge кладут id итоговой версии в
-    // install_profile.json -> "version" — оттуда узнаём, куда он всё установит.
     auto profileRaw = readZipEntryToString(installerPath, "install_profile.json");
     if (!profileRaw) {
         errorOut = "ERR_FORGE_OLD_INSTALLER||" + mcVersion;
@@ -1502,17 +1344,11 @@ bool prepareForge(const std::string& mcVersion, const fs::path& root, const std:
     if (!fs::exists(forgeVersionJsonPath)) {
         onProgress("libraries", 0.1, "Устанавливаем Forge (может занять пару минут)...");
 
-        // javaw.exe — GUI-подсистема Java, у неё в принципе нет консоли, поэтому
-        // ни сам инсталлятор, ни его дочерние java-процессы (processors, которые
-        // патчат клиент под 1.13+) не мигают чёрным окном. Если рядом с java.exe
-        // нет javaw.exe (совсем нестандартная сборка JDK) — используем обычный.
         fs::path javaExePath(javaPath);
         fs::path javawPath = javaExePath.parent_path() / "javaw.exe";
         std::error_code javawEc;
         std::string installerJava = fs::exists(javawPath, javawEc) ? javawPath.string() : javaPath;
 
-        // Пишем stdout/stderr инсталлятора в лог-файл — если он упадёт, показываем
-        // хвост лога вместо голого кода возврата, чтобы было понятно, что чинить.
         fs::path logPath = installerDir / (forgeId + "_install.log");
         SECURITY_ATTRIBUTES sa{};
         sa.nLength = sizeof(sa);
@@ -1533,8 +1369,7 @@ bool prepareForge(const std::string& mcVersion, const fs::path& root, const std:
             si.hStdOutput = hLog;
             si.hStdError = hLog;
         }
-        // См. комментарий в runProcessSyncWithLog — та же подстраховка от
-        // мелькания консоли поверх CREATE_NO_WINDOW.
+
         si.dwFlags |= STARTF_USESHOWWINDOW;
         si.wShowWindow = SW_HIDE;
         PROCESS_INFORMATION pi{};
@@ -1550,8 +1385,6 @@ bool prepareForge(const std::string& mcVersion, const fs::path& root, const std:
             return false;
         }
 
-        // Ждём завершения инсталлятора короткими интервалами вместо INFINITE,
-        // чтобы можно было прервать его через кнопку "Отмена".
         DWORD exitCode = STILL_ACTIVE;
         for (;;) {
             DWORD waitResult = WaitForSingleObject(pi.hProcess, 300);
@@ -1580,13 +1413,6 @@ bool prepareForge(const std::string& mcVersion, const fs::path& root, const std:
                 logTail = full.size() > 2000 ? full.substr(full.size() - 2000) : full;
             }
 
-            // Установщик мог упасть из-за повреждённого/недокачанного .jar,
-            // оставшегося от прошлой неудачной попытки (мы качаем его только
-            // если fs::exists(installerPath) == false, поэтому битый файл иначе
-            // так и остался бы навсегда и следующая попытка ломалась бы точно
-            // так же, даже после выбора другой версии). Удаляем кэш инсталлятора
-            // и любую недоустановленную папку версии Forge, чтобы следующая
-            // попытка начиналась с чистого, свежескачанного файла.
             std::error_code cleanupEc;
             fs::remove(installerPath, cleanupEc);
             fs::remove_all(root / "versions" / forgeId, cleanupEc);
@@ -1605,13 +1431,11 @@ bool prepareForge(const std::string& mcVersion, const fs::path& root, const std:
     try { forgeVjson = json::parse(ss.str()); }
     catch (const std::exception& e) { errorOut = std::string("Не удалось разобрать версию Forge: ") + e.what(); return false; }
 
-    // Библиотеки Forge добавляем к ванильным — их скачает общий цикл ниже.
     if (forgeVjson.contains("libraries")) {
         if (!vjson.contains("libraries")) vjson["libraries"] = json::array();
         for (const auto& lib : forgeVjson["libraries"]) vjson["libraries"].push_back(lib);
     }
 
-    // Аргументы JVM/игры Forge (современный формат arguments.jvm/game) добавляем к ванильным.
     if (forgeVjson.contains("arguments")) {
         if (!vjson.contains("arguments")) vjson["arguments"] = json::object();
         for (const std::string key : {"jvm", "game"}) {
@@ -1774,26 +1598,8 @@ bool prepareNeoForge(const std::string& mcVersion, const fs::path& root, const s
     return true;
 }
 
-// Объявлена ниже (рядом с Modrinth API) — маленький urlencode на базе curl,
-// переиспользуем его и для BMCLAPI (нужен и здесь, выше по файлу).
 std::string urlEncodeForModrinth(const std::string& value);
 
-// ============================================
-// OptiFine / Forge+OptiFine — через зеркало BMCLAPI (bmclapi2.bangbang93.com).
-//
-// У официального optifine.net нет публичного API: файлы отдаются только со
-// страницы с рекламой, а прямая ссылка на скачивание собирается на лету
-// JS-кодом страницы и содержит одноразовый токен — автоматически скачивать
-// оттуда ненадёжно (и по сути означало бы эмулировать браузер). BMCLAPI
-// зеркалит те же файлы OptiFine 1:1 (это открытый и давно используемый
-// сообществом мираж — им пользуются HMCL, PCL и другие лаунчеры) и отдаёт
-// их по стабильному прямому API без какой-либо авторизации.
-//
-// API: GET https://bmclapi2.bangbang93.com/optifine/<mcVersion>
-//   -> JSON-массив { mcversion, patch, type, version, filename, ... },
-//      от старых сборок к новым.
-// Скачивание: GET https://bmclapi2.bangbang93.com/optifine/<mcVersion>/<type>/<patch>
-// ============================================
 bool bmclapiFetchOptifineList(const std::string& mcVersion, json& listOut, std::string& errorOut) {
     std::string raw;
     if (!httpGetStringFast("https://bmclapi2.bangbang93.com/optifine/" + urlEncodeForModrinth(mcVersion), raw, errorOut))
@@ -1809,21 +1615,12 @@ bool bmclapiFetchOptifineList(const std::string& mcVersion, json& listOut, std::
     return true;
 }
 
-// ============================================
-// FastMinecraftMirror (fastmcmirror.org) — второе зеркало OptiFine, используется
-// как fallback, если BMCLAPI недоступен/слишком медленный в сети пользователя.
-// У него единый эндпоинт со списком ВСЕХ версий сразу (не отфильтрованных по
-// mcVersion), поэтому фильтруем на своей стороне. Ссылка на файл в ответе уже
-// готовая (прямая), никакого второго запроса для скачивания не нужно.
-// API: GET https://optifine.fastmcmirror.org/versionList
-//   -> [{ name, mcversion, type, version, file, url }, ...]
-// ============================================
 struct OptifineBuild {
     std::string mcversion;
     std::string type;
-    std::string patch;      // "patch" у BMCLAPI == "version" у FastMCMirror
+    std::string patch;      
     std::string filename;
-    std::string directUrl;  // непусто только для FastMCMirror — там сразу готовая прямая ссылка
+    std::string directUrl;  
     bool fromFastMirror = false;
 };
 
@@ -1857,9 +1654,6 @@ bool fastMcMirrorFetchOptifineList(const std::string& mcVersion, std::vector<Opt
     return true;
 }
 
-// Единая точка входа: сперва пробуем BMCLAPI (у него обычно самая полная
-// история версий), и только если он совсем не ответил (пустой список) —
-// переключаемся на FastMCMirror.
 bool fetchOptifineListWithFallback(const std::string& mcVersion, std::vector<OptifineBuild>& listOut, std::string& errorOut) {
     json bmclapiList;
     std::string bmclapiError;
@@ -1884,10 +1678,6 @@ bool fetchOptifineListWithFallback(const std::string& mcVersion, std::vector<Opt
     return false;
 }
 
-// Выбирает "лучшую" сборку из списка: самую свежую стабильную (список идёт
-// от старых к новым, поэтому идём с конца; pre/beta-сборки пропускаем, если
-// есть более свежая стабильная — а если их нет, всё равно берём последнюю,
-// чтобы не остаться совсем без варианта на редких версиях).
 const OptifineBuild& pickBestOptifineBuild(const std::vector<OptifineBuild>& list) {
     for (auto it = list.rbegin(); it != list.rend(); ++it) {
         std::string patch = it->patch;
@@ -1899,9 +1689,6 @@ const OptifineBuild& pickBestOptifineBuild(const std::vector<OptifineBuild>& lis
     return list.back();
 }
 
-// Список кандидатов на скачивание, от самой предпочтительной сборки к менее
-// предпочтительной: сначала все стабильные (не pre/beta) от новой к старой,
-// затем, если стабильных не было вообще, все остальные от новой к старой.
 std::vector<const OptifineBuild*> rankOptifineBuildCandidates(const std::vector<OptifineBuild>& list) {
     std::vector<const OptifineBuild*> stable, rest;
     for (auto it = list.rbegin(); it != list.rend(); ++it) {
@@ -1914,11 +1701,6 @@ std::vector<const OptifineBuild*> rankOptifineBuildCandidates(const std::vector<
     return rest;
 }
 
-// Скачивает выбранную сборку с её "родного" зеркала; если оно не ответило —
-// сама пытается получить список у ВТОРОГО зеркала и скачать оттуда, прежде
-// чем окончательно сдаться. Раньше при отказе BMCLAPI ошибка сразу летела
-// пользователю с советом "включите VPN" — теперь второе зеркало пробуется
-// автоматически, и VPN предлагается только если оба варианта не сработали.
 bool downloadOptifineBuildWithFallback(const OptifineBuild& entry, const fs::path& destDir, fs::path& jarOut,
                                         const ProgressFn& onProgress, std::string& errorOut) {
     std::string filename = entry.filename.empty()
@@ -1928,16 +1710,6 @@ bool downloadOptifineBuildWithFallback(const OptifineBuild& entry, const fs::pat
 
     std::string primaryName = entry.fromFastMirror ? "FastMCMirror" : "BMCLAPI";
 
-    // ИСПРАВЛЕНО: раньше здесь стоял жёсткий потолок absoluteTimeoutSec=45 —
-    // на медленных/зарубежных сетях (особенно на macOS/Linux без локальных
-    // зеркал) BMCLAPI/FastMCMirror реально может отдавать файл дольше 45с,
-    // оставаясь при этом ЖИВЫМ соединением (скорость выше 200 байт/с) — но
-    // curl всё равно обрывал такую попытку по абсолютному таймауту, и после
-    // 5 попыток игрок видел "Timeout was reached", хотя загрузка на самом
-    // деле шла и просто не успевала. Теперь, как и для обычных
-    // библиотек/ассетов (см. httpDownloadFile ниже по файлу), потолка на всю
-    // попытку нет — соединение обрывается только если оно РЕАЛЬНО зависло
-    // (скорость ниже 200 байт/с дольше lowSpeedTimeSec секунд).
     auto onRetry = [&](int attempt, int maxAttempts) {
         std::string suffix = (attempt > 1) ? (" (попытка " + std::to_string(attempt) + " из " + std::to_string(maxAttempts) + ")") : "";
         onProgress("libraries", 0.1, "Загружаем установщик OptiFine с " + primaryName + "..." + suffix);
@@ -1948,15 +1720,13 @@ bool downloadOptifineBuildWithFallback(const OptifineBuild& entry, const fs::pat
         : ("https://bmclapi2.bangbang93.com/optifine/" + urlEncodeForModrinth(entry.mcversion) +
            "/" + urlEncodeForModrinth(entry.type) + "/" + urlEncodeForModrinth(entry.patch));
 
-    if (httpDownloadFile(url, dest, errorOut, 6, onRetry, /*connectTimeoutSec*/20, /*lowSpeedTimeSec*/60, /*absoluteTimeoutSec*/100)) {
+    if (httpDownloadFile(url, dest, errorOut, 6, onRetry, 20, 60, 100)) {
         jarOut = dest;
         return true;
     }
 
     std::string primaryError = errorOut;
 
-    // Основное зеркало не ответило (или отвалилось посреди скачивания) —
-    // если это был BMCLAPI, пробуем достать ту же сборку через FastMCMirror.
     if (!entry.fromFastMirror) {
         std::vector<OptifineBuild> altList;
         std::string altError;
@@ -1985,16 +1755,6 @@ bool downloadOptifineBuildWithFallback(const OptifineBuild& entry, const fs::pat
     return false;
 }
 
-// ============================================
-// "Железобетонная" загрузка OptiFine: раньше при неудаче с обоими зеркалами
-// для ОДНОЙ конкретной (самой новой стабильной) сборки лаунчер сразу сдавался
-// с ERR_OPTIFINE_DOWNLOAD_FAILED — даже если файл для этой сборки просто
-// битый/удалён на обоих зеркалах, а остальные сборки той же версии Minecraft
-// прекрасно доступны. Теперь при неудаче автоматически пробуются ещё
-// несколько сборок той же версии (от новой к старой, с приоритетом
-// стабильных) — это резко повышает шанс успеха и не требует ручного участия
-// игрока (например, ручного выбора другой версии OptiFine).
-// ============================================
 bool downloadBestAvailableOptifine(const std::vector<OptifineBuild>& list, const fs::path& destDir,
                                     fs::path& jarOut, OptifineBuild& chosenOut,
                                     const ProgressFn& onProgress, std::string& errorOut) {
@@ -2028,10 +1788,6 @@ bool downloadBestAvailableOptifine(const std::vector<OptifineBuild>& list, const
     return false;
 }
 
-// Ищет файл с заданным именем рекурсивно внутри директории — нужен, чтобы
-// найти java.exe/javac.exe внутри распакованного JDK-архива, у которого
-// корневая папка называется по-разному в зависимости от версии
-// (например "jdk-21.0.5+11"), и заранее её имя не известно.
 std::optional<fs::path> findFileRecursive(const fs::path& root, const std::string& filename) {
     std::error_code ec;
     if (!fs::exists(root, ec)) return std::nullopt;
@@ -2045,17 +1801,6 @@ std::optional<fs::path> findFileRecursive(const fs::path& root, const std::strin
     return std::nullopt;
 }
 
-// ============================================
-// Автозагрузка portable JDK (не JRE!) — нужен только затем, чтобы скомпилировать
-// и запустить крошечный java-хелпер для тихой установки standalone OptiFine
-// (см. runOptifineHeadlessInstall ниже). Обычная Java, которую скачивает
-// ensureBundledJavaRuntime для самого запуска игры — это JRE от Mojang, в
-// ней принципиально нет javac. Раньше в этом случае мы просто показывали
-// игроку ошибку "нужен JDK, укажите путь в настройках" — теперь вместо этого
-// сами скачиваем свободный portable JDK (Eclipse Temurin, сборки Adoptium)
-// в свою изолированную папку gameDir/runtime/jdk-temurin, не трогая систему,
-// точно так же, как ensureBundledJavaRuntime делает для JRE.
-// ============================================
 bool ensureJdkForOptifineStub(const fs::path& gameRoot, const ProgressFn& onProgress,
                                fs::path& javaExeOut, fs::path& javacExeOut, std::string& errorOut) {
     fs::path jdkRoot = gameRoot / "runtime" / "jdk-temurin";
@@ -2065,16 +1810,11 @@ bool ensureJdkForOptifineStub(const fs::path& gameRoot, const ProgressFn& onProg
         auto java = findFileRecursive(jdkRoot, "java.exe");
         auto javac = findFileRecursive(jdkRoot, "javac.exe");
         if (java && javac) { javaExeOut = *java; javacExeOut = *javac; return true; }
-        // Маркер есть, а файлов нет (например, папку кто-то почистил вручную) —
-        // качаем заново ниже, как будто маркера не было.
+
     }
 
     onProgress("java", 0.0, "Скачиваем JDK для установки OptiFine...");
 
-    // Публичный стабильный редирект-эндпоинт Adoptium: всегда отдаёт zip
-    // последней доступной сборки нужного major-релиза для Windows x64.
-    // Версия 21 (LTS) взята с запасом — сама Minecraft/OptiFine запускаются
-    // отдельно на своей Java, эта JDK нужна только ради самого javac.
     std::string url = "https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jdk/hotspot/normal/eclipse";
 
     fs::path zipPath = gameRoot / "runtime" / "jdk-temurin.zip";
@@ -2082,18 +1822,15 @@ bool ensureJdkForOptifineStub(const fs::path& gameRoot, const ProgressFn& onProg
         std::string suffix = (attempt > 1) ? (" (попытка " + std::to_string(attempt) + " из " + std::to_string(maxAttempts) + ")") : "";
         onProgress("java", 0.1, "Скачиваем JDK для установки OptiFine..." + suffix);
     };
-    // ИСПРАВЛЕНО: раньше был жёсткий потолок 240с на ~180МБ архив — на
-    // медленной сети это обрывало ЖИВУЮ, но небыструю закачку с ошибкой
-    // таймаута. Как и для остальных крупных файлов — без абсолютного
-    // потолка, только детектор реального зависания (LOW_SPEED).
-    if (!httpDownloadFile(url, zipPath, errorOut, 5, onRetry, /*connectTimeoutSec*/15, /*lowSpeedTimeSec*/60, /*absoluteTimeoutSec*/0)) {
+
+    if (!httpDownloadFile(url, zipPath, errorOut, 5, onRetry, 15, 60, 0)) {
         errorOut = "ERR_OPTIFINE_JDK_DOWNLOAD||" + errorOut;
         return false;
     }
 
     onProgress("java", 0.5, "Распаковываем JDK...");
     std::error_code ec;
-    fs::remove_all(jdkRoot, ec); // на случай недоустановленного JDK с прошлой попытки
+    fs::remove_all(jdkRoot, ec); 
     if (!extractZipPreservingStructure(zipPath, jdkRoot, errorOut)) return false;
     fs::remove(zipPath, ec);
 
@@ -2110,32 +1847,12 @@ bool ensureJdkForOptifineStub(const fs::path& gameRoot, const ProgressFn& onProg
     return true;
 }
 
-// Тихая установка standalone OptiFine (без Forge). У джарника OptiFine нет
-// документированного консольного флага для установки без GUI, но метод
-// класса optifine.Installer, который дёргает кнопка "Install" в его окне —
-// тот же самый код, и сам по себе он ничего не рисует (окно открывает только
-// main(), который мы не вызываем). Этим приёмом (рефлексия по внутренним
-// классам инсталлятора) пользуются открытые лаунчеры вроде HMCL.
-//
-// ВАЖНО: точное имя/сигнатура метода отличаются между версиями OptiFine
-// (например, "installClient(File)" в одних сборках и другая сигнатура в
-// других — жёстко зашитое имя однажды привело к NoSuchMethodException на
-// вполне рабочем инсталляторе). Поэтому вместо одного жёстко заданного
-// метода java-хелпер сам сканирует все public static методы класса
-// optifine.Installer и берёт первый, чьё имя содержит "install" и который
-// принимает один или два параметра типа File — этому шаблону соответствуют
-// все известные версии инсталлятора. Если подходящего метода всё равно не
-// нашлось, хелпер печатает полный список методов класса в лог, чтобы было
-// видно, что реально доступно, вместо голого "метод не найден".
 bool runOptifineHeadlessInstall(const fs::path& installerJar, const fs::path& gameRoot,
                                  const std::string& javaPath, const ProgressFn& onProgress, std::string& errorOut) {
     fs::path stubDir = installerJar.parent_path() / "stub";
     std::error_code ec;
     fs::create_directories(stubDir, ec);
 
-    // Java для компиляции/запуска хелпера: сперва пробуем javac рядом с уже
-    // выбранной в настройках Java (вдруг это полноценный JDK) — и только
-    // если его там нет, автоматически скачиваем отдельный portable JDK.
     fs::path stubJava = javaPath;
     fs::path stubJavac = fs::path(javaPath).parent_path() / "javac.exe";
 
@@ -2181,7 +1898,6 @@ bool runOptifineHeadlessInstall(const fs::path& installerJar, const fs::path& ga
             "}\n";
     }
 
-    // 1) компилируем хелпер
     fs::path compileLog = stubDir / "compile.log";
     std::ostringstream compileCmd;
     compileCmd << "\"" << stubJavac.string() << "\" -d \"" << stubDir.string() << "\" \"" << javaSrc.string() << "\"";
@@ -2193,7 +1909,6 @@ bool runOptifineHeadlessInstall(const fs::path& installerJar, const fs::path& ga
         return false;
     }
 
-    // 2) запускаем его, подсунув в classpath и сам инсталлятор OptiFine
     fs::path runLog = stubDir / "install.log";
     std::ostringstream runCmd;
     runCmd << "\"" << stubJava.string() << "\" -cp \"" << stubDir.string() << ";" << installerJar.string()
@@ -2210,11 +1925,6 @@ bool runOptifineHeadlessInstall(const fs::path& installerJar, const fs::path& ga
     return true;
 }
 
-// Стандартный (без Forge) OptiFine: скачиваем инсталлятор с BMCLAPI, тихо
-// устанавливаем его в gameRoot (см. runOptifineHeadlessInstall выше) — он
-// создаёт versions/<mcVersion>-OptiFine_<edition>/ с собственным профилем —
-// и подмешиваем этот профиль (библиотеки/аргументы/mainClass) в ванильный
-// vjson, ровно как это делает prepareForge для Forge.
 bool prepareOptifineStandalone(const std::string& mcVersion, const fs::path& root, const std::string& javaPath,
                                 json& vjson, const ProgressFn& onProgress, std::string& errorOut) {
     onProgress("libraries", 0.0, "Ищем сборку OptiFine...");
@@ -2228,9 +1938,6 @@ bool prepareOptifineStandalone(const std::string& mcVersion, const fs::path& roo
     onProgress("libraries", 0.1, "Загружаем установщик OptiFine...");
     if (!downloadBestAvailableOptifine(list, installerDir, installerJar, chosen, onProgress, errorOut)) return false;
 
-    // Угадываем id профиля по имени скачанного файла — OptiFine называет его
-    // "<mcVersion>-OptiFine_<edition>" (edition — это хвост имени файла без
-    // "OptiFine_<mcVersion>_" и расширения, например "HD_U_J6").
     std::string stem = installerJar.stem().string();
     std::string edition = (stem.rfind("OptiFine_", 0) == 0) ? stem.substr(9) : stem;
     if (edition.rfind(mcVersion + "_", 0) == 0) edition = edition.substr(mcVersion.size() + 1);
@@ -2244,8 +1951,7 @@ bool prepareOptifineStandalone(const std::string& mcVersion, const fs::path& roo
     }
 
     if (!fs::exists(ofVersionJsonPath)) {
-        // Угадали неточно (бывают нестандартные имена файлов) — ищем среди
-        // папок versions/ ту, что реально появилась и содержит "OptiFine" в имени.
+
         fs::path versionsRoot = root / "versions";
         std::error_code fec;
         for (auto& entry : fs::directory_iterator(versionsRoot, fec)) {
@@ -2281,9 +1987,7 @@ bool prepareOptifineStandalone(const std::string& mcVersion, const fs::path& roo
             }
         }
     } else if (ofVjson.contains("minecraftArguments")) {
-        // Совсем старые версии OptiFine (до JSON-формата аргументов) кладут
-        // готовую строку — на этих версиях ванильный vjson тоже в старом
-        // формате, поэтому просто целиком используем аргументы OptiFine.
+
         vjson["minecraftArguments"] = ofVjson["minecraftArguments"];
     }
     if (ofVjson.contains("mainClass")) vjson["mainClass"] = ofVjson["mainClass"];
@@ -2291,10 +1995,6 @@ bool prepareOptifineStandalone(const std::string& mcVersion, const fs::path& roo
     return true;
 }
 
-// Forge+OptiFine: отдельная установка OptiFine тут не нужна — начиная с
-// версий, которые вообще поддерживает Forge, OptiFine работает как обычный
-// мод. Просто кладём jar, скачанный с BMCLAPI, в mods/ уже поставленного
-// Forge-инстанса (вызывается после prepareForge и после создания instanceDir).
 bool installOptifineAsForgeMod(const std::string& mcVersion, const fs::path& root, const fs::path& modsDir,
                                 const ProgressFn& onProgress, std::string& errorOut) {
     onProgress("libraries", 0.9, "Загружаем OptiFine для Forge...");
@@ -2315,13 +2015,6 @@ bool installOptifineAsForgeMod(const std::string& mcVersion, const fs::path& roo
     return true;
 }
 
-// ============================================
-// Modrinth API (api.modrinth.com/v2) — публичный, ключ не нужен.
-// ============================================
-
-// Спрашивает у Modrinth файл для скачивания конкретного мода под нужную
-// версию Minecraft и загрузчик. Берём самую свежую подходящую
-// сборку (Modrinth отдаёт версии уже отсортированными от новых к старым).
 std::string urlEncodeForModrinth(const std::string& value) {
     CURL* curl = curl_easy_init();
     if (!curl) return value;
@@ -2335,9 +2028,7 @@ std::string urlEncodeForModrinth(const std::string& value) {
 bool resolveModrinthDownload(const std::string& slug, const std::string& mcVersion,
                               const std::string& loader, std::string& urlOut,
                               std::string& sha1Out, std::string& fileNameOut, std::string& errorOut) {
-    // ВАЖНО: скобки и кавычки внутри game_versions/loaders — часть JSON-массива,
-    // который Modrinth ожидает как query-параметр, но это всё равно спецсимволы
-    // URL — без urlencode сервер отвечает HTTP 400 (ровно то, что ловил игрок).
+
     std::string gameVersionsParam = urlEncodeForModrinth("[\"" + mcVersion + "\"]");
     std::string loadersParam = urlEncodeForModrinth("[\"" + loader + "\"]");
     std::string url = "https://api.modrinth.com/v2/project/" + slug + "/version"
@@ -2361,8 +2052,6 @@ bool resolveModrinthDownload(const std::string& slug, const std::string& mcVersi
         return false;
     }
 
-    // Если файлов несколько (например, отдельно sources.jar), берём помеченный
-    // primary — это и есть основной jar мода.
     const json* chosen = &files[0];
     for (const auto& f : files) {
         if (f.value("primary", false)) { chosen = &f; break; }
@@ -2374,9 +2063,6 @@ bool resolveModrinthDownload(const std::string& slug, const std::string& mcVersi
     return !urlOut.empty();
 }
 
-// Тот же принцип, что и resolveModrinthDownload, но БЕЗ фильтра по loaders —
-// у ресурс-паков/дата-паков/шейдеров на Modrinth загрузчика не бывает вовсе,
-// а передача пустого/неверного loaders-фильтра просто обнулила бы выдачу.
 bool resolveModrinthDownloadByType(const std::string& slug, const std::string& mcVersion,
                                     std::string& urlOut, std::string& sha1Out,
                                     std::string& fileNameOut, std::string& errorOut) {
@@ -2445,19 +2131,12 @@ bool installContentToDirImpl(const std::string& slug, const std::string& mcVersi
 bool modrinthSearchImpl(const std::string& query, const std::string& mcVersion,
                         const std::string& loader, std::string& jsonOut, std::string& errorOut,
                         int offset) {
-    // facets сразу фильтруют результаты под тип "mod" + нужную версию/загрузчик —
-    // во фронтенд не прилетают моды, которые всё равно нельзя поставить.
+
     std::string facets =
         "[[\"project_type:mod\"],"
         "[\"versions:" + mcVersion + "\"],"
         "[\"categories:" + loader + "\"]]";
 
-    // limit=20 — тот же размер страницы, что показывает сам modrinth.com.
-    // Offset честно прокидывается с фронта (см. "Моды" в app.js): каждая
-    // страница — отдельный запрос к Modrinth, а не нарезка одного большого
-    // ответа на клиенте. Modrinth возвращает "total_hits" в самом ответе —
-    // именно по нему фронтенд считает настоящее число страниц (как в
-    // оригинале, могут быть тысячи), а не выдуманное ограниченное число.
     if (offset < 0) offset = 0;
     std::string url = "https://api.modrinth.com/v2/search?query=" + urlEncodeForModrinth(query) +
                        "&facets=" + urlEncodeForModrinth(facets) +
@@ -2466,25 +2145,11 @@ bool modrinthSearchImpl(const std::string& query, const std::string& mcVersion,
     return httpGetStringFast(url, jsonOut, errorOut);
 }
 
-// Полная карточка мода (для модалки "подробнее"): описание (body, markdown),
-// количество скачиваний, подписчиков и т.п. — как раз то, что показывает сам Modrinth.
 bool modrinthProjectDetailsImpl(const std::string& slug, std::string& jsonOut, std::string& errorOut) {
     std::string url = "https://api.modrinth.com/v2/project/" + urlEncodeForModrinth(slug);
     return httpGetStringFast(url, jsonOut, errorOut);
 }
 
-// ============================================
-// Манифест совместимости модов (mods/.magma_mods.json) — для каждого файла
-// мода, установленного через лаунчер, запоминаем версию/загрузчик, под
-// который он был поставлен. Благодаря этому при запуске другой версии
-// Minecraft лаунчер сам временно отключает моды, которые ей не подходят
-// (переименовывая файл в *.disabled — Minecraft просто не видит такие
-// файлы), и включает обратно те, что подходят — ровно так, чтобы игрок не
-// упирался в краш из-за несовместимого мода. Игрок может отключить мод
-// вручную (кнопка "Отключить" в "Моих модах") — такое отключение запоминается
-// отдельным флагом userDisabled и НЕ переключается автоматически обратно,
-// пока игрок сам его снова не включит.
-// ============================================
 struct ModManifestEntry {
     std::string version;
     std::string loader;
@@ -2507,8 +2172,7 @@ std::map<std::string, ModManifestEntry> readModsManifest(const fs::path& modsDir
             result[it.key()] = e;
         }
     } catch (...) {
-        // Повреждённый/отсутствующий манифест — просто ведём себя так, будто
-        // о совместимости модов ничего не известно (никого не трогаем).
+
     }
     return result;
 }
@@ -2528,31 +2192,20 @@ void writeModsManifest(const fs::path& modsDir, const std::map<std::string, ModM
     if (f) f << j.dump(2);
 }
 
-// baseFilename — имя файла БЕЗ суффикса ".disabled" (так, как мод называется
-// когда включён) — ключ манифеста всегда в этом виде, независимо от текущего
-// состояния файла на диске.
 void recordModInManifest(const fs::path& modsDir, const std::string& baseFilename,
                           const std::string& version, const std::string& loader) {
     auto data = readModsManifest(modsDir);
     ModManifestEntry e;
     e.version = version;
     e.loader = loader;
-    e.userDisabled = false; // свежеустановленный мод включён и не был отключён игроком
+    e.userDisabled = false; 
     data[baseFilename] = e;
     writeModsManifest(modsDir, data);
 }
 
-// Вызывается перед каждым запуском игры (см. launchMinecraft) для общей
-// mods/ (не для модпаков — там моды и так все совместимы, потому что
-// весь модпак собран под одну версию). Проходит по манифесту и:
-//   - включает мод, если его version совпадает с запускаемой (или version в
-//     манифесте пуст — например, для очень старых записей) и он не был
-//     отключён игроком вручную;
-//   - иначе отключает.
-// Моды, которых нет в манифесте (докинутые игроком вручную извне лаунчера,
-// без установки через каталог) не трогаем вообще — мы не знаем их
-// совместимость и не должны молча их выключать.
-void reconcileModsForVersion(const fs::path& modsDir, const std::string& mcVersion) {
+void reconcileModsForVersion(const fs::path& modsDir, const std::string& mcVersion,
+                              const std::string& loader) {
+    if (loader == "vanilla") return;   
     std::error_code ec;
     if (!fs::exists(modsDir, ec)) return;
 
@@ -2565,27 +2218,21 @@ void reconcileModsForVersion(const fs::path& modsDir, const std::string& mcVersi
 
         fs::path enabledPath = modsDir / baseFilename;
         fs::path disabledPath = modsDir / (baseFilename + ".disabled");
-
         bool existsEnabled = fs::exists(enabledPath, ec);
         bool existsDisabled = fs::exists(disabledPath, ec);
-        if (!existsEnabled && !existsDisabled) continue; // файл вообще удалён с диска — нечего переключать
+        if (!existsEnabled && !existsDisabled) continue;
 
         bool matchesVersion = entry.version.empty() || entry.version == mcVersion;
-        bool shouldBeEnabled = matchesVersion && !entry.userDisabled;
+        
+        bool matchesLoader = entry.loader.empty() || entry.loader == loader ||
+                             (loader == "quilt" && entry.loader == "fabric");
+        bool shouldBeEnabled = matchesVersion && matchesLoader && !entry.userDisabled;
 
-        if (shouldBeEnabled && existsDisabled) {
-            fs::rename(disabledPath, enabledPath, ec);
-        } else if (!shouldBeEnabled && existsEnabled) {
-            fs::rename(enabledPath, disabledPath, ec);
-        }
+        if (shouldBeEnabled && existsDisabled)       fs::rename(disabledPath, enabledPath, ec);
+        else if (!shouldBeEnabled && existsEnabled)  fs::rename(enabledPath, disabledPath, ec);
     }
 }
-// Вызывается после закрытия игры (см. launchMinecraft) для общей mods/.
-// Возвращает обратно включёнными ВСЕ моды, которых reconcileModsForVersion
-// отключил сам (несовпадение версии), кроме отключённых игроком вручную
-// (userDisabled) — чтобы после выхода из игры моды под другую версию/
-// загрузчик снова были видны включёнными, не дожидаясь следующего запуска
-// именно их версии.
+
 void restoreAllModsAfterExit(const fs::path& modsDir) {
     std::error_code ec;
     if (!fs::exists(modsDir, ec)) return;
@@ -2629,13 +2276,24 @@ std::string curseforgeAuthHeader() {
     return std::string("x-api-key: ") + CURSEFORGE_API_KEY;
 }
 
-// CurseForge, в отличие от Modrinth, у многих модов хранит версию совместимости
-// как общую "1.21", а не как точный патч "1.21.4" — при фильтрации по точной
-// патч-версии такие моды (а их немало) просто не проходили фильтр и пропадали
-// из выдачи, хотя на сайте curseforge.com они прекрасно находятся. Усекаем
-// версию до major.minor (как это по факту делает сам сайт в своём фильтре
-// версий) — это не теряет точность (Minecraft всё равно грузит любой патч
-// внутри одной "минорной" линейки одинаково), но резко увеличивает охват.
+std::string cfSafeString(const json& j, const char* key, const std::string& def = "") {
+    if (!j.is_object()) return def;
+    auto it = j.find(key);
+    if (it == j.end() || !it->is_string()) return def;
+    return it->get<std::string>();
+}
+
+std::string cfResolveDownloadUrl(const json& file) {
+    std::string url = cfSafeString(file, "downloadUrl");
+    if (!url.empty()) return url;
+    if (!file.is_object() || !file.contains("id") || !file["id"].is_number_integer()) return "";
+    long long id = file["id"].get<long long>();
+    std::string name = cfSafeString(file, "fileName");
+    if (name.empty()) return "";
+    return "https://edge.forgecdn.net/files/" + std::to_string(id / 1000) + "/" +
+           std::to_string(id % 1000) + "/" + urlEncodeForModrinth(name);
+}
+
 std::string curseforgeVersionParam(const std::string& mcVersion) {
     size_t firstDot = mcVersion.find('.');
     if (firstDot == std::string::npos) return mcVersion;
@@ -2718,10 +2376,7 @@ bool curseforgeModInfoImpl(const std::string& modId, std::string& titleOut, std:
 bool installModCurseForgeImpl(const std::string& modId, const std::string& mcVersion,
                                const std::string& loader, const fs::path& modsDir,
                                std::string& fileNameOut, std::string& errorOut) {
-    // См. curseforgeVersionParam выше: часть файлов помечена общей "1.21", а не
-    // точным патчем "1.21.4" — берём с запасом (pageSize побольше) под усечённую
-    // версию, а затем среди пришедших файлов предпочитаем тот, что явно
-    // указывает точный патч в своём списке gameVersions, если такой найдётся.
+
     std::string url = "https://api.curseforge.com/v1/mods/" + urlEncodeForModrinth(modId) + "/files"
         "?gameVersion=" + urlEncodeForModrinth(curseforgeVersionParam(mcVersion)) +
         "&modLoaderType=" + std::to_string(curseforgeModLoaderType(loader)) +
@@ -2745,8 +2400,8 @@ bool installModCurseForgeImpl(const std::string& modId, const std::string& mcVer
         }
     }
     const auto& file = *bestFile;
-    std::string downloadUrl = file.value("downloadUrl", "");
-    std::string fileName = file.value("fileName", modId + ".jar");
+    std::string downloadUrl = cfResolveDownloadUrl(file);
+    std::string fileName = cfSafeString(file, "fileName", modId + ".jar");
     if (downloadUrl.empty()) { errorOut = "ERR_MOD_NO_FILES||" + modId; return false; }
 
     std::error_code ec;
@@ -2795,20 +2450,33 @@ bool curseforgeSearchByClassImpl(int classId, const std::string& query, const st
     return true;
 }
 
+bool extractMapArchiveImpl(const fs::path& archivePath, const fs::path& outDir, std::string& errorOut,
+                            std::string* folderNameOut = nullptr);
+
 bool installContentCurseForgeImpl(const std::string& modId, const std::string& mcVersion,
-                                   const fs::path& targetDir, std::string& fileNameOut, std::string& errorOut) {
-    std::string url = "https://api.curseforge.com/v1/mods/" + urlEncodeForModrinth(modId) + "/files"
-        "?gameVersion=" + urlEncodeForModrinth(curseforgeVersionParam(mcVersion)) +
-        "&pageSize=20";
+                                   const fs::path& targetDir, bool asMap,
+                                   std::string& fileNameOut, std::string& errorOut) {
+    auto fetchFiles = [&](bool withVersion, json& filesOut) -> bool {
+        std::string url = "https://api.curseforge.com/v1/mods/" + urlEncodeForModrinth(modId) + "/files?pageSize=20";
+        if (withVersion && !mcVersion.empty())
+            url += "&gameVersion=" + urlEncodeForModrinth(curseforgeVersionParam(mcVersion));
 
-    std::string raw;
-    if (!httpGetStringWithHeader(url, curseforgeAuthHeader(), raw, errorOut)) return false;
+        std::string raw;
+        if (!httpGetStringWithHeader(url, curseforgeAuthHeader(), raw, errorOut)) return false;
+        try {
+            json parsed = json::parse(raw);
+            filesOut = (parsed.contains("data") && parsed["data"].is_array()) ? parsed["data"] : json::array();
+        } catch (const std::exception& e) {
+            errorOut = std::string("ERR_NETWORK||") + e.what();
+            return false;
+        }
+        return true;
+    };
 
-    json parsed;
-    try { parsed = json::parse(raw); }
-    catch (const std::exception& e) { errorOut = std::string("ERR_NETWORK||") + e.what(); return false; }
-
-    const auto& files = parsed.value("data", json::array());
+    json files;
+    if (!fetchFiles(true, files)) return false;
+    
+    if (files.empty() && asMap) { if (!fetchFiles(false, files)) return false; }
     if (files.empty()) { errorOut = "ERR_MOD_INCOMPATIBLE||" + modId + " " + mcVersion; return false; }
 
     const json* bestFile = &files[0];
@@ -2818,13 +2486,28 @@ bool installContentCurseForgeImpl(const std::string& modId, const std::string& m
             if (gv.is_string() && gv.get<std::string>() == mcVersion) { bestFile = &f; break; }
         }
     }
-    const auto& file = *bestFile;
-    std::string downloadUrl = file.value("downloadUrl", "");
-    std::string fileName = file.value("fileName", modId + ".zip");
+    const json& file = *bestFile;
+    std::string downloadUrl = cfResolveDownloadUrl(file);
+    std::string fileName = cfSafeString(file, "fileName", modId + ".zip");
     if (downloadUrl.empty()) { errorOut = "ERR_MOD_NO_FILES||" + modId; return false; }
 
     std::error_code ec;
     fs::create_directories(targetDir, ec);
+
+    if (asMap) {
+        
+        fs::path dlDir = targetDir / (".map_dl_" + modId);
+        fs::remove_all(dlDir, ec);
+        fs::path archivePath = dlDir / fileName;
+        if (!httpDownloadFile(downloadUrl, archivePath, errorOut)) { fs::remove_all(dlDir, ec); return false; }
+        std::string createdFolderName;
+        bool ok = extractMapArchiveImpl(archivePath, targetDir, errorOut, &createdFolderName);
+        fs::remove_all(dlDir, ec);
+        if (!ok) return false;
+        fileNameOut = createdFolderName.empty() ? fileName : createdFolderName;
+        return true;
+    }
+
     fs::path dest = targetDir / fileName;
     if (!httpDownloadFile(downloadUrl, dest, errorOut)) return false;
     fileNameOut = fileName;
@@ -2976,7 +2659,7 @@ bool installCurseForgeModpackImpl(const std::string& id, const std::string& mcVe
     if (files.empty()) { errorOut = "ERR_MOD_INCOMPATIBLE||" + id + " " + mcVersion; return false; }
 
     const json& chosenFile = files[0];
-    std::string packUrl = chosenFile.value("downloadUrl", "");
+    std::string packUrl = cfResolveDownloadUrl(chosenFile);
     if (packUrl.empty()) { errorOut = "ERR_MOD_NO_FILES||" + id; return false; }
 
     fs::path root(gameDir);
@@ -3041,8 +2724,8 @@ bool installCurseForgeModpackImpl(const std::string& id, const std::string& mcVe
             catch (...) { continue; }
 
             if (!fileInfo.contains("data")) continue;
-            std::string downloadUrl = fileInfo["data"].value("downloadUrl", "");
-            std::string fileName = fileInfo["data"].value("fileName", projectId + ".jar");
+            std::string downloadUrl = cfResolveDownloadUrl(fileInfo["data"]);
+            std::string fileName = cfSafeString(fileInfo["data"], "fileName", projectId + ".jar");
             if (downloadUrl.empty()) continue;
 
             onProgress("mods", (double)idx / (double)std::max<size_t>(1, total), fileName);
@@ -3198,8 +2881,8 @@ bool installModpackFromLocalFileImpl(const std::string& localPath, const std::st
                 json fileInfo;
                 try { fileInfo = json::parse(fileRaw); } catch (...) { continue; }
                 if (!fileInfo.contains("data")) continue;
-                std::string downloadUrl = fileInfo["data"].value("downloadUrl", "");
-                std::string fileName = fileInfo["data"].value("fileName", projectId + ".jar");
+                std::string downloadUrl = cfResolveDownloadUrl(fileInfo["data"]);
+                std::string fileName = cfSafeString(fileInfo["data"], "fileName", projectId + ".jar");
                 if (downloadUrl.empty()) continue;
 
                 onProgress("mods", (double)idx / (double)std::max<size_t>(1, total), fileName);
@@ -3340,7 +3023,74 @@ bool extractModJarsFromZipImpl(const fs::path& zipPath, const fs::path& outDir, 
     return true;
 }
 
-bool extractMapZipImpl(const fs::path& zipPath, const fs::path& outDir, std::string& errorOut) {
+std::optional<fs::path> findWorldRootDir(const fs::path& root) {
+    std::optional<fs::path> best;
+    int bestDepth = 1 << 30;
+    std::error_code ec;
+    for (auto it = fs::recursive_directory_iterator(root, fs::directory_options::skip_permission_denied, ec);
+         it != fs::recursive_directory_iterator(); it.increment(ec)) {
+        if (ec) break;
+        std::error_code fileEc;
+        if (!it->is_regular_file(fileEc)) continue;
+        if (it->path().filename() != "level.dat") continue;
+        if (it->path().string().find("__MACOSX") != std::string::npos) continue;
+        int depth = it.depth();
+        if (depth < bestDepth) { bestDepth = depth; best = it->path().parent_path(); }
+    }
+    return best;
+}
+
+std::string sanitizeUtf8(const std::string& input) {
+    std::string out; out.reserve(input.size());
+    size_t i = 0;
+    while (i < input.size()) {
+        unsigned char c = (unsigned char)input[i];
+        int extra = (c & 0x80) == 0 ? 0 : (c & 0xE0) == 0xC0 ? 1 : (c & 0xF0) == 0xE0 ? 2 : (c & 0xF8) == 0xF0 ? 3 : -1;
+        if (extra < 0) { out += '?'; i++; continue; }
+        bool valid = (i + extra) < input.size();
+        for (int k = 1; valid && k <= extra; k++)
+            if (((uint8_t)input[i + k] & 0xC0) != 0x80) valid = false;
+        if (!valid) { out += '?'; i++; continue; }
+        out.append(input, i, extra + 1);
+        i += extra + 1;
+    }
+    return out;
+}
+
+bool placeWorldFromExtractedDir(const fs::path& extractedRoot, const fs::path& savesDir,
+                                 const std::string& fallbackName, std::string& errorOut,
+                                 std::string* folderNameOut = nullptr) {
+    auto worldDirOpt = findWorldRootDir(extractedRoot);
+    if (!worldDirOpt) { errorOut = "ERR_MAP_NO_LEVEL_DAT||"; return false; }
+    fs::path worldDir = *worldDirOpt;
+
+    std::string name = (worldDir == extractedRoot) ? fallbackName : worldDir.filename().string();
+    for (char& c : name) {
+        if (std::string("<>:\"/\\|?*").find(c) != std::string::npos) c = '_';
+    }
+    while (!name.empty() && (name.back() == '.' || name.back() == ' ')) name.pop_back();
+    if (name.empty()) name = "Map";
+
+    std::error_code ec;
+    fs::create_directories(savesDir, ec);
+    fs::path dest = savesDir / name;
+    for (int i = 2; fs::exists(dest, ec); i++) dest = savesDir / (name + " (" + std::to_string(i) + ")");
+
+    fs::rename(worldDir, dest, ec);
+    if (ec) {
+        ec.clear();
+        fs::copy(worldDir, dest, fs::copy_options::recursive, ec);
+        if (ec) { errorOut = "Не удалось скопировать карту: " + ec.message(); return false; }
+    }
+    if (folderNameOut) {
+    std::string folderName = dest.filename().string();
+    *folderNameOut = sanitizeUtf8(folderName);
+}
+    return true;
+}
+
+bool extractMapZipImpl(const fs::path& zipPath, const fs::path& outDir, std::string& errorOut,
+                        std::string* folderNameOut = nullptr) {
     fs::path tmpDir = outDir / (".map_tmp_" + zipPath.stem().string());
     std::error_code ec;
     fs::remove_all(tmpDir, ec);
@@ -3348,34 +3098,9 @@ bool extractMapZipImpl(const fs::path& zipPath, const fs::path& outDir, std::str
         fs::remove_all(tmpDir, ec);
         return false;
     }
-
-    bool hasLevelDat = false;
-    for (auto it = fs::recursive_directory_iterator(tmpDir, fs::directory_options::skip_permission_denied, ec);
-         it != fs::recursive_directory_iterator(); it.increment(ec)) {
-        if (ec) break;
-        std::error_code fileEc;
-        if (!it->is_regular_file(fileEc)) continue;
-        if (it->path().filename() == "level.dat") { hasLevelDat = true; break; }
-    }
-
-    if (!hasLevelDat) {
-        fs::remove_all(tmpDir, ec);
-        errorOut = "ERR_MAP_NO_LEVEL_DAT||";
-        return false;
-    }
-
-    fs::create_directories(outDir, ec);
-    for (auto& entry : fs::directory_iterator(tmpDir, ec)) {
-        fs::path dest = outDir / entry.path().filename();
-        std::error_code moveEc;
-        fs::remove_all(dest, moveEc);
-        fs::rename(entry.path(), dest, moveEc);
-        if (moveEc) {
-            fs::copy(entry.path(), dest, fs::copy_options::recursive | fs::copy_options::overwrite_existing, moveEc);
-        }
-    }
+    bool ok = placeWorldFromExtractedDir(tmpDir, outDir, zipPath.stem().string(), errorOut, folderNameOut);
     fs::remove_all(tmpDir, ec);
-    return true;
+    return ok;
 }
 
 std::optional<fs::path> findRarExtractorTool() {
@@ -3458,11 +3183,12 @@ bool extractModJarsFromArchiveImpl(const fs::path& archivePath, const fs::path& 
     return true;
 }
 
-bool extractMapArchiveImpl(const fs::path& archivePath, const fs::path& outDir, std::string& errorOut) {
+bool extractMapArchiveImpl(const fs::path& archivePath, const fs::path& outDir, std::string& errorOut,
+                            std::string* folderNameOut) {
     std::string ext = archivePath.extension().string();
     std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
-    if (ext == ".zip") return extractMapZipImpl(archivePath, outDir, errorOut);
+    if (ext == ".zip") return extractMapZipImpl(archivePath, outDir, errorOut, folderNameOut);
     if (ext != ".rar") { errorOut = "Неподдерживаемый формат архива"; return false; }
 
     fs::path tmpDir = outDir / (".rar_map_tmp_" + archivePath.stem().string());
@@ -3470,29 +3196,9 @@ bool extractMapArchiveImpl(const fs::path& archivePath, const fs::path& outDir, 
     fs::remove_all(tmpDir, ec);
     if (!extractRarToDir(archivePath, tmpDir, errorOut)) { fs::remove_all(tmpDir, ec); return false; }
 
-    bool hasLevelDat = false;
-    fs::path levelDatDir;
-    std::error_code fec;
-    for (auto it = fs::recursive_directory_iterator(tmpDir, fs::directory_options::skip_permission_denied, fec);
-         it != fs::recursive_directory_iterator(); it.increment(fec)) {
-        if (fec) break;
-        std::error_code fileEc;
-        if (!it->is_regular_file(fileEc)) continue;
-        if (it->path().filename() == "level.dat") { hasLevelDat = true; levelDatDir = it->path().parent_path(); break; }
-    }
-
-    if (!hasLevelDat) { fs::remove_all(tmpDir, ec); errorOut = "ERR_MAP_NO_LEVEL_DAT||"; return false; }
-
-    fs::create_directories(outDir, ec);
-    for (auto& entry : fs::directory_iterator(levelDatDir, ec)) {
-        fs::path dest = outDir / entry.path().filename();
-        std::error_code moveEc;
-        fs::remove_all(dest, moveEc);
-        fs::rename(entry.path(), dest, moveEc);
-        if (moveEc) fs::copy(entry.path(), dest, fs::copy_options::recursive | fs::copy_options::overwrite_existing, moveEc);
-    }
+    bool ok = placeWorldFromExtractedDir(tmpDir, outDir, archivePath.stem().string(), errorOut, folderNameOut);
     fs::remove_all(tmpDir, ec);
-    return true;
+    return ok;
 }
 
 bool extractZipFromRarArchiveImpl(const fs::path& rarPath, const fs::path& targetDir, std::string& fileNameOut, std::string& errorOut) {
@@ -3525,19 +3231,10 @@ bool extractZipFromRarArchiveImpl(const fs::path& rarPath, const fs::path& targe
     fileNameOut = resultName;
     return true;
 }
-} // anonymous namespace
+} 
 
-// ============================================
-// Основной пайплайн
-// ============================================
 bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std::string& errorOut) {
-    // ВАЖНО: g_paused/g_cancelled — глобальные флаги на весь процесс. Если их не
-    // сбрасывать в начале КАЖДОГО нового запуска, то один раз нажатая "Отмена"
-    // (или отмена в другой операции, например при установке мода) навсегда
-    // оставляла g_cancelled == true, и все последующие запуски — даже другой
-    // версии/загрузчика — мгновенно падали с "CANCELLED" на первой же проверке
-    // waitWhilePausedOrCancelled(), что выглядело как "ошибка не пропадает" и
-    // как "кнопка отмены не работает".
+
     g_cancelled.store(false);
     g_paused.store(false);
 
@@ -3546,11 +3243,6 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         return false;
     }
 
-    // OptiFine и Forge+OptiFine временно отключены(см. LOADERS в app.js) —
-    // зависели от сторонних зеркал (BMCLAPI/FastMCMirror) и оказались слишком
-    // нестабильными для стабильного релиза. Отклоняем сразу, до тяжёлых
-    // загрузок, понятной ошибкой на случай, если фронтенд всё же прислал
-    // такой запрос (например, из старого сохранённого выбора).
     if (req.loader != "vanilla" && req.loader != "fabric" && req.loader != "forge" &&
         req.loader != "neoforge" && req.loader != "quilt") {
         errorOut = "Загрузчик \"" + req.loader + "\" временно недоступен.";
@@ -3563,7 +3255,6 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
     fs::path assetsDir = root / "assets";
     fs::path nativesDir = versionsDir / "natives";
 
-    // --- 1. Version manifest ---
     onProgress("manifest", 0.0, "Получаем список версий...");
     std::string manifestRaw;
     if (!httpGetString("https://launchermeta.mojang.com/mc/game/version_manifest_v2.json", manifestRaw, errorOut))
@@ -3579,7 +3270,6 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
     }
     if (versionJsonUrl.empty()) { errorOut = "ERR_VERSION_NOT_FOUND||" + req.version; return false; }
 
-    // --- 2. Version JSON ---
     onProgress("manifest", 0.5, "Загружаем описание версии " + req.version + "...");
     std::string versionJsonRaw;
     if (!httpGetString(versionJsonUrl, versionJsonRaw, errorOut)) return false;
@@ -3591,9 +3281,6 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
     fs::create_directories(versionsDir);
     { std::ofstream f(versionsDir / (req.version + ".json"), std::ios::binary); f << versionJsonRaw; }
 
-    // --- 3. Java: решаем, чем запускать, ДО тяжёлых закачек, чтобы не
-    // тратить время на client.jar/библиотеки/ассеты, если Java в итоге
-    // не найдётся и не скачается.
     onProgress("java", 0.0, "Проверяем Java...");
 
     std::string requiredComponent = "jre-legacy";
@@ -3607,21 +3294,17 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
     bool manualPathValid = !req.javaPath.empty() && fs::exists(req.javaPath);
 
     if (manualPathValid) {
-        // Уважаем явный выбор пользователя в настройках, не переопределяем его —
-        // он мог специально указать нужную ему сборку JDK.
+
         javaPath = req.javaPath;
     } else {
         auto fallback = findFallbackJava();
         int fallbackMajor = fallback ? detectJavaMajorVersion(*fallback) : -1;
 
         if (fallback && (fallbackMajor == requiredMajor || fallbackMajor == -1)) {
-            // Нашли Java в системе и её major-версия совпадает с требуемой
-            // (или не удалось определить версию — тогда пробуем как есть).
+
             javaPath = fallback->string();
         } else {
-            // Ничего подходящего не нашли — скачиваем portable JRE от Mojang,
-            // как это делает официальный лаунчер и TLauncher: изолированно,
-            // в свою папку, без установки в систему.
+
             fs::path runtimeRoot = root / "runtime";
             fs::path bundledJava;
             if (!ensureBundledJavaRuntime(requiredComponent, runtimeRoot, onProgress, bundledJava, errorOut)) {
@@ -3631,7 +3314,6 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         }
     }
 
-    // --- 4. client.jar ---
     onProgress("client", 0.0, "Загружаем client.jar...");
     fs::path clientJarPath = versionsDir / (req.version + ".jar");
     {
@@ -3640,10 +3322,6 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         if (!ensureFile(dl.value("url",""), clientJarPath, dl.value("sha1",""), errorOut)) return false;
     }
 
-    // --- 4.5. Forge (если выбран) ---
-    // Важно делать это ДО общего цикла скачивания библиотек (шаг 5): мы
-    // просто добавляем библиотеки/аргументы Forge в vjson, и дальше их
-    // скачает тот же самый цикл, что качает ванильные.
     if (req.loader == "forge") {
         onProgress("libraries", 0.0, "Готовим Forge...");
         if (!prepareForge(req.version, root, javaPath, vjson, onProgress, errorOut)) return false;
@@ -3653,7 +3331,6 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         if (!prepareNeoForge(req.version, root, javaPath, vjson, onProgress, errorOut)) return false;
     }
 
-    // --- 5. Библиотеки (+ извлечение natives) ---
     std::vector<std::string> classpathEntries;
     std::vector<fs::path> nativesJarsToExtract;
 
@@ -3699,7 +3376,6 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         extractZipFlatIgnoringDirsAndMeta(jarPath, nativesDir);
     }
 
-    // --- 5.5. Fabric (если выбран) ---
     std::string fabricMainClass;
     if (req.loader == "fabric") {
         onProgress("libraries", 1.0, "Загружаем Fabric Loader...");
@@ -3709,7 +3385,7 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         onProgress("libraries", 1.0, "Загружаем Quilt Loader...");
         if (!prepareQuilt(req.version, librariesDir, classpathEntries, fabricMainClass, errorOut)) return false;
     }
-    // --- 6. Ассеты ---
+    
     if (vjson.contains("assetIndex")) {
         onProgress("assets", 0.0, "Загружаем индекс ассетов...");
         auto assetIndexInfo = vjson["assetIndex"];
@@ -3744,7 +3420,6 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         }
     }
 
-    // --- 7. Java-аргументы и запуск ---
     onProgress("launch", 0.0, "Готовим запуск...");
 
     bool isOnlineAuth = !req.authUuid.empty() && !req.authAccessToken.empty();
@@ -3752,23 +3427,11 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
     std::string accessToken = isOnlineAuth ? req.authAccessToken : "0";
     std::string userType = isOnlineAuth ? "msa" : "legacy";
 
-    // Обычная игра (не модпак): используем корень gameDir напрямую — единая
-    // общая mods/saves/resourcepacks для всего, как ставит "Моды" во вкладке
-    // "Моды" (см. app.js). Раньше тут всегда была instances/<version>, но
-    // версия ничего не знала о загрузчике — из-за этого Fabric и Forge на
-    // одной и той же версии Minecraft писали моды в одну и ту же папку и
-    // конфликтовали. instances/<name> оставлен ТОЛЬКО для реальных модпаков
-    // (req.instanceName непустой, задаётся при "+ Создать модпак") — у них
-    // осознанная изоляция мода от мода как раз и есть весь смысл модпака.
     fs::path instanceDir = req.instanceName.empty() ? root : (root / "instances" / req.instanceName);
     fs::create_directories(instanceDir);
 
-    // Автоматически отключаем моды, несовместимые с запускаемой версией, и
-    // включаем обратно совместимые (кроме отключённых игроком вручную) — см.
-    // reconcileModsForVersion выше. Для модпаков это не нужно: там все моды
-    // и так собраны под одну версию из instances/<name>/mods.
     if (req.instanceName.empty()) {
-        reconcileModsForVersion(instanceDir / "mods", req.version);
+        reconcileModsForVersion(instanceDir / "mods", req.version, req.loader);
     }
 
     int ramMb = req.ramMb;
@@ -3825,28 +3488,17 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         while (iss >> tok) gameArgs.push_back(substitutePlaceholders(tok, vars));
     }
 
-    // Прямое подключение к серверу (см. LaunchRequest::quickPlayServer) —
-    // тот же механизм "Quick Play", которым официальный лаунчер открывает
-    // игру сразу в мире/на сервере по клику извне. Поддерживается начиная
-    // с версий, где он вообще существует (1.20+); на более старых версиях
-    // игра просто не узнает этот аргумент и откроется на обычном меню.
     if (!req.quickPlayServer.empty()) {
         gameArgs.push_back("--quickPlayMultiplayer");
         gameArgs.push_back(req.quickPlayServer);
     }
 
-    // Дополнительные флаги JVM из настроек лаунчера — добавляются как есть,
-    // разделённые пробелами (ничего не валидируем, это осознанный выбор
-    // игрока в разделе "для опытных пользователей").
     if (!req.extraJvmArgs.empty()) {
         std::istringstream extraJvmIss(req.extraJvmArgs);
         std::string extraTok;
         while (extraJvmIss >> extraTok) jvmArgs.push_back(extraTok);
     }
 
-    // Полноэкранный режим — не launch-аргумент самой игры, а её собственная
-    // настройка (options.txt), поэтому патчим файл настроек инстанса прямо
-    // перед запуском, сохраняя все остальные уже существующие ключи как есть.
     if (req.fullscreen) {
         fs::path optionsPath = instanceDir / "options.txt";
         std::vector<std::pair<std::string, std::string>> optionLines;
@@ -3891,9 +3543,9 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
 
     std::ostringstream cmd;
     cmd << "\"" << javaPath << "\" -Xmx" << ramMb << "M -Xms" << std::min(ramMb, 1024) << "M ";
-    for (auto& a : jvmArgs) cmd << a << " ";
+    for (auto& a : jvmArgs) cmd << quoteWinArg(a) << " ";
     cmd << mainClass << " ";
-    for (auto& a : gameArgs) cmd << a << " ";
+    for (auto& a : gameArgs) cmd << quoteWinArg(a) << " ";
 
     onProgress("launch", 0.5, "Запускаем Java...");
 
@@ -4073,13 +3725,10 @@ bool moveGameDirectory(const std::string& oldPathStr, const std::string& newPath
 
     fs::create_directories(to.parent_path(), ec);
 
-    // Быстрый путь: rename работает мгновенно, если оба пути на одном томе.
     ec.clear();
     fs::rename(from, to, ec);
     if (!ec) return true;
 
-    // Разные тома (например C: -> D:) — rename так не умеет, копируем
-    // рекурсивно и затем удаляем исходную папку.
     ec.clear();
     fs::create_directories(to, ec);
     fs::copy(from, to, fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec);
@@ -4118,10 +3767,6 @@ bool fetchMinecraftVersionList(std::string& jsonOut, std::string& errorOut) {
     return true;
 }
 
-// ============================================
-// Публичные обёртки для модов/модпаков — вызываются из main.cpp через w.bind(...).
-// ============================================
-
 bool installModToDir(const std::string& slug, const std::string& mcVersion,
                       const std::string& loader, const std::string& modsDir,
                       std::string& fileNameOut, std::string& errorOut) {
@@ -4133,13 +3778,13 @@ bool listDirFileNames(const std::string& dirPath, std::vector<std::string>& name
     namesOut.clear();
     std::error_code ec;
     fs::path dir(dirPath);
-    if (!fs::exists(dir, ec)) return true; // папки ещё нет — это не ошибка, просто пусто
+    if (!fs::exists(dir, ec)) return true; 
 
     for (auto& entry : fs::directory_iterator(dir, fs::directory_options::skip_permission_denied, ec)) {
         if (ec) break;
         std::error_code fileEc;
         if (!entry.is_regular_file(fileEc)) continue;
-        namesOut.push_back(entry.path().filename().string());
+        namesOut.push_back(sanitizeUtf8(entry.path().filename().string()));
     }
     if (ec) { errorOut = "Не удалось прочитать содержимое " + dirPath + ": " + ec.message(); return false; }
     return true;
@@ -4149,21 +3794,43 @@ bool listDirFolderNames(const std::string& dirPath, std::vector<std::string>& na
     namesOut.clear();
     std::error_code ec;
     fs::path dir(dirPath);
-    if (!fs::exists(dir, ec)) return true; // папки ещё нет — не ошибка, просто пусто
+    if (!fs::exists(dir, ec)) return true; 
 
     for (auto& entry : fs::directory_iterator(dir, fs::directory_options::skip_permission_denied, ec)) {
         if (ec) break;
         std::error_code dirEc;
         if (!entry.is_directory(dirEc)) continue;
-        namesOut.push_back(entry.path().filename().string());
+        namesOut.push_back(sanitizeUtf8(entry.path().filename().string()));
     }
     if (ec) { errorOut = "Не удалось прочитать содержимое " + dirPath + ": " + ec.message(); return false; }
     return true;
 }
 
 bool deleteMapFolder(const std::string& dirPath, const std::string& folderName, std::string& errorOut) {
-    fs::path target = fs::path(dirPath) / folderName;
+    fs::path dir(dirPath);
+    fs::path target = dir / folderName;
     std::error_code ec;
+
+    if (!fs::exists(target, ec)) {
+
+        bool found = false;
+        for (auto& entry : fs::directory_iterator(dir, fs::directory_options::skip_permission_denied, ec)) {
+            if (ec) break;
+            std::error_code dirEc;
+            if (!entry.is_directory(dirEc)) continue;
+            if (sanitizeUtf8(entry.path().filename().string()) == folderName) {
+                target = entry.path();
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            errorOut = "Папка карты не найдена: " + folderName;
+            return false;
+        }
+        ec.clear();
+    }
+
     fs::remove_all(target, ec);
     if (ec) { errorOut = "Не удалось удалить папку карты: " + ec.message(); return false; }
     return true;
@@ -4192,7 +3859,7 @@ bool installContentToDir(const std::string& slug, const std::string& mcVersion,
                           const std::string& projectType, const std::string& targetDir,
                           std::string& fileNameOut, std::string& errorOut) {
     g_cancelled.store(false);
-    (void)projectType; // резерв на будущее (сейчас логика одинакова для всех типов)
+    (void)projectType; 
     return installContentToDirImpl(slug, mcVersion, fs::path(targetDir), fileNameOut, errorOut);
 }
 
@@ -4205,8 +3872,7 @@ bool toggleModEnabled(const std::string& dirPath, const std::string& fileName,
     const std::string suffix = ".disabled";
     bool wasDisabled = fileName.size() > suffix.size() &&
         fileName.compare(fileName.size() - suffix.size(), suffix.size(), suffix) == 0;
-    // baseName — имя мода БЕЗ ".disabled", ровно тот вид, под которым он
-    // хранится ключом в манифесте совместимости (см. recordModInManifest).
+
     std::string baseName = wasDisabled ? fileName.substr(0, fileName.size() - suffix.size()) : fileName;
     std::string newName = wasDisabled ? baseName : (fileName + suffix);
 
@@ -4215,13 +3881,10 @@ bool toggleModEnabled(const std::string& dirPath, const std::string& fileName,
     fs::rename(src, dest, ec);
     if (ec) { errorOut = "Не удалось переключить мод: " + ec.message(); return false; }
 
-    // Это осознанное действие игрока — automatic reconcile по версии (см.
-    // reconcileModsForVersion) больше не должен "отменять" его при следующем
-    // запуске игры, пока игрок сам снова не включит мод руками.
     auto manifest = readModsManifest(dir);
     auto it = manifest.find(baseName);
     if (it != manifest.end()) {
-        it->second.userDisabled = !wasDisabled; // wasDisabled==true значит мы его сейчас ВКЛЮЧАЕМ
+        it->second.userDisabled = !wasDisabled; 
         writeModsManifest(dir, manifest);
     }
 
@@ -4235,10 +3898,6 @@ bool deleteModFile(const std::string& dirPath, const std::string& fileName, std:
     fs::remove(target, ec);
     if (ec) { errorOut = "Не удалось удалить файл: " + ec.message(); return false; }
 
-    // Убираем запись из манифеста совместимости — иначе после удаления файла
-    // мод остался бы "призраком" в .magma_mods.json (безвредно, но незачем
-    // копить мусор, и на всякий случай — вдруг игрок позже создаст файл с тем
-    // же именем вручную, тогда старая запись была бы неправильной).
     const std::string suffix = ".disabled";
     std::string baseName = (fileName.size() > suffix.size() &&
         fileName.compare(fileName.size() - suffix.size(), suffix.size(), suffix) == 0)
@@ -4253,11 +3912,7 @@ bool deleteModFile(const std::string& dirPath, const std::string& fileName, std:
 }
 
 bool modrinthWarmup() {
-    // Обычный httpGetString() тут не годится: у него несколько повторных
-    // попыток и куда более долгий таймаут — если сеть плохая, это надолго
-    // задержит и без того короткий boot-splash. Прогрев должен быть
-    // "best effort": одна попытка, короткий таймаут, результат вообще
-    // никого не интересует.
+
     CURL* curl = curl_easy_init();
     if (!curl) return false;
 
@@ -4307,9 +3962,10 @@ bool curseforgeSearchByClass(int classId, const std::string& query, const std::s
 }
 
 bool installContentCurseForge(const std::string& modId, const std::string& mcVersion,
-                               const std::string& targetDir, std::string& fileNameOut, std::string& errorOut) {
+                               const std::string& targetDir, std::string& fileNameOut, std::string& errorOut,
+                               bool asMap) {
     g_cancelled.store(false);
-    return installContentCurseForgeImpl(modId, mcVersion, fs::path(targetDir), fileNameOut, errorOut);
+    return installContentCurseForgeImpl(modId, mcVersion, fs::path(targetDir), asMap, fileNameOut, errorOut);
 }
 
 bool installModrinthModpack(const std::string& id, const std::string& mcVersion,
@@ -4363,7 +4019,7 @@ bool extractZipFromRarArchive(const std::string& rarPath, const std::string& tar
 }
 
 bool createModpack(const ModpackRequest& req, const ProgressFn& onProgress, std::string& errorOut) {
-    // См. комментарий в начале launchMinecraft — та же защита от "залипшего" g_cancelled.
+    
     g_cancelled.store(false);
     g_paused.store(false);
 
@@ -4372,8 +4028,6 @@ bool createModpack(const ModpackRequest& req, const ProgressFn& onProgress, std:
     std::error_code ec;
     fs::create_directories(modsDir, ec);
 
-    // Метаданные модпака сохраняются в versions/<name>/modpack.json — именно их читает
-    // фронтенд, чтобы отрисовать карточку модпака в разделе "Сборки".
     fs::path metaDir = fs::path(req.gameDir) / "versions" / req.name;
     fs::create_directories(metaDir, ec);
 
@@ -4394,7 +4048,7 @@ bool createModpack(const ModpackRequest& req, const ProgressFn& onProgress, std:
         if (g_cancelled.load()) { errorOut = "CANCELLED"; return false; }
         onProgress("mods", (double)i / (double)std::max<size_t>(1, total),
                    "Скачиваем " + enabledMods[i].slug + "...");
-        std::string installedFileName; // не используется для модпаков — тут нет индивидуального бейджа "Добавлено"
+        std::string installedFileName; 
         if (!installModToDir(enabledMods[i].slug, req.mcVersion, req.loader, modsDir.string(), installedFileName, errorOut)) return false;
     }
     onProgress("mods", 1.0, "Модпак создан");
@@ -4505,7 +4159,7 @@ bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& 
     CloseHandle(pi.hProcess); CloseHandle(pi.hThread);
 
     onProgress("update", 1.0, "Перезапуск...");
-    return true; // main.cpp должен после этого закрыть лаунчер (CefQuitMessageLoop)
+    return true; 
 }
 
 bool scheduleLauncherReopenAfterGameExit(std::string& errorOut) {
@@ -4549,4 +4203,4 @@ bool scheduleLauncherReopenAfterGameExit(std::string& errorOut) {
     return true;
 }
 
-} // namespace launcher
+}
