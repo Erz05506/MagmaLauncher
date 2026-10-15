@@ -1,6 +1,4 @@
-/* ============================================
-   MagmaLauncher — design tokens
-   ============================================ */
+/* MagmaLauncher styles */
 :root {
   --bg-void: #0a0a0c;
   --bg-panel: #131316;
@@ -47,9 +45,6 @@ button:focus,
 button:focus-visible { outline: none; }
 svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 
-/* ============================================
-   Экран загрузки при старте лаунчера
-   ============================================ */
 .boot-splash {
   position: fixed;
   inset: 0;
@@ -126,12 +121,9 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   width: 0%;
   border-radius: 999px;
   background: linear-gradient(90deg, var(--magma-1), var(--magma-2));
-  transition: width .3s ease;
+  transition: width .6s cubic-bezier(.4,0,.2,1);
 }
 
-/* ============================================
-   Layout shell
-   ============================================ */
 .app {
   position: fixed;
   inset: 0;
@@ -140,9 +132,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   overflow: hidden;
 }
 
-/* ============================================
-   Left rail (Modrinth-style icon nav)
-   ============================================ */
 .rail {
   background: var(--bg-panel);
   border-right: 1px solid var(--border-subtle);
@@ -242,9 +231,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   align-items: center;
 }
 
-/* ============================================
-   Custom tooltips (replace native title attr)
-   ============================================ */
 [data-tooltip] { position: relative; }
 
 .js-tooltip {
@@ -268,9 +254,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   opacity: 1;
 }
 
-/* ============================================
-   Stage (main area)
-   ============================================ */
 .stage {
   display: flex;
   flex-direction: column;
@@ -333,9 +316,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 }
 .content::-webkit-scrollbar-thumb:hover { background: var(--magma-1); background-clip: padding-box; }
 
-/* ============================================
-   Views (Главная / Сборки / Моды / Настройки)
-   ============================================ */
 .view { display: none; height: 100%; }
 .view.is-active { display: block; }
 
@@ -384,9 +364,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 }
 .ghost-btn:hover { background: var(--bg-card-hover); border-color: var(--magma-1); }
 
-/* ============================================
-   Hero
-   ============================================ */
 .hero {
   position: relative;
   border-radius: var(--radius-lg);
@@ -490,9 +467,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 .version-btn:hover { background: var(--bg-card-hover); border-color: #38383f; }
 .version-btn .chev { width: 14px; height: 14px; fill: none; stroke: var(--text-muted); stroke-width: 2; }
 
-/* ============================================
-   Version dropdown (loader + version picker)
-   ============================================ */
 .version-dropdown {
   display: none;
   position: absolute;
@@ -638,9 +612,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   50% { opacity: .8; }
 }
 
-/* ============================================
-   Прогресс загрузки при первом запуске сборки
-   ============================================ */
 .launch-progress {
   position: relative;
   z-index: 1;
@@ -763,9 +734,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   color: #ff6b5e;
 }
 
-/* ============================================
-   News column
-   ============================================ */
 .news {
   display: flex;
   flex-direction: column;
@@ -822,9 +790,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 .news::-webkit-scrollbar { width: 6px; }
 .news::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 3px; }
 
-/* ============================================
-   Instances (Сборки)
-   ============================================ */
 .instance-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
@@ -876,9 +841,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 .instance-card.is-new:hover { color: var(--magma-glow); border-color: var(--magma-1); }
 .instance-card.is-new .plus { font-size: 24px; font-weight: 700; }
 
-/* ============================================
-   Mods
-   ============================================ */
 .mod-search {
   padding: 9px 14px;
   border-radius: var(--radius-sm);
@@ -941,9 +903,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 }
 .mod-install-btn:hover { color: var(--magma-glow); border-color: var(--magma-1); }
 
-/* ============================================
-   Settings
-   ============================================ */
 .settings-list {
   display: flex;
   flex-direction: column;
@@ -992,9 +951,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   font-size: 12.5px;
 }
 
-/* ============================================
-   Custom select (language, etc.)
-   ============================================ */
 .custom-select { position: relative; flex-shrink: 0; }
 
 .custom-select-btn {
@@ -1104,26 +1060,30 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 
 .settings-value { flex-shrink: 0; font-size: 12.5px; font-weight: 600; color: var(--magma-glow); width: 48px; text-align: right; }
 
-/* ============================================
-   Auth modal
-   ============================================ */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(6, 6, 8, 0.72);
-  backdrop-filter: none;
+  background: rgba(6, 6, 8, 0.86);   
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transition: opacity .2s ease;
+  transition: opacity .15s ease, visibility 0s linear .15s;
   z-index: 100;
 }
 .modal-overlay.is-open {
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
-  backdrop-filter: blur(6px);
+  transition: opacity .15s ease, visibility 0s;
+}
+
+body.has-modal-open .hero-glow,
+body.has-modal-open .boot-glow,
+body.has-modal-open .play-btn .crack {
+  animation-play-state: paused;
 }
 
 .modal-panel {
@@ -1163,7 +1123,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 .modal-close:hover { background: var(--bg-card-hover); color: var(--text-primary); border-color: var(--magma-1); }
 .modal-close svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 
-/* Tabs */
 .auth-tabs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1220,7 +1179,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 .auth-tab.is-active .auth-tab-icon path:not([fill]) { fill: var(--text-secondary); }
 .ms-icon { border-radius: 2px; overflow: hidden; }
 
-/* Panes */
 .auth-pane { display: none; }
 .auth-pane.is-active { display: block; }
 
@@ -1319,9 +1277,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 .auth-submit-ms:hover { background: #ffffff; }
 .ms-icon-btn { width: 16px; height: 16px; flex-shrink: 0; }
 
-/* ============================================
-   Google auth button + divider
-   ============================================ */
 .auth-submit-google {
   display: flex;
   align-items: center;
@@ -1374,7 +1329,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 .auth-switch a { color: var(--magma-glow); font-weight: 600; text-decoration: none; margin-left: 4px; }
 .auth-switch a:hover { text-decoration: underline; }
 
-/* Inline auth error messages */
 .auth-error {
   display: none;
   font-size: 12px;
@@ -1396,9 +1350,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   font-family: var(--font-display);
 }
 
-/* ============================================
-   Показать/скрыть пароль (глазок)
-   ============================================ */
 .auth-input-wrap {
   position: relative;
 }
@@ -1430,9 +1381,7 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-/* ============================================
-   Моды: шапка + строка выбора версии/загрузчика
-   ============================================ */
+
 .mods-header-actions { display: flex; align-items: center; gap: 10px; }
 
 .mod-filter-wrap { position: relative; flex-shrink: 0; }
@@ -1543,9 +1492,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 .mods-target-version-btn { padding: 7px 12px; font-size: 12.5px; }
 .mods-target-row .version-dropdown { top: calc(100% + 8px); bottom: auto; left: auto; right: 0; }
 
-/* ============================================
-   Моды: переключатель категорий (Моды / Ресурс-паки / Дата-паки / Шейдеры / Серверы)
-   ============================================ */
 .mods-category-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -1582,10 +1528,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   margin-bottom: 14px;
 }
 
-/* ============================================
-   Серверы (внутри раздела "Моды") — curated-список с кнопкой "Играть" и
-   пометкой, нужна ли лицензия Minecraft для входа.
-   ============================================ */
 .servers-list {
   display: flex;
   flex-direction: column;
@@ -1662,9 +1604,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 .server-play-btn { box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--magma-2) 55%, transparent); }
 .server-play-btn:hover { box-shadow: 0 10px 24px -6px color-mix(in srgb, var(--magma-glow) 65%, transparent); }
 
-/* ============================================
-   Моды: переключатель "Каталог" / "Мои моды"
-   ============================================ */
 .mods-subtabs {
   display: flex;
   gap: 6px;
@@ -1700,18 +1639,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   margin-bottom: 10px;
 }
 
-/* ============================================
-   "Мои моды" — реальное содержимое папки mods/ на диске (не localStorage),
-   поэтому тут никогда не может "врать" бейдж, если файл удалили руками.
-   ============================================ */
-.installed-mod-list {
-  direction: rtl;
-  padding-left: 6px;
-  padding-right: 0;
-}
-.installed-mod-list > * {
-  direction: ltr;
-}
 .installed-mod-list::-webkit-scrollbar {
   width: 6px;
 }
@@ -1800,9 +1727,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 .installed-mod-btn.is-enable:hover { color: var(--magma-glow); border-color: var(--magma-1); }
 .installed-mod-btn.is-delete:hover { color: #ff6b5e; border-color: #ff6b5e; background: rgba(255, 107, 94, 0.12); }
 
-/* ============================================
-   Карточки модов (результаты поиска Modrinth)
-   ============================================ */
 .mod-card-icon-img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
 
 .mod-install-btn {
@@ -1843,9 +1767,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   font-size: 13px;
 }
 
-/* ============================================
-   Постраничная навигация под списком модов
-   ============================================ */
 .mod-list-pagination {
   display: flex;
   align-items: center;
@@ -1884,9 +1805,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   user-select: none;
 }
 
-/* ============================================
-   Модалка "Создать модпак"
-   ============================================ */
 .modpack-panel {
   width: 460px;
   max-height: 88vh;
@@ -2027,9 +1945,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 .modpack-progress { margin-top: 14px; margin-bottom: 4px; }
 .modpack-progress .launch-progress-label { max-width: none; }
 
-/* ============================================
-   Карточки установленных модпаков в разделе "Сборки"
-   ============================================ */
 .instance-card-play {
   align-self: flex-start;
   margin-top: auto;
@@ -2043,9 +1958,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 }
 .instance-card-play:hover { border-color: var(--magma-1); background: var(--bg-card-hover); }
 
-/* ============================================
-   Модалка "О моде" — описание + статистика, как на самом Modrinth
-   ============================================ */
 .mod-details-panel { width: 480px; max-height: 86vh; overflow-y: auto; }
 .mod-details-panel::-webkit-scrollbar { width: 6px; }
 .mod-details-panel::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 3px; }
@@ -2156,9 +2068,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   gap: 4px;
 }
 
-/* ============================================
-   Модалка "Подробности ошибки"
-   ============================================ */
 .error-details-panel { width: 480px; max-height: 82vh; }
 .error-details-title {
   font-family: var(--font-display);
@@ -2186,10 +2095,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 .error-details-body::-webkit-scrollbar { width: 6px; }
 .error-details-body::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 3px; }
 
-/* ============================================
-   НОВОЕ: "История обновлений" — вкладка с кратким описанием того, что
-   принесла каждая крупная версия Minecraft, начиная с релиза 1.0.
-   ============================================ */
 .updates-subtitle {
   font-size: 12.5px;
   color: var(--text-muted);
@@ -2279,9 +2184,7 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   border-radius: 50%;
   background: var(--magma-glow);
 }
-/* ============================================
-   Главная: табы "Обзор" / "Обновления"
-   ============================================ */
+
 .view[data-view="home"] {
   display: none;
   flex-direction: column;
@@ -2334,8 +2237,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 }
 .game-folder-fab svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; }
 
-
-/* Нижняя навигация: плавающие кнопки не должны лежать поверх самой панели. */
 .app.nav-bottom .game-folder-fab { bottom: 88px; }
 .app.nav-bottom .version-refresh-fab { bottom: 142px; }
 
@@ -2419,10 +2320,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 
 .instance-delete-btn:hover { background: rgba(255, 107, 94, 0.18); }
 
-/* ============================================
-   Выделение текста для копирования: вкладка "Обновления",
-   модалка описания (моды/ресурс-паки/шейдеры/карты/сборки из каталога)
-   ============================================ */
 .updates-timeline,
 .updates-timeline *,
 .mod-details-body,
@@ -2453,9 +2350,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   -webkit-user-select: text;
 }
 
-/* ============================================
-   Аватарка аккаунта + выпадающий список аккаунтов
-   ============================================ */
 .account { position: relative; }
 .account-avatar {
   width: 28px;
@@ -2564,9 +2458,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 }
 .account-list-add-btn:hover { background: var(--bg-card-hover); border-color: var(--magma-1); }
 
-/* ============================================
-   Настройки — вкладка "Аккаунт"
-   ============================================ */
 .account-settings-layout {
   display: flex;
   gap: 32px;
@@ -2906,7 +2797,7 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
   cursor: grab;
   user-select: none;
   margin-top: 14px;
-  touch-action: none; /* НОВОЕ — запрещает браузеру воспринимать движение как жест прокрутки/пана */
+  touch-action: none; 
 }
 .hero-bg-editor-image {
   position: absolute;
@@ -2954,7 +2845,6 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 .custom-context-menu-item:disabled { color: var(--text-muted); cursor: default; opacity: .5; }
 .custom-context-menu-item svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; flex-shrink: 0; }
 
-/* Общий знак для объединённого раздела Моды + Сборки. */
 .mods-rail-icon { width: 21px; height: 21px; }
 .mods-rail-icon .mods-rail-stroke { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 [data-reduce-motion="1"] * {
@@ -3056,7 +2946,7 @@ body.is-modal-scroll-lock .content {
 .mod-details-panel::-webkit-scrollbar { width: 8px; }
 .mod-details-panel::-webkit-scrollbar-track {
   background: transparent;
-  margin: 44px 6px 12px 0; /* сдвигает вниз, не мешает кнопке закрытия */
+  margin: 44px 6px 12px 0; 
 }
 .mod-details-panel::-webkit-scrollbar-thumb {
   background: #4a4a52;
@@ -3065,7 +2955,7 @@ body.is-modal-scroll-lock .content {
   background-clip: padding-box;
 }
 .mod-details-panel::-webkit-scrollbar-thumb:hover {
-  background: #b8b8c0;   /* ← любой цвет, какой хочешь при наведении */
+  background: #b8b8c0;   
   background-clip: padding-box;
 }
 #instanceModsList::-webkit-scrollbar {
@@ -3084,3 +2974,66 @@ body.is-modal-scroll-lock .content {
 #instanceModsList::-webkit-scrollbar-thumb:hover {
   background: #b8b8c0 !important;
 }
+
+#instanceModsOverlay .modal-panel {
+  overflow-y: hidden;
+}
+
+.skin-system-option:not(.is-disabled):hover,
+.skin-system-option:not(.is-disabled):active,
+.skin-system-option:not(.is-disabled):focus-visible,
+.ghost-btn:active,
+.ghost-btn:focus-visible {
+  border-color: var(--magma-1);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--magma-1) 45%, transparent);
+  outline: none;
+}
+.skin-system-option.is-active,
+.jvm-advanced-toggle.is-active,
+.hero-bg-preset-option.is-active {
+  border-color: var(--magma-1);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--magma-1) 45%, transparent);
+}
+.mod-details-body {
+  overflow-x: hidden;              
+  overflow-wrap: anywhere;
+  margin-right: -16px;             
+  padding-right: 16px;
+}
+.mod-details-body img,
+.mod-details-body video,
+.mod-details-body iframe,
+.mod-details-body table { max-width: 100%; height: auto; }
+
+.mod-details-body::-webkit-scrollbar { width: 8px; }
+.mod-details-body::-webkit-scrollbar-track { background: transparent; }
+.mod-details-body::-webkit-scrollbar-thumb {
+  background: #4a4a52;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.mod-details-body::-webkit-scrollbar-thumb:hover {
+  background: #b8b8c0;
+  background-clip: padding-box;
+}
+.info-logo { margin-bottom: 0; width: 46px; height: 46px; }
+.info-logo { width: 46px; height: 46px; margin-bottom: 14px; pointer-events: none; }
+.installed-mod-card { content-visibility: auto; contain-intrinsic-size: auto 52px; }
+#instanceModsList { max-height: 46vh; overflow-y: auto; margin-right: -10px; padding-right: 10px; }
+
+.mod-cancel-btn {
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.mod-cancel-btn:hover:not(:disabled) { color: #ff6b5e; border-color: #ff6b5e; background: rgba(255, 107, 94, 0.12); }
+.mod-cancel-btn:disabled { opacity: .5; cursor: default; }
+#privacySessionsRow { opacity: .5; pointer-events: none; }
+.ghost-btn:disabled { opacity: .5; cursor: default; pointer-events: none; }
