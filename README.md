@@ -1,5 +1,5 @@
-<p align="center">
-  <img src="assets/magmalauncher-logo.png" width="180" alt="MagmaLauncher">
+ <p align="center">
+  <img src="assets/magmalauncher-logo.png" width="180" alt="MagmaLauncher logo">
 </p>
 
 <h1 align="center">MagmaLauncher</h1>
@@ -9,61 +9,125 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Erz05506/MagmaLauncher/releases">
-    Download
-  </a>
+  <a href="https://github.com/Erz05506/MagmaLauncher/releases">Download</a>
   ·
-  <a href="https://github.com/Erz05506/MagmaLauncher/issues">
-    Report a bug
-  </a>
+  <a href="https://github.com/Erz05506/MagmaLauncher/issues">Report a bug</a>
+  ·
+  <a href="https://discord.gg/R7DCtQBYs">Discord</a>
 </p>
-# MagmaLauncher
 
-An unofficial, open-source launcher for **Minecraft: Java Edition**, built with C++ (CEF/Chromium) on the backend and plain HTML/CSS/JavaScript on the frontend.
+<p align="center">
+  <img src="https://img.shields.io/badge/Status-Alpha-orange" alt="Alpha status">
+  <img src="https://img.shields.io/badge/License-MIT-blue" alt="MIT License">
+  <img src="https://img.shields.io/badge/Platform-Windows-lightgrey" alt="Windows">
+</p>
 
-MagmaLauncher takes care of the parts of running modded Minecraft that are normally tedious: it downloads the right Java runtime automatically, fetches game files and assets, and installs mod loaders and modpacks with a couple of clicks — no manual folder juggling required.
+---
+
+## About
+
+MagmaLauncher is an unofficial, open-source launcher for **Minecraft: Java Edition**, built with C++ (CEF/Chromium) on the backend and HTML, CSS, and JavaScript on the frontend.
+
+MagmaLauncher simplifies modded Minecraft setup by automatically downloading the required Java runtime, fetching game files and assets, and installing mod loaders and modpacks — without manually managing game folders.
+
+## Screenshots
+
+<!-- Add your actual launcher screenshots to assets/screenshots/ -->
+
+### Home
+
+![MagmaLauncher Home](assets/screenshots/home.png)
+
+### Instances
+
+![MagmaLauncher Instances](assets/screenshots/instances.png)
+
+### Mods
+
+![MagmaLauncher Mods](assets/screenshots/mods.png)
+
+### Settings
+
+![MagmaLauncher Settings](assets/screenshots/settings.png)
 
 ## Features
 
-- **Vanilla, Fabric, Forge, NeoForge and Quilt** support, with automatic Java version detection/download
-- **Mod, resource pack, shader and map browsing** straight from the Modrinth and CurseForge catalogs, with install/uninstall/enable/disable from inside the launcher
-- **One-click modpack creation** and installation of existing `.mrpack` / CurseForge modpacks
-- **Multiple accounts**: guest nicknames, Magma accounts (email/Google via Supabase), with Microsoft/Xbox login planned
-- **Skins via Ely.by**, rendered with a live 3D preview (skinview3d)
-- **Discord Rich Presence**, customizable JVM arguments, RAM allocation, custom game/launcher folders
-- **12 interface languages** and a dozen built-in color themes
-- **Privacy controls**: telemetry blocking, streamer mode, launcher PIN lock, log auto-cleanup
-- **Self-updating**: the launcher checks a remote manifest and can download/install new versions on its own
+- **Multiple game versions and loaders:** Vanilla, Fabric, Forge, NeoForge, and Quilt support, with automatic Java version detection and download.
+- **Mod management:** Browse mods, resource packs, shaders, and maps from Modrinth and CurseForge.
+- **Modpack support:** Create modpacks and install existing `.mrpack` and CurseForge modpacks.
+- **Multiple accounts:** Guest nicknames and Magma accounts with email/Google authentication through Supabase. Microsoft/Xbox login is planned.
+- **3D skin previews:** Ely.by skin integration with a live 3D preview powered by skinview3d.
+- **Discord Rich Presence:** Display your game activity on Discord.
+- **Custom launch settings:** Configure JVM arguments, RAM allocation, and game or launcher directories.
+- **Localization:** 12 interface languages.
+- **Themes:** Multiple built-in color themes.
+- **Privacy controls:** Telemetry blocking, streamer mode, launcher PIN lock, and automatic log cleanup.
+- **Self-updating:** Check for new releases through a remote manifest and download updates.
 
-## Tech stack
+## Tech Stack
 
-- **Backend:** C++20, CMake + Ninja, MSVC, [CEF](https://bitbucket.org/chromiumembedded/cef) (Chromium Embedded Framework) for the UI shell, libcurl for networking, nlohmann/json
-- **Frontend:** vanilla HTML/CSS/JavaScript, bridged to the C++ backend through `CefMessageRouter`
-- **Auth:** [Supabase](https://supabase.com/) for Magma accounts, [Ely.by](https://ely.by/) for skins
-- **Mod sources:** [Modrinth](https://modrinth.com/) API and [CurseForge](https://www.curseforge.com/) Core API
+- **Backend:** C++20, CMake, Ninja, MSVC, and [CEF](https://bitbucket.org/chromiumembedded/cef).
+- **Frontend:** HTML, CSS, and JavaScript.
+- **Networking:** libcurl.
+- **JSON:** [nlohmann/json](https://github.com/nlohmann/json).
+- **Authentication:** [Supabase](https://supabase.com/) for Magma accounts and [Ely.by](https://ely.by/) for skins.
+- **Mod sources:** [Modrinth](https://modrinth.com/) and [CurseForge](https://www.curseforge.com/).
 
-## Building from source
+## Building from Source
 
-1. Install Visual Studio Build Tools (MSVC), CMake, Ninja and [vcpkg](https://github.com/microsoft/vcpkg)
-2. Download a [CEF binary distribution](https://cef-builds.spotifycdn.com/index.html) and place it in `backend/cef`
-3. `vcpkg install curl[core,ssl,sspi] nlohmann-json zlib`
-4. Configure and build:
-```bash
-   cmake -B build -S backend -DCMAKE_TOOLCHAIN_FILE=<path-to-vcpkg>/scripts/buildsystems/vcpkg.cmake
-   cmake --build build --config Release
-```
+### Requirements
 
-## Status
+- Windows
+- Visual Studio with the MSVC C++ toolchain
+- CMake
+- Ninja
+- [vcpkg](https://github.com/microsoft/vcpkg)
+- [CEF binary distribution](https://cef-builds.spotifycdn.com/index.html)
 
-MagmaLauncher is in active early development (currently **Alpha**). Things will break, change, and get rebuilt — bug reports and feedback are welcome in [Discord](https://discord.gg/R7DCtQBYs) or as GitHub issues.
+### Setup
 
-## License
+1. Clone the repository:
 
-MagmaLauncher is released under the [MIT License](LICENSE) — use it, modify it, fork it.
+   ```bash
+   git clone https://github.com/Erz05506/MagmaLauncher.git
+   cd MagmaLauncher
+   ```
 
-## Links
+2. Download the appropriate CEF binary distribution and place its contents in `backend/cef`.
+
+3. Install the required dependencies using vcpkg:
+
+   ```powershell
+   vcpkg install curl:x64-windows nlohmann-json:x64-windows zlib:x64-windows
+   ```
+
+4. Configure the project. Replace the toolchain path if vcpkg is installed elsewhere:
+
+   ```powershell
+   cmake -S backend -B backend/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+   ```
+
+5. Build the launcher:
+
+   ```powershell
+   cmake --build backend/build
+   ```
+
+## Project Status
+
+MagmaLauncher is currently in **Alpha** and is under active development. Features, interfaces, and internal systems may change between releases.
+
+Bug reports, suggestions, and contributions are welcome!
+
+## Community & Links
 
 - 💬 [Discord](https://discord.gg/R7DCtQBYs)
 - ▶️ [YouTube](https://www.youtube.com/@Erz05)
 - ✈️ [Telegram](https://t.me/magma_launcher)
+- 🐛 [Report a bug](https://github.com/Erz05506/MagmaLauncher/issues)
+- 📦 [Releases](https://github.com/Erz05506/MagmaLauncher/releases)
 - ❤️ [Support the project](https://www.donationalerts.com/r/erzz05)
+
+## License
+
+MagmaLauncher is released under the [MIT License](LICENSE).
