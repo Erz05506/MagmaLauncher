@@ -1,4 +1,3 @@
-// Magma Launcher — frontend logic
 
 // ============================================
 // MagmaLauncher — frontend logic
@@ -6434,6 +6433,9 @@ function applyLanguage(lang) {
   renderThemeOptions();
   applyHeroCustomization();
 
+  // Re-render remote news using the exact language selected in the language menu.
+  renderNewsFeed(lang);
+
   if (typeof renderModFilterSortList === 'function') {
     renderModFilterSortList();
   }
@@ -8446,18 +8448,38 @@ function renderModsCategoryTabs() {
 const NEWS_FEED_URL = 'https://raw.githubusercontent.com/Erz05506/Magma-News/main/news.json';
 let newsFeedCache = null;
 
-function renderNewsFeed() {
+function renderNewsFeed(language = currentLang) {
   const container = document.getElementById('newsContainer');
   if (!container || !newsFeedCache) return;
+
+  const selectedLanguage = String(language || currentLang || 'ru').trim().replace(/_/g, '-');
+  const normalizedLanguage = selectedLanguage.toLowerCase();
+  const baseLanguage = normalizedLanguage.split('-')[0];
   const headHtml = `<div class="news-head"><h2>${t('news.title')}</h2></div>`;
-  const cardsHtml = newsFeedCache.slice(0, 6).map(item => {
-    const pick = (obj) => (obj && (obj[currentLang] || obj.en || obj.ru)) || '';
-    return `<article class="news-card">
+
+  const pick = (translations) => {
+    if (typeof translations === 'string') return translations;
+    if (!translations || typeof translations !== 'object') return '';
+
+    // Exact locale first (for example es-ES), then base locale (es), then fallbacks.
+    const keys = Object.keys(translations);
+    const exactKey = keys.find(key => key.toLowerCase() === normalizedLanguage);
+    if (exactKey && typeof translations[exactKey] === 'string') return translations[exactKey];
+    const baseKey = keys.find(key => key.toLowerCase() === baseLanguage);
+    if (baseKey && typeof translations[baseKey] === 'string') return translations[baseKey];
+    if (typeof translations.en === 'string') return translations.en;
+    if (typeof translations.ru === 'string') return translations.ru;
+    const firstTranslation = Object.values(translations).find(value => typeof value === 'string');
+    return firstTranslation || '';
+  };
+
+  const cardsHtml = newsFeedCache.slice(0, 6).map(item => `
+    <article class="news-card">
       <span class="news-tag">${pick(item.tag)}</span>
       <h3>${pick(item.title)}</h3>
       <p>${pick(item.desc)}</p>
-    </article>`;
-  }).join('');
+    </article>`).join('');
+
   container.innerHTML = headHtml + cardsHtml;
 }
 
@@ -8470,7 +8492,7 @@ if (Array.isArray(items) && items.length) {
 newsFeedCache = items;
 
 applyLanguage(currentLang);
-renderNewsFeed();
+renderNewsFeed(currentLang);
 }
 } catch (err) {
 console.error('[MagmaLauncher] Не удалось загрузить новости:', err);
@@ -9975,7 +9997,6 @@ async function guessModTitleAndIcon(filename) {
     const l = effectiveModsTargetLoader();
     return (l === 'fabric' || l === 'forge') ? l : 'fabric';
   })();
-
   const tryEngine = async (fn) => {
     if (typeof fn !== 'function') return null;
     try {
