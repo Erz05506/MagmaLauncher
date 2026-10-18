@@ -3037,3 +3037,210 @@ body.is-modal-scroll-lock .content {
 .mod-cancel-btn:disabled { opacity: .5; cursor: default; }
 #privacySessionsRow { opacity: .5; pointer-events: none; }
 .ghost-btn:disabled { opacity: .5; cursor: default; pointer-events: none; }
+
+/* ============================================================
+   HALLOWEEN THEME
+   ============================================================ */
+[data-theme="halloween"] {
+  --bg-void: #0b0712; --bg-panel: #120b1d; --bg-panel-2: #170e25; --bg-card: #1e1330; --bg-card-hover: #28193f;
+  --border-subtle: #3b2560; --border-soft: #2e1d4a;
+  --text-primary: #f7eeff; --text-secondary: #b9a3d6; --text-muted: #7d689c;
+  --magma-1: #ff8a1f; --magma-2: #d9480f; --magma-glow: #ffb454; --magma-deep: #7a2a05;
+  --magma-contrast: #1a0a02;
+  --hw-purple: #9d4edd;
+
+  --hw-web: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200' fill='none' stroke='%23cdbdf0' stroke-width='1.1' stroke-linecap='round'><path d='M0 0H200M0 0L173 100M0 0L100 173M0 0V200'/><path d='M50 0Q39.5 10.6 43 25Q29 29 25 43Q10.6 39.5 0 50M100 0Q79.5 21 87 50Q58 58 50 87Q21 79.5 0 100M150 0Q119 32 130 75Q87 87 75 130Q32 119 0 150M190 0Q151 40 165 95Q110 110 95 165Q40 151 0 190'/></svg>");
+
+  --hw-web-spider: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200' fill='none' stroke='%23cdbdf0' stroke-width='1.1' stroke-linecap='round'><path d='M0 0H200M0 0L173 100M0 0L100 173M0 0V200'/><path d='M50 0Q39.5 10.6 43 25Q29 29 25 43Q10.6 39.5 0 50M100 0Q79.5 21 87 50Q58 58 50 87Q21 79.5 0 100M150 0Q119 32 130 75Q87 87 75 130Q32 119 0 150M190 0Q151 40 165 95Q110 110 95 165Q40 151 0 190'/><path d='M118 0V62'/><g transform='translate(118 68)' fill='%2314091f' stroke='%23ff8a1f' stroke-width='1.3'><ellipse rx='6' ry='7.5'/><circle cy='-10' r='3.6'/><path fill='none' d='M-5 -3L-14 -9M-6 1L-16 3M-5 5L-12 13M5 -3L14 -9M6 1L16 3M5 5L12 13'/></g></svg>");
+
+  --hw-pumpkin: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 90'><defs><radialGradient id='g' cx='.5' cy='.4' r='.65'><stop offset='0' stop-color='%23ffb347'/><stop offset='1' stop-color='%23e8590c'/></radialGradient></defs><path d='M50 18C52 9 57 5 65 4' stroke='%2352731f' stroke-width='6' stroke-linecap='round' fill='none'/><ellipse cx='30' cy='54' rx='24' ry='30' fill='url(%23g)'/><ellipse cx='70' cy='54' rx='24' ry='30' fill='url(%23g)'/><ellipse cx='50' cy='54' rx='21' ry='33' fill='url(%23g)'/><path d='M50 22C46 42 46 66 50 86M32 26C22 44 22 66 32 82M68 26C78 44 78 66 68 82' stroke='%23a63b08' stroke-width='1.6' fill='none' opacity='.55'/><path d='M27 42L42 50L27 57Z M73 42L58 50L73 57Z M50 58L44 66H56Z M27 68Q50 88 73 68L67 68L62 74L56 68L50 75L44 68L38 74L33 68Z' fill='%23fff3a8'/></svg>");
+
+  --hw-bat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 16'><path d='M14 5C12 1 6 0 0 3C3 5 3 9 5 12C6 9 9 8 11 11L14 15L17 11C19 8 22 9 23 12C25 9 25 5 28 3C22 0 16 1 14 5Z' fill='%23b794f6'/></svg>");
+
+  --hw-tomb: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 100'><g fill='%2312081f'><path d='M0 100V74Q50 58 100 72T200 70T300 74T400 74V100Z'/><path d='M58 76V56a9 9 0 0 1 18 0V76Z'/><path d='M158 74V50a10 10 0 0 1 20 0V74Z'/><path d='M252 76V60a8 8 0 0 1 16 0V76Z'/><path d='M330 78V64M330 66L316 52M330 70L346 56M330 64L324 46M330 66L338 48' stroke='%2312081f' stroke-width='3' stroke-linecap='round' fill='none'/></g></svg>");
+}
+
+html[data-theme="halloween"],
+html[data-theme="halloween"] body {
+  background:
+    radial-gradient(900px 520px at 88% -8%, rgba(157, 78, 221, .20), transparent 60%),
+    radial-gradient(760px 460px at 0% 108%, rgba(255, 138, 31, .14), transparent 60%),
+    #0b0712;
+}
+
+[data-theme="halloween"] body::before,
+[data-theme="halloween"] body::after,
+[data-theme="halloween"] .app::before,
+[data-theme="halloween"] .app::after {
+  content: '';
+  position: fixed;
+  width: 190px;
+  height: 190px;
+  pointer-events: none;
+  z-index: 60;
+  opacity: .38;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+[data-theme="halloween"] .app::before,
+[data-theme="halloween"] .app::after { position: absolute; }
+
+[data-theme="halloween"] body::before { top: 60px; left: 72px; background-image: var(--hw-web); }
+[data-theme="halloween"] body::after  { top: 60px; right: 16px; background-image: var(--hw-web-spider); transform: scaleX(-1); }
+[data-theme="halloween"] .app::before { bottom: 0; left: 72px; background-image: var(--hw-web); transform: scaleY(-1); }
+[data-theme="halloween"] .app::after  { bottom: 0; right: 16px; background-image: var(--hw-web); transform: scale(-1, -1); }
+
+[data-theme="halloween"] .topbar { position: relative; }
+[data-theme="halloween"] .topbar::before,
+[data-theme="halloween"] .topbar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 28px;
+  height: 16px;
+  background: var(--hw-bat) center / contain no-repeat;
+  pointer-events: none;
+  opacity: .85;
+  filter: drop-shadow(0 0 6px rgba(157, 78, 221, .7));
+  animation: hwBatFly 19s linear infinite, hwBatFlap .38s ease-in-out infinite alternate;
+}
+[data-theme="halloween"] .topbar::after {
+  top: 30px;
+  width: 20px;
+  height: 12px;
+  opacity: .65;
+  animation-duration: 27s, .3s;
+  animation-delay: -11s, 0s;
+}
+@keyframes hwBatFly {
+  0%   { transform: translate(-60px, 0); }
+  25%  { transform: translate(25vw, -5px); }
+  50%  { transform: translate(50vw, 6px); }
+  75%  { transform: translate(75vw, -4px); }
+  100% { transform: translate(calc(100vw + 60px), 0); }
+}
+@keyframes hwBatFlap {
+  from { scale: 1 .5; }
+  to   { scale: 1 1; }
+}
+
+[data-theme="halloween"] .rail::after {
+  content: '';
+  flex-shrink: 0;
+  width: 40px;
+  height: 36px;
+  margin-top: 10px;
+  background: var(--hw-pumpkin) center / contain no-repeat;
+  animation: hwFlicker 2.6s ease-in-out infinite;
+}
+[data-theme="halloween"] .app.nav-bottom .rail::after { margin: 0 0 0 12px; }
+
+@keyframes hwFlicker {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(255, 138, 31, .55)); }
+  42%      { filter: drop-shadow(0 0 15px rgba(255, 176, 60, .95)); }
+  50%      { filter: drop-shadow(0 0 6px rgba(255, 138, 31, .35)); }
+  58%      { filter: drop-shadow(0 0 14px rgba(255, 176, 60, .85)); }
+}
+
+/* --- главный экран: луна и кладбище --- */
+[data-theme="halloween"] .hero {
+  background:
+    radial-gradient(110% 80% at 85% 0%, rgba(157, 78, 221, .38), transparent 55%),
+    radial-gradient(120% 90% at 10% 100%, rgba(255, 138, 31, .26), transparent 55%),
+    linear-gradient(165deg, #1d1030 0%, #110a1e 55%, #09050f 100%);
+}
+[data-theme="halloween"] .hero::before {
+  content: '';
+  position: absolute;
+  top: 26px;
+  right: 7%;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 62% 62%, rgba(0, 0, 0, .09) 0 11px, transparent 12px),
+    radial-gradient(circle at 30% 66%, rgba(0, 0, 0, .08) 0 8px, transparent 9px),
+    radial-gradient(circle at 42% 28%, rgba(0, 0, 0, .06) 0 6px, transparent 7px),
+    radial-gradient(circle at 35% 35%, #fff7d6, #f5d97a 55%, #d9b24a 100%);
+  box-shadow: 0 0 40px 10px rgba(255, 214, 120, .35), 0 0 120px 40px rgba(255, 170, 60, .18);
+  opacity: .92;
+  pointer-events: none;
+}
+[data-theme="halloween"] .hero::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 90px;
+  background: var(--hw-tomb) repeat-x left bottom / auto 90px;
+  pointer-events: none;
+  z-index: 0;
+}
+[data-theme="halloween"] .hero.is-photo-bg::before,
+[data-theme="halloween"] .hero.is-photo-bg::after { display: none; }
+
+[data-theme="halloween"] .hero-glow {
+  background: radial-gradient(circle, rgba(255, 138, 31, .38), transparent 70%);
+}
+[data-theme="halloween"] .play-btn {
+  box-shadow: 0 8px 28px -8px rgba(255, 138, 31, .75), 0 0 0 1px rgba(255, 180, 84, .25);
+}
+[data-theme="halloween"] .brand-accent,
+[data-theme="halloween"] .eyebrow {
+  text-shadow: 0 0 16px rgba(255, 138, 31, .6);
+}
+
+[data-theme="halloween"] .boot-splash {
+  background:
+    radial-gradient(120% 90% at 50% 100%, rgba(255, 138, 31, .30), transparent 60%),
+    radial-gradient(80% 60% at 82% 0%, rgba(123, 47, 191, .40), transparent 60%),
+    linear-gradient(165deg, #1a0f2b 0%, #0e0818 55%, #07040d 100%);
+}
+[data-theme="halloween"] .boot-splash::before,
+[data-theme="halloween"] .boot-splash::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 280px;
+  height: 280px;
+  opacity: .5;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+[data-theme="halloween"] .boot-splash::before { left: 0; background-image: var(--hw-web); }
+[data-theme="halloween"] .boot-splash::after  { right: 0; background-image: var(--hw-web-spider); transform: scaleX(-1); }
+
+[data-theme="halloween"] .boot-glow {
+  background: radial-gradient(circle, rgba(255, 138, 31, .45), transparent 70%);
+}
+[data-theme="halloween"] .boot-logo {
+  width: 100px;
+  height: 90px;
+  border-radius: 0;
+  -webkit-mask-image: none;
+  mask-image: none;
+  background: var(--hw-pumpkin) center / contain no-repeat;
+  box-shadow: none;
+  animation: bootLogoPulse 1.8s ease-in-out infinite, hwFlicker 2.4s ease-in-out infinite;
+}
+[data-theme="halloween"] .boot-logo .rail-logo { display: none; }
+[data-theme="halloween"] .boot-title::after {
+  content: 'Happy Halloween';
+  display: block;
+  margin-top: 4px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--hw-purple);
+}
+
+[data-reduce-motion="1"] .topbar::before,
+[data-reduce-motion="1"] .topbar::after,
+[data-reduce-motion="1"] .rail::after { animation: none !important; }
+[data-disable-glow="1"] .topbar::before,
+[data-disable-glow="1"] .topbar::after { display: none; }

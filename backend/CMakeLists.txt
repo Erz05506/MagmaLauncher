@@ -58,6 +58,27 @@ add_executable(MagmaLauncher WIN32
     launcher_core.cpp
 )
 
+# ============================================================
+# WINDOWS UTF-8 MANIFEST
+# ============================================================
+
+if(WIN32 AND MSVC)
+    set(MAGMA_APP_MANIFEST
+        "${CMAKE_CURRENT_SOURCE_DIR}/../app.manifest"
+    )
+
+    if(NOT EXISTS "${MAGMA_APP_MANIFEST}")
+        message(FATAL_ERROR
+            "UTF-8 manifest not found: ${MAGMA_APP_MANIFEST}"
+        )
+    endif()
+
+    target_link_options(MagmaLauncher PRIVATE
+        "/MANIFEST:EMBED"
+        "/MANIFESTINPUT:${MAGMA_APP_MANIFEST}"
+    )
+endif()
+
 set_source_files_properties(app.rc PROPERTIES
     OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/../assets/magmalauncher.ico")
 

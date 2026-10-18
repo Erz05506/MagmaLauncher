@@ -799,6 +799,19 @@ launchCancelBtn?.addEventListener('click', async () => {
   }
 });
 
+const LAUNCH_DETAIL_I18N = {
+  ru: {'manifest.list':'Получение списка версий','manifest.version':'Подготовка версии Minecraft {value}','java.check':'Проверка Java','java.detect':'Поиск Java','java.files':'Проверка файлов Java','java.download':'Загрузка Java','client.download':'Загрузка клиента Minecraft','forge.prepare':'Подготовка Forge','forge.resolve':'Поиск версии Forge','forge.installer':'Загрузка установщика Forge','forge.installing':'Установка Forge','forge.profile':'Подготовка профиля Forge','neoforge.prepare':'Подготовка NeoForge','neoforge.resolve':'Поиск версии NeoForge','neoforge.installer':'Загрузка установщика NeoForge','neoforge.installing':'Установка NeoForge','neoforge.profile':'Подготовка профиля NeoForge','fabric.download':'Установка Fabric','quilt.download':'Установка Quilt','assets.index':'Подготовка игровых ресурсов','natives.extract':'Распаковка библиотек','launch.prepare':'Подготовка к запуску','launch.java':'Запуск Java','launch.started':'Игра запущена','modpack.findMr':'Поиск модпака на Modrinth','modpack.findCf':'Поиск модпака на CurseForge','modpack.download':'Загрузка модпака','modpack.done':'Модпак установлен','mods.downloading':'Загрузка мода: {value}'},
+  en: {'manifest.list':'Fetching version list','manifest.version':'Preparing Minecraft {value}','java.check':'Checking Java','java.detect':'Detecting Java','java.files':'Checking Java files','java.download':'Downloading Java','client.download':'Downloading Minecraft client','forge.prepare':'Preparing Forge','forge.resolve':'Resolving Forge version','forge.installer':'Downloading Forge installer','forge.installing':'Installing Forge','forge.profile':'Preparing Forge profile','neoforge.prepare':'Preparing NeoForge','neoforge.resolve':'Resolving NeoForge version','neoforge.installer':'Downloading NeoForge installer','neoforge.installing':'Installing NeoForge','neoforge.profile':'Preparing NeoForge profile','fabric.download':'Installing Fabric','quilt.download':'Installing Quilt','assets.index':'Preparing game assets','natives.extract':'Extracting native libraries','launch.prepare':'Preparing to launch','launch.java':'Starting Java','launch.started':'Game launched','modpack.findMr':'Finding modpack on Modrinth','modpack.findCf':'Finding modpack on CurseForge','modpack.download':'Downloading modpack','modpack.done':'Modpack installed','mods.downloading':'Downloading mod: {value}'}
+};
+function translateLaunchDetail(detail) {
+  if (typeof detail !== 'string' || !detail.startsWith('d:')) return detail || '';
+  const raw = detail.slice(2), sep = raw.indexOf('|');
+  const key = sep < 0 ? raw : raw.slice(0, sep), value = sep < 0 ? '' : raw.slice(sep + 1);
+  const lang = String(currentLang || 'en').toLowerCase().split('-')[0];
+  const template = (LAUNCH_DETAIL_I18N[lang] && LAUNCH_DETAIL_I18N[lang][key]) || LAUNCH_DETAIL_I18N.en[key];
+  return template ? template.replace('{value}', value) : (value || raw.replace(/[._]/g, ' '));
+}
+
 window.__launchProgress = function (data) {
   const stageLabels = {
     manifest: t('launch.stage.manifest'),
@@ -808,8 +821,9 @@ window.__launchProgress = function (data) {
     assets: t('launch.stage.assets'),
     launch: t('launch.stage.launch'),
   };
-  const stageText = stageLabels[data.stage] || data.stage;
-  const detail = data.detail ? ` — ${data.detail}` : '';
+  const stageText = stageLabels[data.stage] || data.stage || t('launch.starting');
+  const translatedDetail = translateLaunchDetail(data.detail || '');
+  const detail = translatedDetail ? ` — ${translatedDetail}` : '';
   const fullText = stageText + detail;
   lastProgressLabelText = fullText;
   setLaunchProgress(true, data.progress || 0, fullText, false);
@@ -6638,6 +6652,30 @@ let VERSIONS = [
 ];
 
 const VERSIONS_CACHE_KEY = 'magma_versions_cache';
+const SNAPSHOTS_CACHE_KEY = 'magma_snapshots_cache';
+const VERSIONS_REFRESH_INTERVAL_MS = 15 * 60 * 1000;
+let lastVersionsRefreshAt = 0;
+
+try {
+  const cachedV = JSON.parse(localStorage.getItem(VERSIONS_CACHE_KEY) || 'null');
+  if (Array.isArray(cachedV) && cachedV.length) VERSIONS = cachedV;
+} catch {}
+
+function loadCachedSnapshots() {
+  if (snapshotVersionsCache) return;
+  try {
+    const c = JSON.parse(localStorage.getItem(SNAPSHOTS_CACHE_KEY) || 'null');
+    if (Array.isArray(c) && c.length) snapshotVersionsCache = c;
+  } catch {}
+}
+
+function startVersionAutoRefresh() {
+  loadCachedSnapshots();
+  setInterval(() => { refreshVersionsFromMojang(); }, VERSIONS_REFRESH_INTERVAL_MS);
+  window.addEventListener('focus', () => {
+    if (Date.now() - lastVersionsRefreshAt > 5 * 60 * 1000) refreshVersionsFromMojang();
+  });
+}
 
 async function refreshVersionsFromMojang() {
 
@@ -6657,6 +6695,8 @@ async function refreshVersionsFromMojang() {
     VERSIONS = releases;
     localStorage.setItem(VERSIONS_CACHE_KEY, JSON.stringify(releases));
     snapshotVersionsCache = (result.versions || []).filter(v => v.type === 'snapshot').map(v => v.id);
+    lastVersionsRefreshAt = Date.now();
+    try { localStorage.setItem(SNAPSHOTS_CACHE_KEY, JSON.stringify(snapshotVersionsCache)); } catch {}
 
     if (versionDropdown.classList.contains('is-open')) renderVersionList(versionSearchEl.value);
     renderModsTargetVersionList('');
@@ -6668,6 +6708,7 @@ async function refreshVersionsFromMojang() {
 
 const THEMES = [
   { id: 'magma', name: 'Magma (по умолчанию)', available: true, accent: ['#ff7a1a', '#ff3d1c'] },
+  { id: 'halloween', name: 'Halloween 🎃', available: true, accent: ['#ff8a1f', '#7b2fbf'] },
   { id: 'chocolate-forge', name: 'Chocolate Forge', available: true, accent: ['#e08d3c', '#9c4a12'] },
   { id: 'cosmic-ember', name: 'Cosmic Ember', available: true, accent: ['#ff5f8f', '#7b4dff'] },
   { id: 'obsidian-nebula', name: 'Obsidian Nebula', available: true, accent: ['#8a4dff', '#4d1fbf'] },
@@ -7033,6 +7074,7 @@ function saveLastSelection() {
       version: selectedVersion,
       loader: currentSelectedLoader,
       instanceName: selectedInstanceName,
+      isSnapshot: !VERSIONS.includes(selectedVersion),
     }));
   } catch {}
 }
@@ -7261,6 +7303,8 @@ function renderVersionList(filter) {
 
 function openDropdown() {
   versionDropdown.classList.add('is-open');
+  if (Date.now() - lastVersionsRefreshAt > 60000) refreshVersionsFromMojang();
+  if (showSnapshots) ensureSnapshotVersions().then(() => renderVersionList(versionSearchEl.value));
   renderLoaderTabs();
   renderSnapshotToggle();
   renderVersionList(versionSearchEl.value);
@@ -8511,6 +8555,7 @@ const AUTO_INSTALL_UPDATES_KEY = 'magma_auto_install_updates';
 const LAST_UPDATE_CHECK_KEY = 'magma_last_update_check';
 const AUTO_CHECK_UPDATES_KEY = 'magma_auto_check_updates';
 let pendingUpdateUrl = null;
+let bootUpdateResolve = null;
 
 function getUpdateChannel() { return localStorage.getItem(UPDATE_CHANNEL_KEY) || 'stable'; }
 function currentUpdateManifestUrl() {
@@ -8621,31 +8666,177 @@ document.getElementById('installUpdateBtn')?.addEventListener('click', async (e)
   }
 });
 
+
+const UPDATE_ATTEMPT_KEY = 'magma_update_attempt';
+
 async function autoUpdateOnBoot() {
   if (typeof window.checkLauncherUpdate !== 'function' || typeof window.installLauncherUpdate !== 'function') return false;
+
+  const bootTitleEl = document.querySelector('.boot-title');
+  const originalTitleHtml = bootTitleEl ? bootTitleEl.innerHTML : '';
+  const prevProgressHandler = window.__updateProgress;
+  const prevDoneHandler = window.__updateDone;
+
+  const restoreUi = () => {
+    window.__bootProgressLocked = false;
+    if (bootTitleEl) bootTitleEl.innerHTML = originalTitleHtml;
+    window.__updateProgress = prevProgressHandler;
+    window.__updateDone = prevDoneHandler;
+    setBootProgress(0.5);
+  };
+
   try {
     const raw = await window.checkLauncherUpdate({ manifestUrl: currentUpdateManifestUrl() });
     const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
     localStorage.setItem(LAST_UPDATE_CHECK_KEY, String(Date.now()));
-    if (!result.success || !result.available) return false;
 
-    const bootTitleEl = document.querySelector('.boot-title');
-    if (bootTitleEl) bootTitleEl.innerHTML = 'Загрузка обновления<span class="boot-title-accent">...</span>';
+    if (!result.success || !result.available) {
+      localStorage.removeItem(UPDATE_ATTEMPT_KEY);
+      return false;
+    }
+
+    const attemptKey = `${result.version}|${result.url}`;
+    let prevAttempt = null;
+    try { prevAttempt = JSON.parse(localStorage.getItem(UPDATE_ATTEMPT_KEY) || 'null'); } catch {}
+    if (prevAttempt && prevAttempt.key === attemptKey && Date.now() - prevAttempt.time < 6 * 3600 * 1000) {
+      pendingUpdateUrl = result.url;
+      const statusEl = document.getElementById('updateStatusMsg');
+      const installBtn = document.getElementById('installUpdateBtn');
+      if (statusEl) statusEl.textContent = `${t('settings.updates.newVersion')} ${result.version}`;
+      if (installBtn) installBtn.style.display = 'block';
+      return false;
+    }
+    localStorage.setItem(UPDATE_ATTEMPT_KEY, JSON.stringify({ key: attemptKey, time: Date.now() }));
+
+    window.__bootProgressLocked = true;
+    if (bootTitleEl) {
+      bootTitleEl.innerHTML = (currentLang === 'ru' ? 'Загрузка обновления' : 'Downloading update') +
+        '<span class="boot-title-accent">...</span>';
+    }
     setBootProgress(0);
 
+    let finishResolve;
+    const finished = new Promise(resolve => { finishResolve = resolve; });
     window.__updateProgress = (data) => setBootProgress(data.progress || 0);
+    window.__updateDone = (data) => finishResolve(data);
 
     const installRaw = await window.installLauncherUpdate({ url: result.url });
     const installResult = typeof installRaw === 'string' ? JSON.parse(installRaw) : installRaw;
-    if (!installResult.started) return false;
+    if (!installResult.started) {
+      localStorage.removeItem(UPDATE_ATTEMPT_KEY);
+      restoreUi();
+      return false;
+    }
 
-    await new Promise(() => {});
+    const outcome = await Promise.race([
+      finished,
+      new Promise(resolve => setTimeout(() => resolve({ success: false, error: 'timeout' }), 15 * 60 * 1000)),
+    ]);
+
+    if (outcome && outcome.success) {
+      await new Promise(resolve => setTimeout(resolve, 20000));
+      restoreUi();
+      return false;
+    }
+
+    localStorage.removeItem(UPDATE_ATTEMPT_KEY);
+    restoreUi();
+    const statusEl = document.getElementById('updateStatusMsg');
+    if (statusEl) statusEl.textContent = translateBackendError(outcome && outcome.error) || t('auth.magma.genericError');
+    return false;
   } catch (err) {
     console.error('[MagmaLauncher] Автообновление при запуске не удалось:', err);
+    localStorage.removeItem(UPDATE_ATTEMPT_KEY);
+    restoreUi();
     return false;
   }
+}
+
+async function autoUpdateOnBootLegacy() {
+  if (
+    typeof window.checkLauncherUpdate !== 'function' ||
+    typeof window.installLauncherUpdate !== 'function'
+  ) {
+    return false;
+  }
+
+  try {
+    const raw = await window.checkLauncherUpdate({
+      manifestUrl: currentUpdateManifestUrl()
+    });
+
+    const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
+
+    localStorage.setItem(LAST_UPDATE_CHECK_KEY, String(Date.now()));
+
+    if (!result.success || !result.available || !result.url) {
+      return false;
+    }
+
+    const bootTitleEl = document.querySelector('.boot-title');
+
+    if (bootTitleEl) {
+      bootTitleEl.textContent = 'Загрузка обновления...';
+    }
+
+    setBootProgress(0);
+
+    window.__updateProgress = (data) => {
+      setBootProgress(data.progress || 0);
+    };
+
+    // Register the completion handler BEFORE starting the download.
+    const completion = new Promise((resolve) => {
+      bootUpdateResolve = resolve;
+    });
+
+    const installRaw = await window.installLauncherUpdate({
+      url: result.url
+    });
+
+    const installResult =
+      typeof installRaw === 'string'
+        ? JSON.parse(installRaw)
+        : installRaw;
+
+    if (!installResult.started) {
+      bootUpdateResolve = null;
+      return false;
+    }
+
+    const outcome = await completion;
+
+    if (!outcome.success) {
+      if (bootTitleEl) {
+        bootTitleEl.textContent =
+          'Не удалось обновить лаунчер. Запускаем текущую версию...';
+      }
+
+      console.error(
+        '[MagmaLauncher] Ошибка автообновления:',
+        outcome.error
+      );
+
+      return false;
+    }
+
+    // The native updater will close the current application.
+    // If it fails to do so, the next launch can retry the update.
+    await new Promise(() => {});
+  } catch (err) {
+    bootUpdateResolve = null;
+
+    console.error(
+      '[MagmaLauncher] Автообновление при запуске не удалось:',
+      err
+    );
+
+    return false;
+  }
+
   return true;
 }
+
 
 window.__updateProgress = function (data) {
   const btn = document.getElementById('installUpdateBtn');
@@ -8656,14 +8847,31 @@ window.__updateProgress = function (data) {
   if (fill) fill.style.width = pct + '%';
   if (btn) btn.textContent = pct + '%';
 };
+
 window.__updateDone = function (data) {
-  if (!data.success) {
+  if (typeof bootUpdateResolve === 'function') {
+    const resolve = bootUpdateResolve;
+    bootUpdateResolve = null;
+    resolve(data);
+  }
+
+   if (!data.success) {
+    const failStatusEl = document.getElementById('updateStatusMsg');
+    if (failStatusEl) failStatusEl.textContent = translateBackendError(data.error) || t('auth.magma.genericError');
     const btn = document.getElementById('installUpdateBtn');
     const track = document.getElementById('updateProgressTrack');
-    if (btn) { btn.disabled = false; btn.textContent = t('settings.updates.installBtn'); }
-    if (track) track.style.display = 'none';
+
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = t('settings.updates.installBtn');
+    }
+
+    if (track) {
+      track.style.display = 'none';
+    }
   }
 };
+
 
 function openMergedInstancesView() {
   if (!getMergeModsInstancesPref()) return;
@@ -10817,6 +11025,23 @@ document.getElementById('gameDirMoveBtn')?.addEventListener('click', async (e) =
 // ============================================
 const SETTINGS_KEY = 'magma_launcher_settings';
 
+async function initializeDefaultGameDir() {
+  if (!gameDirInputEl || typeof window.getDefaultGameDir !== 'function') return;
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    if (typeof saved.gameDir === 'string' && saved.gameDir.trim()) return;
+    const raw = await window.getDefaultGameDir();
+    const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!result || result.success !== true || typeof result.path !== 'string' || !result.path.trim()) return;
+    let path = sanitizeGameDirPath(result.path);
+    if (gameDirMode === 'vanilla') path = path.replace(/[\\/]+MagmaLauncher$/i, '\\.minecraft');
+    else path = path.replace(/[\\/]+\.minecraft$/i, '\\MagmaLauncher');
+    if (!gameDirInputEl.value.trim()) { gameDirInputEl.value = path; saveLauncherSettings(); }
+  } catch (err) { console.error('[MagmaLauncher] Default game directory:', err); }
+}
+
+
+
 function saveLauncherSettings() {
   const settings = {
     javaPath: javaPathInputEl ? javaPathInputEl.value : '',
@@ -12080,12 +12305,13 @@ async function bootSequence() {
   let bootTickerCurrent = 0;
   const bootTicker = setInterval(() => {
     bootTickerCurrent = Math.min(0.88, bootTickerCurrent + 0.015);
-    setBootProgress(bootTickerCurrent);
+    if (!window.__bootProgressLocked) setBootProgress(bootTickerCurrent);
   }, 60);
 
   setBootProgress(0.05);
   await applyInstallConfigOnce();
   restoreLauncherSettings();
+  await initializeDefaultGameDir();
   updateRamValue();
   initPrivacySettings();
   defaultSteveSkinBlobUrl().catch(() => {});
@@ -12116,6 +12342,7 @@ if (autoCheck !== '0') {
 }
 loadNewsFeed();
 refreshVersionsFromMojang();
+startVersionAutoRefresh();
 
   if (typeof window.warmupModrinth === 'function') {
     window.warmupModrinth().catch(() => {});
