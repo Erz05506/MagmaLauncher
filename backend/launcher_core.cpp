@@ -120,6 +120,38 @@ size_t writeToFile(char* ptr, size_t size, size_t nmemb, std::ofstream* out) {
     return size * nmemb;
 }
 
+
+using DownloadProgressFn =
+    std::function<void(curl_off_t downloaded, curl_off_t total)>;
+
+int downloadProgressCallback(
+    void* clientp,
+    curl_off_t total,
+    curl_off_t downloaded,
+    curl_off_t,
+    curl_off_t
+) {
+    while (g_paused.load()) {
+        if (g_cancelled.load()) {
+            return 1;
+        }
+
+        Sleep(200);
+    }
+
+    if (g_cancelled.load()) {
+        return 1;
+    }
+
+    auto* callback = static_cast<DownloadProgressFn*>(clientp);
+
+    if (callback && *callback && total > 0) {
+        (*callback)(downloaded, total);
+    }
+
+    return 0;
+}
+
 int abortIfCancelledCallback(void*, curl_off_t, curl_off_t, curl_off_t, curl_off_t) {
     while (g_paused.load()) {
         if (g_cancelled.load()) return 1;
@@ -4071,6 +4103,10 @@ bool resetVersionCache(const std::string& version, const std::string& gameDir, s
     return true;
 }
 
+// Increment this number for every launcher binary update while keeping the public
+// product version (for example, "Alpha 1") unchanged.
+static constexpr int MAGMA_LAUNCHER_BUILD = 3;
+
 int cmpVersionStrings(const std::string& v1, const std::string& v2) {
     auto extractSegments = [](const std::string& v) {
         std::vector<int> segments;
@@ -4107,7 +4143,20 @@ bool checkLauncherUpdate(const std::string& manifestUrl, const std::string& curr
         infoOut.version = j.value("version", "");
         infoOut.url = j.value("url", "");
         infoOut.notes = j.value("notes", "");
-        infoOut.available = !infoOut.version.empty() && cmpVersionStrings(infoOut.version, currentVersion) > 0;
+
+        // New manifests can use a numeric build to publish maintenance updates
+        // without changing the public version label (e.g. Alpha 1, build 3).
+        // If "build" exists, it is authoritative for build-aware clients.
+        // Older installed clients ignore it and can be bootstrapped once by
+        // temporarily publishing version "Alpha 1.1".
+        if (j.contains("build") && j["build"].is_number_integer()) {
+            const int manifestBuild = j["build"].get<int>();
+            infoOut.available = manifestBuild > MAGMA_LAUNCHER_BUILD;
+        } else {
+            // Backward compatibility with manifests that only have "version".
+            infoOut.available = !infoOut.version.empty() &&
+                cmpVersionStrings(infoOut.version, currentVersion) > 0;
+        }
         return true;
     } catch (const std::exception& e) {
         errorOut = std::string("Не удалось разобрать манифест обновления: ") + e.what();
@@ -4115,7 +4164,195 @@ bool checkLauncherUpdate(const std::string& manifestUrl, const std::string& curr
     }
 }
 
+namespace {
+
+struct UpdateDlCtx {
+    const ProgressFn* fn = nullptr;
+    std::chrono::steady_clock::time_point last{};
+};
+
+int updateXferInfo(void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t, curl_off_t) {
+    if (g_cancelled.load()) return 1;
+    auto* ctx = static_cast<UpdateDlCtx*>(clientp);
+    if (ctx && ctx->fn && *ctx->fn && dltotal > 0) {
+        auto now = std::chrono::steady_clock::now();
+        if (now - ctx->last > std::chrono::milliseconds(120)) {
+            ctx->last = now;
+            (*ctx->fn)("update", 0.9 * ((double)dlnow / (double)dltotal), "Загружаем обновление...");
+        }
+    }
+    return 0;
+}
+
+bool downloadUpdateFile(const std::string& url, const fs::path& dest, const ProgressFn& onProgress, std::string& errorOut) {
+    std::error_code ec;
+    fs::create_directories(dest.parent_path(), ec);
+    fs::path tmp = dest;
+    tmp += ".part";
+
+    for (int attempt = 1; attempt <= 3; attempt++) {
+        if (g_cancelled.load()) { errorOut = "CANCELLED"; return false; }
+
+        CURLcode res = CURLE_FAILED_INIT;
+        long httpCode = 0;
+        {
+            std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+            if (!out) { errorOut = "Не удалось создать файл " + tmp.string(); return false; }
+
+            CURL* curl = curl_easy_init();
+            if (!curl) { errorOut = "curl_easy_init failed"; return false; }
+
+            UpdateDlCtx ctx;
+            ctx.fn = &onProgress;
+            curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeToFile);
+            curl_easy_setopt(curl, CURLOPT_WRITEDATA, &out);
+            applyCommonCurlOpts(curl);
+            curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+            curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, updateXferInfo);
+            curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &ctx);
+            curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1000L);
+            curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, 60L);
+
+            res = curl_easy_perform(curl);
+            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+            curl_easy_cleanup(curl);
+        }
+
+        if (res == CURLE_OK && httpCode >= 200 && httpCode < 300) {
+            std::error_code sizeEc;
+            auto size = fs::file_size(tmp, sizeEc);
+            if (!sizeEc && size > 1024) {
+                fs::remove(dest, ec);
+                fs::rename(tmp, dest, ec);
+                if (ec) { errorOut = "Не удалось переименовать временный файл: " + ec.message(); return false; }
+                return true;
+            }
+            errorOut = "ERR_NETWORK||скачанный файл пустой или обрезан";
+        } else if (res != CURLE_OK) {
+            if (res == CURLE_ABORTED_BY_CALLBACK && g_cancelled.load()) {
+                fs::remove(tmp, ec);
+                errorOut = "CANCELLED";
+                return false;
+            }
+            errorOut = std::string("ERR_NETWORK||") + curl_easy_strerror(res);
+        } else {
+            errorOut = "ERR_HTTP_STATUS||HTTP " + std::to_string(httpCode) + " (" + url + ")";
+            // 404/403/410 повторять бессмысленно — файла на сервере нет
+            if (httpCode == 404 || httpCode == 403 || httpCode == 410) {
+                fs::remove(tmp, ec);
+                return false;
+            }
+        }
+        Sleep(600 * attempt);
+    }
+    fs::remove(tmp, ec);
+    return false;
+}
+
+} // namespace
+
 bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& onProgress, std::string& errorOut) {
+    g_cancelled.store(false);
+
+    char tempDirBuf[MAX_PATH];
+    GetTempPathA(MAX_PATH, tempDirBuf);
+    fs::path tempDir = fs::path(tempDirBuf) / "MagmaLauncherUpdate";
+    std::error_code ec;
+    fs::remove_all(tempDir, ec);
+    fs::create_directories(tempDir, ec);
+
+    std::string lowerUrl = url.substr(0, url.find_first_of("?#"));
+    std::transform(lowerUrl.begin(), lowerUrl.end(), lowerUrl.begin(), ::tolower);
+    const bool isZip = lowerUrl.size() > 4 && lowerUrl.compare(lowerUrl.size() - 4, 4, ".zip") == 0;
+
+    fs::path downloadPath = tempDir / (isZip ? "update.zip" : "MagmaLauncher_new.exe");
+    onProgress("update", 0.0, "Загружаем обновление...");
+    if (!downloadUpdateFile(url, downloadPath, onProgress, errorOut)) return false;
+
+    // Проверяем сигнатуру: чтобы вместо exe/zip случайно не поставить HTML-страницу
+    {
+        std::ifstream magicIn(downloadPath, std::ios::binary);
+        char magic[2] = {0, 0};
+        magicIn.read(magic, 2);
+        const bool valid = isZip ? (magic[0] == 'P' && magic[1] == 'K')
+                                 : (magic[0] == 'M' && magic[1] == 'Z');
+        if (!valid) {
+            errorOut = std::string("ERR_NETWORK||скачанный файл не является ") + (isZip ? "zip-архивом" : "exe-файлом");
+            return false;
+        }
+    }
+
+    char selfPathBuf[MAX_PATH];
+    GetModuleFileNameA(nullptr, selfPathBuf, MAX_PATH);
+    fs::path selfPath = selfPathBuf;
+    fs::path installDir = selfPath.parent_path();
+    DWORD pid = GetCurrentProcessId();
+
+    fs::path sourceDir;
+    if (isZip) {
+        onProgress("update", 0.92, "Распаковываем обновление...");
+        sourceDir = tempDir / "extracted";
+        if (!extractZipPreservingStructure(downloadPath, sourceDir, errorOut)) return false;
+
+        std::vector<fs::path> topEntries;
+        for (auto& e : fs::directory_iterator(sourceDir, ec)) topEntries.push_back(e.path());
+        if (topEntries.empty()) { errorOut = "Архив обновления пуст"; return false; }
+
+        // Если всё лежит в одной вложенной папке (кроме frontend/assets/locales) — заходим внутрь
+        if (topEntries.size() == 1 && fs::is_directory(topEntries[0], ec)) {
+            std::string n = topEntries[0].filename().string();
+            std::transform(n.begin(), n.end(), n.begin(), ::tolower);
+            if (n != "frontend" && n != "assets" && n != "locales") sourceDir = topEntries[0];
+        }
+    }
+
+    const std::string copyCmd = isZip
+        ? "xcopy \"" + sourceDir.string() + "\\*\" \"" + installDir.string() + "\" /E /Y /I /Q >nul 2>&1"
+        : "copy /y \"" + downloadPath.string() + "\" \"" + selfPath.string() + "\" >nul 2>&1";
+
+    fs::path batPath = tempDir / "apply_update.bat";
+    {
+        std::ofstream bat(batPath, std::ios::binary | std::ios::trunc);
+        bat << "@echo off\r\n"
+            << "set tries=0\r\n"
+            << ":wait\r\n"
+            << "tasklist /FI \"PID eq " << pid << "\" /NH | find \" " << pid << " \" >nul\r\n"
+            << "if not errorlevel 1 (\r\n"
+            << "  timeout /t 1 /nobreak >nul\r\n"
+            << "  goto wait\r\n"
+            << ")\r\n"
+            << "timeout /t 1 /nobreak >nul\r\n"
+            << ":apply\r\n"
+            << copyCmd << "\r\n"
+            << "if not errorlevel 1 goto done\r\n"
+            << "set /a tries+=1\r\n"
+            << "if %tries% geq 30 goto done\r\n"
+            << "timeout /t 1 /nobreak >nul\r\n"
+            << "goto apply\r\n"
+            << ":done\r\n"
+            << "start \"\" /D \"" << installDir.string() << "\" \"" << selfPath.string() << "\"\r\n"
+            << "del \"%~f0\"\r\n";
+    }
+
+    std::string cmdLine = "cmd.exe /c \"" + batPath.string() + "\"";
+    std::vector<char> cmdBuf(cmdLine.begin(), cmdLine.end());
+    cmdBuf.push_back('\0');
+    STARTUPINFOA si{}; si.cb = sizeof(si);
+    PROCESS_INFORMATION pi{};
+    if (!CreateProcessA(nullptr, cmdBuf.data(), nullptr, nullptr, FALSE,
+                        DETACHED_PROCESS | CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
+        errorOut = "Не удалось запустить процесс обновления";
+        return false;
+    }
+    CloseHandle(pi.hProcess); CloseHandle(pi.hThread);
+
+    onProgress("update", 1.0, "Перезапуск...");
+    return true;
+}
+
+// Старая версия, больше не используется (можно удалить)
+static bool downloadAndInstallLauncherUpdateLegacy(const std::string& url, const ProgressFn& onProgress, std::string& errorOut) {
     char tempDirBuf[MAX_PATH];
     GetTempPathA(MAX_PATH, tempDirBuf);
     fs::path tempDir = fs::path(tempDirBuf) / "MagmaLauncherUpdate";

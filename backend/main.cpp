@@ -27,6 +27,8 @@
 #include <filesystem>
 #include <fstream>
 #include <shobjidl.h>
+#include <exception>
+#include <cstdlib>
 
 #include "secret.h"
 #include "launcher_core.h"
@@ -37,8 +39,44 @@
 using json = nlohmann::json;
 using Callback = CefMessageRouterBrowserSide::Callback;
 
+
+static void writeCrashLog(const std::string& message) noexcept {
+    try {
+        PWSTR localAppData = nullptr;
+        if (FAILED(SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, nullptr, &localAppData)) || !localAppData) return;
+        std::filesystem::path logDir = std::filesystem::path(localAppData) / L"MagmaLauncher";
+        CoTaskMemFree(localAppData);
+        std::error_code ec;
+        std::filesystem::create_directories(logDir, ec);
+        if (ec) return;
+        std::ofstream log(logDir / L"crash.log", std::ios::app | std::ios::binary);
+        if (log) { log << message << "\n----\n"; log.flush(); }
+    } catch (...) {
+        // Crash logging must never hide the original failure.
+    }
+}
+
+static void onTerminate() noexcept {
+    std::string message = "std::terminate called";
+    try {
+        if (const std::exception_ptr ep = std::current_exception()) {
+            try {
+                std::rethrow_exception(ep);
+            } catch (const std::exception& e) {
+                message = std::string("uncaught exception: ") + e.what();
+            } catch (...) {
+                message = "uncaught unknown exception";
+            }
+        }
+    } catch (...) {
+        message = "std::terminate called (failed to inspect exception)";
+    }
+    writeCrashLog(message);
+    std::abort();
+}
+
 static const int GOOGLE_REDIRECT_PORT = 53682;
-static const char* MAGMA_LAUNCHER_VERSION = "Alpha 1"; 
+static const char* MAGMA_LAUNCHER_VERSION = "Alpha 1.1";
 
 static void showErrorBox(const std::string& utf8Message, const std::string& utf8Title) {
     int wideLen = MultiByteToWideChar(CP_UTF8, 0, utf8Message.c_str(), -1, nullptr, 0);
@@ -639,7 +677,24 @@ if (name == "getInstallConfig") {
     return true;
 }
 
-if (name == "getLauncherVersion") {
+            if (name == "getDefaultGameDir") {
+                json result;
+                PWSTR appData = nullptr;
+                if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, nullptr, &appData)) && appData) {
+                    std::wstring defaultPath(appData);
+                    CoTaskMemFree(appData);
+                    defaultPath += L"\\MagmaLauncher";
+                    result["success"] = true;
+                    result["path"] = wideToUtf8(defaultPath);
+                } else {
+                    result["success"] = false;
+                    result["error"] = "ERR_DEFAULT_GAME_DIR";
+                }
+                callback->Success(result.dump());
+                return true;
+            }
+
+            if (name == "getLauncherVersion") {
     json r; r["version"] = MAGMA_LAUNCHER_VERSION;
     callback->Success(r.dump());
     return true;
@@ -955,13 +1010,22 @@ if (name == "installLauncherUpdate") {
 
                 std::thread([browser, lr]() {
                     std::string errorOut;
-                    bool ok = launcher::launchMinecraft(lr,
-                        [browser](const std::string& stage, double progress, const std::string& detail) {
-                            json p; p["stage"] = stage; p["progress"] = progress; p["detail"] = detail;
-                            std::string payload = p.dump();
-                            PushJs(browser, "window.__launchProgress && window.__launchProgress(" + payload + ");");
-                        },
-                        errorOut);
+                    bool ok = false;
+                    try {
+                        ok = launcher::launchMinecraft(lr,
+                            [browser](const std::string& stage, double progress, const std::string& detail) {
+                                json p; p["stage"] = stage; p["progress"] = progress; p["detail"] = detail;
+                                std::string payload = p.dump();
+                                PushJs(browser, "window.__launchProgress && window.__launchProgress(" + payload + ");");
+                            },
+                            errorOut);
+                    } catch (const std::exception& e) {
+                        errorOut = std::string("ERR_INTERNAL||") + e.what();
+                        writeCrashLog(errorOut);
+                    } catch (...) {
+                        errorOut = "ERR_INTERNAL||unknown";
+                        writeCrashLog(errorOut);
+                    }
 
                     bool wasCancelled = (!ok && errorOut == "CANCELLED");
                     json done;
@@ -1704,7 +1768,7 @@ private:
             "installMod", "listModsInDir", "toggleModFile", "deleteModFile", "createModpack", "toggleFullscreen",
             "setLauncherFullscreen", "setLauncherWindowSize",
             "discordPresenceStart", "discordPresenceSetActivity", "discordPresenceClear", "discordPresenceStop",
-            "cleanOldGameLogs", "getModsManifest", "closeLauncher"
+            "cleanOldGameLogs", "getModsManifest", "getDefaultGameDir", "closeLauncher"
         };
         
         std::ostringstream js;
@@ -1738,6 +1802,8 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int) {
     if (exit_code >= 0) {
         return exit_code;
     }
+
+    std::set_terminate(onTerminate);
 
     HANDLE singleInstanceMutex = CreateMutexA(nullptr, TRUE, "MagmaLauncherSingleInstanceMutex");
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
