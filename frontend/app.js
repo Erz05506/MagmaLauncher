@@ -2748,7 +2748,9 @@ const I18N = {
 
 const ERROR_I18N = {
   ru: {
-    ERR_NETWORK: 'Проблема с сетевым соединением',
+        ERR_NETWORK: 'Проблема с сетевым соединением',
+    ERR_UPDATE_LOOP: 'Обновление уже ставилось, но версия не выросла: у exe в архиве MAGMA_LAUNCHER_BUILD меньше, чем build в update.json. Пересоберите exe с нужным номером и обновите архив',
+    ERR_UPDATE_APPLY: 'Не удалось применить обновление (изменения откатены). Подробности в %LOCALAPPDATA%\\MagmaLauncher\\update.log',
     ERR_HTTP_STATUS: 'Сервер ответил ошибкой',
     ERR_JAVA_INDEX: 'Не удалось получить список версий Java',
     ERR_JAVA_NO_BUILD: 'Для этой версии нет автоматически скачиваемой Java под Windows x64. Укажите путь к Java вручную в настройках',
@@ -6738,7 +6740,10 @@ function renderThemeOptions() {
     btn.type = 'button';
     btn.className = 'skin-system-option' + (theme.id === active ? ' is-active' : '');
     const themeLabel = theme.id === 'magma' ? t('settings.theme.magmaDefault') : theme.name;
-    btn.innerHTML = `<span class="theme-swatch" style="background:linear-gradient(135deg, ${theme.accent[0]}, ${theme.accent[1]})"></span><span>${themeLabel}</span>`;
+        const swatchHtml = theme.id === 'halloween'
+      ? '<span class="theme-swatch theme-swatch-pumpkin"></span>'
+      : `<span class="theme-swatch" style="background:linear-gradient(135deg, ${theme.accent[0]}, ${theme.accent[1]})"></span>`;
+    btn.innerHTML = `${swatchHtml}<span>${themeLabel}</span>`;
     btn.addEventListener('click', () => {
       localStorage.setItem(THEME_KEY, theme.id);
       applyActiveTheme();
@@ -8555,6 +8560,7 @@ const AUTO_INSTALL_UPDATES_KEY = 'magma_auto_install_updates';
 const LAST_UPDATE_CHECK_KEY = 'magma_last_update_check';
 const AUTO_CHECK_UPDATES_KEY = 'magma_auto_check_updates';
 let pendingUpdateUrl = null;
+let pendingUpdateBuild = 0;
 let bootUpdateResolve = null;
 
 function getUpdateChannel() { return localStorage.getItem(UPDATE_CHANNEL_KEY) || 'stable'; }
@@ -8632,6 +8638,7 @@ async function checkForLauncherUpdate(manual) {
     if (!result.success) { if (statusEl) statusEl.textContent = translateBackendError(result.error); return; }
     if (result.available) {
       pendingUpdateUrl = result.url;
+      pendingUpdateBuild = result.build || 0;
       if (statusEl) statusEl.textContent = `${t('settings.updates.newVersion')} ${result.version}`;
       if (notesEl && result.notes) notesEl.textContent = result.notes;
       if (installBtn) installBtn.style.display = 'block';
@@ -8657,7 +8664,7 @@ document.getElementById('installUpdateBtn')?.addEventListener('click', async (e)
   if (track) track.style.display = 'block';
   if (fill) fill.style.width = '0%';
   try {
-    const raw = await window.installLauncherUpdate({ url: pendingUpdateUrl });
+    const raw = await window.installLauncherUpdate({ url: pendingUpdateUrl, build: pendingUpdateBuild });
     const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (!result.started) throw new Error(translateBackendError(result.error));
   } catch (err) {
@@ -8695,10 +8702,10 @@ async function autoUpdateOnBoot() {
       return false;
     }
 
-    const attemptKey = `${result.version}|${result.url}`;
+    const attemptKey = `${result.version}|${result.build || 0}|${result.url}`;
     let prevAttempt = null;
     try { prevAttempt = JSON.parse(localStorage.getItem(UPDATE_ATTEMPT_KEY) || 'null'); } catch {}
-    if (prevAttempt && prevAttempt.key === attemptKey && Date.now() - prevAttempt.time < 6 * 3600 * 1000) {
+    if (false && prevAttempt && prevAttempt.key === attemptKey) {
       pendingUpdateUrl = result.url;
       const statusEl = document.getElementById('updateStatusMsg');
       const installBtn = document.getElementById('installUpdateBtn');
@@ -8720,11 +8727,13 @@ async function autoUpdateOnBoot() {
     window.__updateProgress = (data) => setBootProgress(data.progress || 0);
     window.__updateDone = (data) => finishResolve(data);
 
-    const installRaw = await window.installLauncherUpdate({ url: result.url });
+    const installRaw = await window.installLauncherUpdate({ url: result.url, build: result.build || 0 });
     const installResult = typeof installRaw === 'string' ? JSON.parse(installRaw) : installRaw;
-    if (!installResult.started) {
+      if (!installResult.started) {
       localStorage.removeItem(UPDATE_ATTEMPT_KEY);
       restoreUi();
+      const failStatus = document.getElementById('updateStatusMsg');
+      if (failStatus) failStatus.textContent = translateBackendError(installResult.error) || t('auth.magma.genericError');
       return false;
     }
 

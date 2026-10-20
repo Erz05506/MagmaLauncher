@@ -4105,7 +4105,7 @@ bool resetVersionCache(const std::string& version, const std::string& gameDir, s
 
 // Increment this number for every launcher binary update while keeping the public
 // product version (for example, "Alpha 1") unchanged.
-static constexpr int MAGMA_LAUNCHER_BUILD = 3;
+static constexpr int MAGMA_LAUNCHER_BUILD = 4;
 
 int cmpVersionStrings(const std::string& v1, const std::string& v2) {
     auto extractSegments = [](const std::string& v) {
@@ -4143,7 +4143,7 @@ bool checkLauncherUpdate(const std::string& manifestUrl, const std::string& curr
         infoOut.version = j.value("version", "");
         infoOut.url = j.value("url", "");
         infoOut.notes = j.value("notes", "");
-
+        infoOut.build = (j.contains("build") && j["build"].is_number_integer()) ? j["build"].get<int>() : 0;
         // New manifests can use a numeric build to publish maintenance updates
         // without changing the public version label (e.g. Alpha 1, build 3).
         // If "build" exists, it is authoritative for build-aware clients.
@@ -4252,8 +4252,81 @@ bool downloadUpdateFile(const std::string& url, const fs::path& dest, const Prog
 
 } // namespace
 
+static void updateLog(const std::string& line) {
+    const char* base = std::getenv("LOCALAPPDATA");
+    if (!base) return;
+    std::error_code ec;
+    fs::path dir = fs::path(base) / "MagmaLauncher";
+    fs::create_directories(dir, ec);
+    std::ofstream f(dir / "update.log", std::ios::binary | std::ios::app);
+    if (f) f << line << "\r\n";
+}
+
+struct AppliedUpdateFile {
+    fs::path dest;
+    fs::path backup;
+    bool hadOriginal = false;
+};
+
+static bool applyUpdateFilesInPlace(const fs::path& srcDir, const fs::path& installDir, std::string& errorOut) {
+    std::vector<AppliedUpdateFile> applied;
+    std::string failure;
+    std::error_code ec;
+
+    for (auto it = fs::recursive_directory_iterator(srcDir, ec);
+         !ec && it != fs::recursive_directory_iterator(); it.increment(ec)) {
+        std::error_code fe;
+        if (!it->is_regular_file(fe)) continue;
+
+        fs::path rel = it->path().lexically_relative(srcDir);
+        std::string relLower = rel.generic_string();
+        std::transform(relLower.begin(), relLower.end(), relLower.begin(), ::tolower);
+        if (relLower == "install_config.json" || relLower == "uninstall.exe") continue;
+
+        fs::path dest = installDir / rel;
+        fs::path backup = dest;
+        backup += ".old";
+        fs::create_directories(dest.parent_path(), fe);
+
+        AppliedUpdateFile rec;
+        rec.dest = dest;
+        rec.backup = backup;
+
+        if (fs::exists(dest, fe)) {
+            fe.clear();
+            fs::remove(backup, fe);
+            fe.clear();
+            fs::rename(dest, backup, fe);   // работает и для запущенного exe/dll
+            if (fe) { failure = "не удалось переименовать " + dest.string() + ": " + fe.message(); break; }
+            rec.hadOriginal = true;
+        }
+
+        fe.clear();
+        fs::copy_file(it->path(), dest, fs::copy_options::overwrite_existing, fe);
+        applied.push_back(rec);
+        if (fe) { failure = "не удалось скопировать " + dest.string() + ": " + fe.message(); break; }
+    }
+
+    if (failure.empty() && ec) failure = "ошибка чтения распакованного обновления: " + ec.message();
+
+    if (!failure.empty()) {
+        for (auto r = applied.rbegin(); r != applied.rend(); ++r) {
+            std::error_code re;
+            fs::remove(r->dest, re);
+            if (r->hadOriginal) fs::rename(r->backup, r->dest, re);
+        }
+        updateLog("ОШИБКА применения, откат выполнен: " + failure);
+        errorOut = "ERR_UPDATE_APPLY||" + failure;
+        return false;
+    }
+
+    updateLog("Применено файлов: " + std::to_string(applied.size()));
+    return true;
+}
+
 bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& onProgress, std::string& errorOut) {
     g_cancelled.store(false);
+    updateLog("=== старт обновления: " + url);
 
     char tempDirBuf[MAX_PATH];
     GetTempPathA(MAX_PATH, tempDirBuf);
@@ -4268,9 +4341,11 @@ bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& 
 
     fs::path downloadPath = tempDir / (isZip ? "update.zip" : "MagmaLauncher_new.exe");
     onProgress("update", 0.0, "Загружаем обновление...");
-    if (!downloadUpdateFile(url, downloadPath, onProgress, errorOut)) return false;
+    if (!downloadUpdateFile(url, downloadPath, onProgress, errorOut)) {
+        updateLog("Ошибка скачивания: " + errorOut);
+        return false;
+    }
 
-    // Проверяем сигнатуру: чтобы вместо exe/zip случайно не поставить HTML-страницу
     {
         std::ifstream magicIn(downloadPath, std::ios::binary);
         char magic[2] = {0, 0};
@@ -4279,25 +4354,28 @@ bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& 
                                  : (magic[0] == 'M' && magic[1] == 'Z');
         if (!valid) {
             errorOut = std::string("ERR_NETWORK||скачанный файл не является ") + (isZip ? "zip-архивом" : "exe-файлом");
+            updateLog(errorOut);
             return false;
         }
     }
 
-    char selfPathBuf[MAX_PATH];
-    GetModuleFileNameA(nullptr, selfPathBuf, MAX_PATH);
+    wchar_t selfPathBuf[MAX_PATH];
+    GetModuleFileNameW(nullptr, selfPathBuf, MAX_PATH);
     fs::path selfPath = selfPathBuf;
     fs::path installDir = selfPath.parent_path();
-    DWORD pid = GetCurrentProcessId();
 
     fs::path sourceDir;
     if (isZip) {
         onProgress("update", 0.92, "Распаковываем обновление...");
         sourceDir = tempDir / "extracted";
-        if (!extractZipPreservingStructure(downloadPath, sourceDir, errorOut)) return false;
+        if (!extractZipPreservingStructure(downloadPath, sourceDir, errorOut)) {
+            updateLog("Ошибка распаковки: " + errorOut);
+            return false;
+        }
 
         std::vector<fs::path> topEntries;
         for (auto& e : fs::directory_iterator(sourceDir, ec)) topEntries.push_back(e.path());
-        if (topEntries.empty()) { errorOut = "Архив обновления пуст"; return false; }
+        if (topEntries.empty()) { errorOut = "Архив обновления пуст"; updateLog(errorOut); return false; }
 
         // Если всё лежит в одной вложенной папке (кроме frontend/assets/locales) — заходим внутрь
         if (topEntries.size() == 1 && fs::is_directory(topEntries[0], ec)) {
@@ -4305,53 +4383,45 @@ bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& 
             std::transform(n.begin(), n.end(), n.begin(), ::tolower);
             if (n != "frontend" && n != "assets" && n != "locales") sourceDir = topEntries[0];
         }
+    } else {
+        sourceDir = tempDir / "staged";
+        fs::create_directories(sourceDir, ec);
+        fs::copy_file(downloadPath, sourceDir / selfPath.filename(), fs::copy_options::overwrite_existing, ec);
+        if (ec) { errorOut = "Не удалось подготовить exe: " + ec.message(); updateLog(errorOut); return false; }
     }
 
-    const std::string copyCmd = isZip
-        ? "xcopy \"" + sourceDir.string() + "\\*\" \"" + installDir.string() + "\" /E /Y /I /Q >nul 2>&1"
-        : "copy /y \"" + downloadPath.string() + "\" \"" + selfPath.string() + "\" >nul 2>&1";
-
-    fs::path batPath = tempDir / "apply_update.bat";
-    {
-        std::ofstream bat(batPath, std::ios::binary | std::ios::trunc);
-        bat << "@echo off\r\n"
-            << "set tries=0\r\n"
-            << ":wait\r\n"
-            << "tasklist /FI \"PID eq " << pid << "\" /NH | find \" " << pid << " \" >nul\r\n"
-            << "if not errorlevel 1 (\r\n"
-            << "  timeout /t 1 /nobreak >nul\r\n"
-            << "  goto wait\r\n"
-            << ")\r\n"
-            << "timeout /t 1 /nobreak >nul\r\n"
-            << ":apply\r\n"
-            << copyCmd << "\r\n"
-            << "if not errorlevel 1 goto done\r\n"
-            << "set /a tries+=1\r\n"
-            << "if %tries% geq 30 goto done\r\n"
-            << "timeout /t 1 /nobreak >nul\r\n"
-            << "goto apply\r\n"
-            << ":done\r\n"
-            << "start \"\" /D \"" << installDir.string() << "\" \"" << selfPath.string() << "\"\r\n"
-            << "del \"%~f0\"\r\n";
+    if (!fs::exists(sourceDir / selfPath.filename(), ec)) {
+        updateLog("ВНИМАНИЕ: в архиве нет " + selfPath.filename().string() + " — бэкенд (exe) не обновится");
     }
 
-    std::string cmdLine = "cmd.exe /c \"" + batPath.string() + "\"";
-    std::vector<char> cmdBuf(cmdLine.begin(), cmdLine.end());
-    cmdBuf.push_back('\0');
-    STARTUPINFOA si{}; si.cb = sizeof(si);
+    onProgress("update", 0.95, "Устанавливаем обновление...");
+    if (!applyUpdateFilesInPlace(sourceDir, installDir, errorOut)) return false;
+
+    onProgress("update", 0.99, "Перезапуск...");
+
+    // Новый exe сам дождётся завершения этого процесса (--updated-from)
+    std::wstring cmdLine = L"\"" + selfPath.wstring() + L"\" --updated-from=" + std::to_wstring(GetCurrentProcessId());
+    std::vector<wchar_t> cmdBuf(cmdLine.begin(), cmdLine.end());
+    cmdBuf.push_back(L'\0');
+    std::wstring workDir = installDir.wstring();
+
+    STARTUPINFOW si{};
+    si.cb = sizeof(si);
     PROCESS_INFORMATION pi{};
-    if (!CreateProcessA(nullptr, cmdBuf.data(), nullptr, nullptr, FALSE,
-                        DETACHED_PROCESS | CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
-        errorOut = "Не удалось запустить процесс обновления";
+    if (!CreateProcessW(nullptr, cmdBuf.data(), nullptr, nullptr, FALSE, 0, nullptr, workDir.c_str(), &si, &pi)) {
+        DWORD err = GetLastError();
+        updateLog("Не удалось запустить новую версию, код " + std::to_string(err));
+        errorOut = "Обновление установлено, но перезапуск не удался (код " + std::to_string(err) + "). Запустите лаунчер вручную";
         return false;
     }
-    CloseHandle(pi.hProcess); CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
 
+    updateLog("Обновление применено, новая версия запущена");
     onProgress("update", 1.0, "Перезапуск...");
     return true;
 }
 
-// Старая версия, больше не используется (можно удалить)
 static bool downloadAndInstallLauncherUpdateLegacy(const std::string& url, const ProgressFn& onProgress, std::string& errorOut) {
     char tempDirBuf[MAX_PATH];
     GetTempPathA(MAX_PATH, tempDirBuf);
