@@ -15,4 +15,4 @@ installer/*.exe
 *.pdb
 *.bin
 *.zip
-*.tar.gz
+*.tar.gz**/cef-linux/
