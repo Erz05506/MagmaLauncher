@@ -2,12 +2,26 @@
 
 #include "launcher_core.h"
 #include "secret.h"
+#include "platform/platform.h"
 
+#ifdef _WIN32
 #include <windows.h>
+#else
+#include <unistd.h>
+#include <sys/stat.h>
+#include <cstdint>
+using DWORD = unsigned long;
+using HANDLE = void*;
+#define INVALID_HANDLE_VALUE ((HANDLE)(intptr_t)-1)
+#define MAX_PATH 4096
+#define CP_UTF8 65001
+inline int MultiByteToWideChar(unsigned, unsigned long, const char*, int, wchar_t*, int) { return 0; }
+inline int WideCharToMultiByte(unsigned, unsigned long, const wchar_t*, int, char*, int, const char*, int*) { return 0; }
+#endif
+
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
 #include <zlib.h>
-
 #include <fstream>
 #include <sstream>
 #include <vector>
@@ -24,6 +38,12 @@
 namespace fs = std::filesystem;
 using json = nlohmann::json;
 
+namespace {
+void sleepMs(unsigned int milliseconds) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+}
+}
+
 namespace launcher {
 
 std::atomic<bool> g_paused{false};
@@ -35,8 +55,9 @@ std::atomic<unsigned long> g_gameProcessId{0};
 
 namespace {
 
-HANDLE g_discordPipe = INVALID_HANDLE_VALUE;
 std::atomic<bool> g_discordConnected{false};
+#ifdef _WIN32
+HANDLE g_discordPipe = INVALID_HANDLE_VALUE;
 
 bool discordWriteFrame(uint32_t opcode, const std::string& payload) {
     if (g_discordPipe == INVALID_HANDLE_VALUE) return false;
@@ -61,7 +82,7 @@ bool waitForPipeData(HANDLE pipe, DWORD timeoutMs) {
         DWORD bytesAvail = 0;
         if (!PeekNamedPipe(pipe, nullptr, 0, nullptr, &bytesAvail, nullptr)) return false;
         if (bytesAvail >= 8) return true;
-        Sleep(50);
+        sleepMs(50);
         waited += 50;
     }
     return false;
@@ -101,10 +122,12 @@ bool discordConnectPipe() {
     return false;
 }
 
+#endif // _WIN32 (discord)
+
 bool waitWhilePausedOrCancelled(std::string& errorOut) {
     while (g_paused.load()) {
         if (g_cancelled.load()) { errorOut = "CANCELLED"; return false; }
-        Sleep(200);
+        sleepMs(200);
     }
     if (g_cancelled.load()) { errorOut = "CANCELLED"; return false; }
     return true;
@@ -136,7 +159,7 @@ int downloadProgressCallback(
             return 1;
         }
 
-        Sleep(200);
+        sleepMs(200);
     }
 
     if (g_cancelled.load()) {
@@ -155,7 +178,7 @@ int downloadProgressCallback(
 int abortIfCancelledCallback(void*, curl_off_t, curl_off_t, curl_off_t, curl_off_t) {
     while (g_paused.load()) {
         if (g_cancelled.load()) return 1;
-        Sleep(200);
+        sleepMs(200);
     }
     return g_cancelled.load() ? 1 : 0;
 }
@@ -170,7 +193,9 @@ bool withRetries(Fn&& operation, int maxAttempts, std::string& errorOut,
         if (operation(attemptError)) return true;
         errorOut = attemptError;
         if (g_cancelled.load()) { errorOut = "CANCELLED"; return false; }
-        if (attempt < maxAttempts) Sleep(300 * attempt);
+        if (attempt < maxAttempts) {
+    platform::sleepMs(static_cast<unsigned int>(300 * attempt));
+}
     }
     return false;
 }
@@ -373,6 +398,7 @@ bool httpDownloadFile(const std::string& url, const fs::path& destPath, std::str
     }, maxAttempts, errorOut, onRetry);
 }
 
+#ifdef _WIN32
 std::string winErrorMessage(DWORD code) {
     LPSTR buf = nullptr;
     DWORD len = FormatMessageA(
@@ -383,6 +409,10 @@ std::string winErrorMessage(DWORD code) {
     while (!msg.empty() && (msg.back() == '\n' || msg.back() == '\r')) msg.pop_back();
     return msg;
 }
+
+#else
+std::string winErrorMessage(DWORD code) { return "error " + std::to_string(code); }
+#endif
 
 std::string quoteWinArg(const std::string& arg) {
     if (!arg.empty() && arg.find_first_of(" \t\n\v\"") == std::string::npos) return arg;
@@ -406,6 +436,7 @@ std::string quoteWinArg(const std::string& arg) {
     return out;
 }
 
+#ifdef _WIN32
 std::optional<fs::path> findFallbackJava() {
     char buf[MAX_PATH];
     if (SearchPathA(nullptr, "java.exe", nullptr, MAX_PATH, buf, nullptr) > 0) {
@@ -434,6 +465,51 @@ std::optional<fs::path> findFallbackJava() {
     return best;
 }
 
+#else
+std::optional<fs::path> findFallbackJava() {
+    auto usable = [](const fs::path& p) {
+        std::error_code ec;
+        return fs::is_regular_file(p, ec) && access(p.c_str(), X_OK) == 0;
+    };
+
+    if (const char* jh = std::getenv("JAVA_HOME")) {
+        fs::path c = fs::path(jh) / "bin" / "java";
+        if (usable(c)) return c;
+    }
+    if (const char* pathEnv = std::getenv("PATH")) {
+        std::stringstream ss(pathEnv);
+        std::string dir;
+        while (std::getline(ss, dir, ':')) {
+            if (dir.empty()) continue;
+#ifdef __APPLE__
+            if (dir == "/usr/bin") continue; // заглушка-установщик Apple
+#endif
+            fs::path c = fs::path(dir) / "java";
+            if (usable(c)) return c;
+        }
+    }
+
+    std::optional<fs::path> best;
+#ifdef __APPLE__
+    const char* roots[] = {"/Library/Java/JavaVirtualMachines"};
+    const char* sub = "Contents/Home/bin/java";
+#else
+    const char* roots[] = {"/usr/lib/jvm", "/usr/java", "/opt/java"};
+    const char* sub = "bin/java";
+#endif
+    for (const char* root : roots) {
+        std::error_code ec;
+        if (!fs::exists(root, ec)) continue;
+        for (auto& entry : fs::directory_iterator(root, ec)) {
+            fs::path c = entry.path() / sub;
+            if (usable(c)) best = c;
+        }
+    }
+    return best;
+}
+#endif
+
+#ifdef _WIN32
 int detectJavaMajorVersion(const fs::path& javaExe) {
     SECURITY_ATTRIBUTES sa{};
     sa.nLength = sizeof(SECURITY_ATTRIBUTES);
@@ -497,10 +573,55 @@ int detectJavaMajorVersion(const fs::path& javaExe) {
     }
 }
 
+#else
+int detectJavaMajorVersion(const fs::path& javaExe) {
+    std::error_code ec;
+    fs::path logFile = fs::temp_directory_path(ec) /
+        ("magma_javaver_" + std::to_string((unsigned long)getpid()) + ".txt");
+    auto r = platform::runProcess({javaExe.string(), "-version"}, {}, logFile, 8000);
+
+    std::string output;
+    {
+        std::ifstream in(logFile, std::ios::binary);
+        std::stringstream ss; ss << in.rdbuf();
+        output = ss.str();
+    }
+    fs::remove(logFile, ec);
+    if (!r.started) return -1;
+
+    size_t verPos = output.find("version \"");
+    if (verPos == std::string::npos) return -1;
+    verPos += 9;
+    size_t verEnd = output.find('"', verPos);
+    if (verEnd == std::string::npos) return -1;
+    std::string verStr = output.substr(verPos, verEnd - verPos);
+    try {
+        if (verStr.rfind("1.", 0) == 0) {
+            size_t dotPos = verStr.find('.', 2);
+            if (dotPos == std::string::npos) return -1;
+            return std::stoi(verStr.substr(2, dotPos - 2));
+        }
+        size_t dotPos = verStr.find('.');
+        return std::stoi(dotPos == std::string::npos ? verStr : verStr.substr(0, dotPos));
+    } catch (...) {
+        return -1;
+    }
+}
+#endif
+
 bool ensureBundledJavaRuntime(const std::string& component, const fs::path& runtimeRoot,
                                const ProgressFn& onProgress, fs::path& javaExeOut, std::string& errorOut) {
     fs::path componentDir = runtimeRoot / component;
+#ifdef _WIN32
     fs::path javaExe = componentDir / "bin" / "java.exe";
+#elif defined(__APPLE__)
+    fs::path javaExe = componentDir / "bin" / "java";
+#else
+    fs::path javaExe = componentDir / "bin" / "java";
+#endif
+#ifdef __APPLE__
+    javaExe = componentDir / "jre.bundle" / "Contents" / "Home" / "bin" / "java";
+#endif
     fs::path markerFile = componentDir / ".installed";
 
     if (fs::exists(javaExe) && fs::exists(markerFile)) {
@@ -519,13 +640,30 @@ bool ensureBundledJavaRuntime(const std::string& component, const fs::path& runt
     try { index = json::parse(indexRaw); }
     catch (const std::exception& e) { errorOut = std::string("ERR_JAVA_INDEX||") + e.what(); return false; }
 
-    if (!index.contains("windows-x64") || !index["windows-x64"].contains(component) ||
-        index["windows-x64"][component].empty()) {
-        errorOut = "ERR_JAVA_NO_BUILD||" + component;
+#ifdef _WIN32
+    const std::string runtimePlatform = "windows-x64";
+#elif defined(__APPLE__)
+    #if defined(__aarch64__) || defined(__arm64__)
+        const std::string runtimePlatform = "mac-os-arm64";
+    #else
+        const std::string runtimePlatform = "mac-os";
+    #endif
+#elif defined(__linux__)
+    const std::string runtimePlatform = "linux";
+#else
+    errorOut = "ERR_JAVA_NO_BUILD||Unsupported platform";
+    return false;
+#endif
+
+    if (!index.contains(runtimePlatform) ||
+        !index[runtimePlatform].contains(component) ||
+        index[runtimePlatform][component].empty()) {
+        errorOut = "ERR_JAVA_NO_BUILD||" + component + "||" + runtimePlatform;
         return false;
     }
 
-    std::string manifestUrl = index["windows-x64"][component][0]["manifest"].value("url", "");
+    std::string manifestUrl =
+        index[runtimePlatform][component][0]["manifest"].value("url", "");
     if (manifestUrl.empty()) { errorOut = "ERR_JAVA_INDEX||empty manifest url"; return false; }
 
     onProgress("java", 0.0, "Загружаем список файлов Java...");
@@ -554,6 +692,14 @@ bool ensureBundledJavaRuntime(const std::string& component, const fs::path& runt
             continue;
         }
         if (type == "link") {
+#ifndef _WIN32
+            {
+                std::error_code lec;
+                fs::create_directories(dest.parent_path(), lec);
+                fs::remove(dest, lec);
+                fs::create_symlink(entry.value("target", ""), dest, lec);
+            }
+#endif
 
             continue;
         }
@@ -569,6 +715,14 @@ bool ensureBundledJavaRuntime(const std::string& component, const fs::path& runt
         if (fs::exists(tmpDest)) continue; 
 
         if (!httpDownloadFile(raw.value("url", ""), dest, errorOut)) return false;
+#ifndef _WIN32
+        if (entry.value("executable", false)) {
+            std::error_code pec;
+            fs::permissions(dest,
+                fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
+                fs::perm_options::add, pec);
+        }
+#endif
     }
 
     if (!fs::exists(javaExe)) {
@@ -890,7 +1044,9 @@ bool rulesAllowWindows(const json& rules) {
         bool applies = true;
         if (rule.contains("os")) {
             std::string osName = rule["os"].value("name", "");
-            if (!osName.empty() && osName != "windows") applies = false;
+if (!osName.empty() && osName != platform::kOsName) applies = false;
+            std::string osArch = rule["os"].value("arch", "");
+            if (!osArch.empty() && osArch != platform::kOsArch) applies = false;
         }
         if (rule.contains("features")) {
             applies = false;
@@ -1115,6 +1271,7 @@ bool prepareQuilt(const std::string& mcVersion, const fs::path& librariesDir,
     return true;
 }
 
+#ifdef _WIN32
 bool runProcessSyncWithLog(const std::string& cmdLine, const fs::path& workDir, const fs::path& logPath,
                             DWORD& exitCodeOut, std::string& errorOut, DWORD maxWaitMs = 120000) {
     SECURITY_ATTRIBUTES sa{};
@@ -1170,6 +1327,19 @@ bool runProcessSyncWithLog(const std::string& cmdLine, const fs::path& workDir, 
     CloseHandle(pi.hProcess); CloseHandle(pi.hThread);
     return true;
 }
+
+#else
+bool runProcessSyncWithLog(const std::string& cmdLine, const fs::path& workDir, const fs::path& logPath,
+                            DWORD& exitCodeOut, std::string& errorOut, DWORD maxWaitMs = 120000) {
+    auto r = platform::runProcess({"/bin/sh", "-c", cmdLine}, workDir, logPath,
+                                  static_cast<unsigned int>(maxWaitMs), &g_cancelled);
+    if (!r.started) { errorOut = "ERR_PROCESS_LAUNCH||" + r.error; return false; }
+    if (r.cancelled) { errorOut = "CANCELLED"; return false; }
+    if (r.timedOut) { errorOut = "ERR_PROCESS_TIMEOUT"; return false; }
+    exitCodeOut = static_cast<DWORD>(r.exitCode);
+    return true;
+}
+#endif
 
 std::string readLogTail(const fs::path& logPath, size_t maxChars = 2000) {
     std::ifstream logFile(logPath, std::ios::binary);
@@ -1381,6 +1551,7 @@ bool prepareForge(const std::string& mcVersion, const fs::path& root, const std:
         std::error_code javawEc;
         std::string installerJava = fs::exists(javawPath, javawEc) ? javawPath.string() : javaPath;
 
+        #ifdef _WIN32
         fs::path logPath = installerDir / (forgeId + "_install.log");
         SECURITY_ATTRIBUTES sa{};
         sa.nLength = sizeof(sa);
@@ -1436,6 +1607,16 @@ bool prepareForge(const std::string& mcVersion, const fs::path& root, const std:
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
 
+#else
+        fs::path logPath = installerDir / (forgeId + "_install.log");
+        DWORD exitCode = 0;
+        {
+            std::ostringstream pcmd;
+            pcmd << "\"" << installerJava << "\" -jar \"" << installerPath.string()
+                 << "\" --installClient \"" << root.string() << "\"";
+            if (!runProcessSyncWithLog(pcmd.str(), installerDir, logPath, exitCode, errorOut, 0)) return false;
+        }
+#endif
         if (exitCode != 0 || !fs::exists(forgeVersionJsonPath)) {
             std::string logTail;
             std::ifstream logFile(logPath, std::ios::binary);
@@ -1529,6 +1710,7 @@ bool prepareNeoForge(const std::string& mcVersion, const fs::path& root, const s
         std::error_code javawEc;
         std::string installerJava = fs::exists(javawPath, javawEc) ? javawPath.string() : javaPath;
 
+#ifdef _WIN32
         fs::path logPath = installerDir / (neoforgeId + "_install.log");
         SECURITY_ATTRIBUTES sa{};
         sa.nLength = sizeof(sa);
@@ -1583,6 +1765,16 @@ bool prepareNeoForge(const std::string& mcVersion, const fs::path& root, const s
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
 
+#else
+        fs::path logPath = installerDir / (neoforgeId + "_install.log");
+        DWORD exitCode = 0;
+        {
+            std::ostringstream pcmd;
+            pcmd << "\"" << installerJava << "\" -jar \"" << installerPath.string()
+                 << "\" --installClient \"" << root.string() << "\"";
+            if (!runProcessSyncWithLog(pcmd.str(), installerDir, logPath, exitCode, errorOut, 0)) return false;
+        }
+#endif
         if (exitCode != 0 || !fs::exists(neoforgeVersionJsonPath)) {
             std::string logTail;
             std::ifstream logFile(logPath, std::ios::binary);
@@ -1943,7 +2135,7 @@ bool runOptifineHeadlessInstall(const fs::path& installerJar, const fs::path& ga
 
     fs::path runLog = stubDir / "install.log";
     std::ostringstream runCmd;
-    runCmd << "\"" << stubJava.string() << "\" -cp \"" << stubDir.string() << ";" << installerJar.string()
+    runCmd << "\"" << stubJava.string() << "\" -cp \"" << stubDir.string() << platform::kPathListSep << installerJar.string()
            << "\" OfInstall \"" << gameRoot.string() << "\"";
 
     DWORD runExit = 0;
@@ -3137,6 +3329,8 @@ bool extractMapZipImpl(const fs::path& zipPath, const fs::path& outDir, std::str
 
 std::optional<fs::path> findRarExtractorTool() {
     const char* candidates[] = {
+        "/usr/bin/7z", "/usr/bin/7zz", "/usr/bin/7za",
+        "/usr/local/bin/7z", "/opt/homebrew/bin/7z",
         "C:\\Program Files\\7-Zip\\7z.exe",
         "C:\\Program Files (x86)\\7-Zip\\7z.exe",
         "C:\\Program Files\\WinRAR\\UnRAR.exe",
@@ -3387,7 +3581,7 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
                 }
 
                 if (lib.contains("natives") && downloads.contains("classifiers")) {
-                    std::string classifierKey = lib["natives"].value("windows", "");
+                    std::string classifierKey = lib["natives"].value(platform::kOsName, "");
                     size_t archPos = classifierKey.find("${arch}");
                     if (archPos != std::string::npos) classifierKey.replace(archPos, 7, "64");
 
@@ -3471,7 +3665,7 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
     if (ramMb > 65536) ramMb = 65536;
 
     std::string classpath = clientJarPath.string();
-    for (const auto& e : classpathEntries) classpath += ";" + e;
+    for (const auto& e : classpathEntries) { classpath += platform::kPathListSep; classpath += e; }
 
     std::vector<std::pair<std::string,std::string>> vars = {
         {"auth_player_name", req.username},
@@ -3490,6 +3684,8 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         {"auth_session", "0"},
         {"game_assets", (assetsDir / "virtual" / "legacy").string()},
         {"user_properties", "{}"},
+        {"classpath_separator", platform::kPathListSep},
+        {"library_directory", librariesDir.string()},
     };
 
     std::vector<std::string> jvmArgs;
@@ -3580,6 +3776,7 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
     for (auto& a : gameArgs) cmd << quoteWinArg(a) << " ";
 
     onProgress("launch", 0.5, "Запускаем Java...");
+#ifdef _WIN32
 
     std::string cmdLine = cmd.str();
     std::vector<char> cmdBuf(cmdLine.begin(), cmdLine.end());
@@ -3611,6 +3808,33 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         g_gameProcessActive.store(false);
     }).detach();
 
+    #else
+    std::vector<std::string> launchArgv;
+    launchArgv.push_back(javaPath);
+    launchArgv.push_back("-Xmx" + std::to_string(ramMb) + "M");
+    launchArgv.push_back("-Xms" + std::to_string(std::min(ramMb, 1024)) + "M");
+    for (auto& a : jvmArgs) launchArgv.push_back(a);
+    launchArgv.push_back(mainClass);
+    for (auto& a : gameArgs) launchArgv.push_back(a);
+
+    unsigned long childPid = platform::spawnDetached(
+        launchArgv, instanceDir, instanceDir / "logs" / "magma_game_stdout.log");
+    if (childPid == 0) {
+        errorOut = "ERR_JAVA_LAUNCH_FAILED||" + javaPath;
+        return false;
+    }
+
+    g_gameProcessId.store(childPid);
+    g_gameProcessActive.store(true);
+
+    fs::path modsDirForRestore = req.instanceName.empty() ? (instanceDir / "mods") : fs::path();
+    std::thread([childPid, modsDirForRestore]() {
+        platform::waitProcessExit(childPid);
+        if (!modsDirForRestore.empty()) restoreAllModsAfterExit(modsDirForRestore);
+        g_gameProcessId.store(0);
+        g_gameProcessActive.store(false);
+    }).detach();
+#endif
     onProgress("launch", 1.0, "Игра запущена");
     return true;
 }
@@ -3635,6 +3859,7 @@ bool getModsManifestJson(const std::string& dirPath, std::string& jsonOut, std::
     return true;
 }
 
+#ifdef _WIN32
 bool discordPresenceStart(const std::string& appId, std::string& errorOut) {
     if (g_discordConnected.load()) return true;
     if (!discordConnectPipe()) { errorOut = "Discord не запущен или IPC-канал недоступен"; return false; }
@@ -3701,6 +3926,17 @@ void discordPresenceStop() {
     if (g_discordPipe != INVALID_HANDLE_VALUE) { CloseHandle(g_discordPipe); g_discordPipe = INVALID_HANDLE_VALUE; }
     g_discordConnected.store(false);
 }
+
+#else
+bool discordPresenceStart(const std::string&, std::string& errorOut) {
+    errorOut = "Discord Rich Presence пока доступен только на Windows";
+    return false;
+}
+void discordPresenceSetActivity(const std::string&, const std::string&, const std::string&,
+                                 const std::string&, long long) {}
+void discordPresenceClear() {}
+void discordPresenceStop() {}
+#endif
 
 bool cleanOldGameLogs(const std::string& gameDir, int days, int& deletedCountOut, std::string& errorOut) {
     deletedCountOut = 0;
@@ -4136,6 +4372,12 @@ int cmpVersionStrings(const std::string& v1, const std::string& v2) {
 }
 
 bool checkLauncherUpdate(const std::string& manifestUrl, const std::string& currentVersion, UpdateInfo& infoOut, std::string& errorOut) {
+#ifndef _WIN32
+    (void)manifestUrl; (void)currentVersion;
+    infoOut = UpdateInfo{};
+    errorOut.clear();
+    return true;
+#endif
     std::string raw;
     if (!httpGetStringFast(manifestUrl, raw, errorOut)) return false;
     try {
@@ -4244,7 +4486,7 @@ bool downloadUpdateFile(const std::string& url, const fs::path& dest, const Prog
                 return false;
             }
         }
-        Sleep(600 * attempt);
+        sleepMs(600 * attempt);
     }
     fs::remove(tmp, ec);
     return false;
@@ -4323,8 +4565,9 @@ static bool applyUpdateFilesInPlace(const fs::path& srcDir, const fs::path& inst
     updateLog("Применено файлов: " + std::to_string(applied.size()));
     return true;
 }
-
+#ifdef _WIN32
 bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& onProgress, std::string& errorOut) {
+
     g_cancelled.store(false);
     updateLog("=== старт обновления: " + url);
 
@@ -4422,6 +4665,14 @@ bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& 
     return true;
 }
 
+#else
+bool downloadAndInstallLauncherUpdate(const std::string&, const ProgressFn&, std::string& errorOut) {
+    errorOut = "ERR_UPDATE_APPLY||На этой ОС обновления ставятся через apt / новый DMG";
+    return false;
+}
+#endif
+
+#ifdef _WIN32
 static bool downloadAndInstallLauncherUpdateLegacy(const std::string& url, const ProgressFn& onProgress, std::string& errorOut) {
     char tempDirBuf[MAX_PATH];
     GetTempPathA(MAX_PATH, tempDirBuf);
@@ -4469,6 +4720,25 @@ static bool downloadAndInstallLauncherUpdateLegacy(const std::string& url, const
     return true; 
 }
 
+#endif // legacy
+
+#ifndef _WIN32
+bool scheduleLauncherReopenAfterGameExit(std::string& errorOut) {
+    unsigned long pid = g_gameProcessId.load();
+    if (pid == 0 || !g_gameProcessActive.load()) {
+        errorOut = "Игра не запущена";
+        return false;
+    }
+    fs::path self = platform::executableDir() / "MagmaLauncher";
+    std::string script = "while kill -0 " + std::to_string(pid) +
+                         " 2>/dev/null; do sleep 1; done; exec \"" + self.string() + "\"";
+    if (platform::spawnDetached({"/bin/sh", "-c", script}, platform::executableDir(), {}) == 0) {
+        errorOut = "Не удалось запустить процесс повторного открытия лаунчера";
+        return false;
+    }
+    return true;
+}
+#else
 bool scheduleLauncherReopenAfterGameExit(std::string& errorOut) {
     unsigned long pid = g_gameProcessId.load();
     if (pid == 0 || !g_gameProcessActive.load()) {
@@ -4509,5 +4779,7 @@ bool scheduleLauncherReopenAfterGameExit(std::string& errorOut) {
     CloseHandle(pi.hThread);
     return true;
 }
+
+#endif
 
 }

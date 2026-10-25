@@ -6383,7 +6383,14 @@ function renderUpdatesTimeline() {
 
 }
 
-let currentLang = localStorage.getItem('magma_lang') || 'ru';
+function detectSystemLang() {
+  const supported = ['ru','uk','fr','de','es','it','pt','ja','ko','hi','id','en'];
+  const nav = (navigator.language || 'en').toLowerCase();
+  if (nav === 'es-es') return 'es-ES';
+  const base = nav.split('-')[0];
+  return supported.includes(base) ? base : 'en';
+}
+let currentLang = localStorage.getItem('magma_lang') || detectSystemLang();
 
 function t(key) {
   if (I18N[currentLang] && I18N[currentLang][key] !== undefined) {
