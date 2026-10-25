@@ -1954,7 +1954,6 @@ int main(int argc, char* argv[]) {
     std::string cachePath = (platform::userDataDir() / "cef_cache").string();
     CefString(&settings.cache_path).FromString(cachePath);
 
-\\
     if (!CefInitialize(main_args, settings, app.get(), nullptr)) {
         curl_global_cleanup();
         return 0;
