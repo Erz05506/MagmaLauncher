@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=MagmaLauncher
+Comment=Minecraft launcher
+Exec=magmalauncher
+Icon=magmalauncher
+Terminal=false
+Categories=Game;
