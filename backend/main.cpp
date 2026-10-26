@@ -11,6 +11,7 @@
 #include <locale>
 #include "include/views/cef_browser_view.h"
 #include "include/views/cef_window.h"
+#include "include/cef_image.h"
 #endif
 
 #include "include/cef_app.h"
@@ -1800,6 +1801,17 @@ public:
         g_mainWindow = window;
         window->AddChildView(view_);
         window->SetTitle("MagmaLauncher");
+        {
+            std::ifstream in((platform::resourceDir() / "assets" / "magmalauncher.png").string(), std::ios::binary);
+            if (in) {
+                std::string data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+                CefRefPtr<CefImage> img = CefImage::CreateImage();
+                if (img->AddPNG(1.0f, data.data(), data.size())) {
+                    window->SetWindowIcon(img);
+                    window->SetWindowAppIcon(img);
+                }
+            }
+        }
         window->Maximize();
         window->Show();
         view_->RequestFocus();
