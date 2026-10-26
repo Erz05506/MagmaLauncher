@@ -1835,16 +1835,21 @@ public:
     CefRefPtr<CefBrowserProcessHandler> GetBrowserProcessHandler() override { return this; }
     CefRefPtr<CefRenderProcessHandler> GetRenderProcessHandler() override { return this; }
 
-    void OnBeforeCommandLineProcessing(const CefString& process_type,
-                                    CefRefPtr<CefCommandLine> command_line) override {
+    
+void OnBeforeCommandLineProcessing(const CefString& process_type,
+                                   CefRefPtr<CefCommandLine> command_line) override {
     command_line->AppendSwitch("allow-file-access-from-files");
 
-    #ifdef _WIN32
+#ifdef _WIN32
     command_line->AppendSwitchWithValue("use-gl", "angle");
     command_line->AppendSwitchWithValue("use-angle", "d3d11");
     command_line->AppendSwitch("ignore-gpu-blocklist");
+#else
+    command_line->AppendSwitchWithValue("class", "MagmaLauncher");
+    command_line->AppendSwitchWithValue("name", "MagmaLauncher");
 #endif
 }
+
 
 #ifndef _WIN32
     void OnContextInitialized() override {
