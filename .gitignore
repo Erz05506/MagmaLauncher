@@ -4,6 +4,7 @@ installer/*.exe
 
 **/cef/
 **/build/
+**/cef-linux/
 **/vcpkg/
 **/vcpkg_installed/
 
