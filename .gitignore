@@ -4,6 +4,7 @@ installer/*.exe
 
 **/cef/
 **/build/
+**/cef-linux/
 **/vcpkg/
 **/vcpkg_installed/
 
@@ -15,4 +16,4 @@ installer/*.exe
 *.pdb
 *.bin
 *.zip
-*.tar.gz
+*.tar.gz**/cef-linux/
