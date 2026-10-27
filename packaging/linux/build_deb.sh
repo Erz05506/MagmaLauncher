@@ -15,7 +15,13 @@ cp -a "$DIST"/. "$ROOT/opt/$NAME/"
 chmod 0755 "$ROOT/opt/$NAME/MagmaLauncher"
 install -m 0755 packaging/linux/magmalauncher.sh      "$ROOT/usr/bin/magmalauncher"
 install -m 0644 packaging/linux/magmalauncher.desktop "$ROOT/usr/share/applications/magmalauncher.desktop"
-"$IM" assets/magmalauncher.png -resize 256x256 "$ROOT/usr/share/icons/hicolor/256x256/apps/magmalauncher.png"
+for S in 16 32 48 64 128 256 512; do
+  mkdir -p "$ROOT/usr/share/icons/hicolor/${S}x${S}/apps"
+  "$IM" assets/magmalauncher.png -resize ${S}x${S} \
+        "$ROOT/usr/share/icons/hicolor/${S}x${S}/apps/magmalauncher.png"
+done
+mkdir -p "$ROOT/usr/share/pixmaps"
+"$IM" assets/magmalauncher.png -resize 256x256 "$ROOT/usr/share/pixmaps/magmalauncher.png"
 install -m 0755 packaging/linux/postinst "$ROOT/DEBIAN/postinst"
 
 sed -e "s/@VERSION@/$VERSION/" -e "s/@ARCH@/$ARCH/" packaging/linux/control.in > "$ROOT/DEBIAN/control"
