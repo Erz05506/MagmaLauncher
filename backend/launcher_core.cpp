@@ -641,6 +641,16 @@ int detectJavaMajorVersion(const fs::path& javaExe) {
 }
 #endif
 
+struct DownloadTask {
+    std::string url;
+    fs::path destination;
+    std::string sha1;
+};
+
+bool downloadFilesParallel(const std::vector<DownloadTask>& tasks, std::string& errorOut,
+                           const ProgressFn& onProgress, const std::string& stage,
+                           size_t maxWorkers = 8);
+
 bool ensureBundledJavaRuntime(const std::string& component, const fs::path& runtimeRoot,
                                const ProgressFn& onProgress, fs::path& javaExeOut, std::string& errorOut) {
     fs::path componentDir = runtimeRoot / component;
@@ -708,10 +718,11 @@ bool ensureBundledJavaRuntime(const std::string& component, const fs::path& runt
 
     if (!manifest.contains("files")) { errorOut = "В манифесте Java нет списка файлов"; return false; }
 
-    size_t total = manifest["files"].size();
-    size_t idx = 0;
+    std::vector<DownloadTask> runtimeDownloads;
+    std::vector<fs::path> executableFiles;
+    runtimeDownloads.reserve(manifest["files"].size());
+
     for (auto it = manifest["files"].begin(); it != manifest["files"].end(); ++it) {
-        idx++;
         if (!waitWhilePausedOrCancelled(errorOut)) return false;
 
         std::string relPath = it.key();
@@ -732,30 +743,28 @@ bool ensureBundledJavaRuntime(const std::string& component, const fs::path& runt
                 fs::create_symlink(entry.value("target", ""), dest, lec);
             }
 #endif
-
             continue;
-        }
-
-        if ((idx % 15) == 0 || idx == total) {
-            onProgress("java", (double)idx / (double)std::max<size_t>(1, total), "Загружаем Java...");
         }
 
         if (!entry.contains("downloads") || !entry["downloads"].contains("raw")) continue;
         const auto& raw = entry["downloads"]["raw"];
-
-        fs::path tmpDest = dest;
-        if (fs::exists(tmpDest)) continue; 
-
-        if (!httpDownloadFile(raw.value("url", ""), dest, errorOut)) return false;
+        runtimeDownloads.push_back({raw.value("url", ""), dest, raw.value("sha1", "")});
 #ifndef _WIN32
-        if (entry.value("executable", false)) {
-            std::error_code pec;
-            fs::permissions(dest,
-                fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
-                fs::perm_options::add, pec);
-        }
+        if (entry.value("executable", false)) executableFiles.push_back(dest);
 #endif
     }
+
+    onProgress("java", 0.0, "Загружаем файлы Java параллельно...");
+    if (!downloadFilesParallel(runtimeDownloads, errorOut, onProgress, "java", 8)) return false;
+
+#ifndef _WIN32
+    for (const auto& path : executableFiles) {
+        std::error_code pec;
+        fs::permissions(path,
+            fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
+            fs::perm_options::add, pec);
+    }
+#endif
 
     if (!fs::exists(javaExe)) {
         errorOut = "ERR_JAVA_MISSING_EXE||" + javaExe.string();
@@ -859,15 +868,9 @@ bool ensureFile(const std::string& url, const fs::path& destPath, const std::str
     return httpDownloadFile(url, destPath, errorOut);
 }
 
-struct DownloadTask {
-    std::string url;
-    fs::path destination;
-    std::string sha1;
-};
-
 bool downloadFilesParallel(const std::vector<DownloadTask>& tasks, std::string& errorOut,
                            const ProgressFn& onProgress, const std::string& stage,
-                           size_t maxWorkers = 8) {
+                           size_t maxWorkers) {
     if (tasks.empty()) {
         onProgress(stage, 1.0, "");
         return true;
