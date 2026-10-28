@@ -1114,20 +1114,34 @@ if (name == "installLauncherUpdate") {
 
                 std::thread([browser, lr]() {
                     std::string errorOut;
-                    bool ok = launcher::launchMinecraft(lr,
-                        [browser](const std::string& stage, double progress, const std::string& detail) {
-                            json p; p["stage"] = stage; p["progress"] = progress; p["detail"] = detail;
-                            std::string payload = p.dump();
-                            PushJs(browser, "window.__launchProgress && window.__launchProgress(" + payload + ");");
-                        },
-                        errorOut);
+                    bool ok = false;
+
+                    try {
+                        ok = launcher::launchMinecraft(lr,
+                            [browser](const std::string& stage, double progress, const std::string& detail) {
+                                json p; p["stage"] = stage; p["progress"] = progress; p["detail"] = detail;
+                                std::string payload = p.dump(-1, ' ', false, json::error_handler_t::replace);
+                                PushJs(browser, "window.__launchProgress && window.__launchProgress(" + payload + ");");
+                            },
+                            errorOut);
+                    } catch (const std::exception& e) {
+                        errorOut = std::string("ERR_LAUNCH_THREAD||") + e.what();
+                    } catch (...) {
+                        errorOut = "ERR_LAUNCH_THREAD||Неизвестная ошибка потока запуска";
+                    }
 
                     bool wasCancelled = (!ok && errorOut == "CANCELLED");
                     json done;
                     done["success"] = ok;
                     done["cancelled"] = wasCancelled;
                     done["error"] = wasCancelled ? "" : errorOut;
-                    std::string payload = done.dump();
+
+                    std::string payload;
+                    try {
+                        payload = done.dump(-1, ' ', false, json::error_handler_t::replace);
+                    } catch (...) {
+                        payload = "{\"success\":false,\"cancelled\":false,\"error\":\"ERR_LAUNCH_RESULT_SERIALIZATION\"}";
+                    }
                     PushJs(browser, "window.__launchDone && window.__launchDone(" + payload + ");");
                 }).detach();
 
