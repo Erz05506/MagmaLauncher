@@ -1,11 +1,13 @@
 [Desktop Entry]
-Version=1.0
 Type=Application
-Name=Magma Launcher
-Comment=Minecraft Launcher
-Exec=magmalauncher
+Name=MagmaLauncher
+GenericName=Minecraft Launcher
+Comment=Minecraft launcher
+Exec=/usr/bin/magmalauncher %U
+TryExec=/usr/bin/magmalauncher
 Icon=magmalauncher
 Terminal=false
 Categories=Game;
+Keywords=minecraft;launcher;mods;
 StartupNotify=true
 StartupWMClass=MagmaLauncher

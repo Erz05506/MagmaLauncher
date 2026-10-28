@@ -1835,13 +1835,30 @@ static void buildLinuxIcons(CefRefPtr<CefImage> img) {
 
 static void applyLinuxWindowIdentity() {
     if (!g_mainWindow) return;
-    platform::applyX11WindowIdentity(
-        (unsigned long)g_mainWindow->GetWindowHandle(),
-        g_linuxIcons, "MagmaLauncher", "magmalauncher.desktop");
+    unsigned long xw = (unsigned long)g_mainWindow->GetWindowHandle();
+    if (!xw) return;
+    platform::applyX11WindowIdentity(xw, g_linuxIcons, "MagmaLauncher", "magmalauncher.desktop");
+    platform::guardX11WindowIdentity(xw, g_linuxIcons, "MagmaLauncher", "magmalauncher.desktop");
 }
 #endif
 
 #ifndef _WIN32
+static CefRefPtr<CefImage> loadLauncherIconPng() {
+    const std::filesystem::path candidates[] = {
+        platform::resourceDir() / "assets" / "magmalauncher.png",
+        "/opt/magmalauncher/assets/magmalauncher.png",
+        "/usr/share/icons/hicolor/256x256/apps/magmalauncher.png",
+        "/usr/share/pixmaps/magmalauncher.png",
+    };
+    for (const auto& p : candidates) {
+        std::ifstream in(p, std::ios::binary);
+        if (!in) continue;
+        std::string data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        CefRefPtr<CefImage> img = CefImage::CreateImage();
+        if (img->AddPNG(1.0f, data.data(), data.size())) return img;
+    }
+    return nullptr;
+}
 class MagmaBrowserViewDelegate : public CefBrowserViewDelegate {
 public:
     cef_runtime_style_t GetBrowserRuntimeStyle() override { return CEF_RUNTIME_STYLE_ALLOY; }
@@ -1855,17 +1872,10 @@ public:
     g_mainWindow = window;
     window->AddChildView(view_);
     window->SetTitle("MagmaLauncher");
-    CefRefPtr<CefImage> img;
-    {
-        std::ifstream in((platform::resourceDir() / "assets" / "magmalauncher.png").string(), std::ios::binary);
-        if (in) {
-            std::string data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-            img = CefImage::CreateImage();
-            if (img->AddPNG(1.0f, data.data(), data.size())) {
-                window->SetWindowIcon(img);
-                window->SetWindowAppIcon(img);
-            } else img = nullptr;
-        }
+    CefRefPtr<CefImage> img = loadLauncherIconPng();
+    if (img) {
+        window->SetWindowIcon(img);
+        window->SetWindowAppIcon(img);
     }
     window->Maximize();
     window->Show();
@@ -1874,8 +1884,7 @@ public:
 #ifdef __linux__
     buildLinuxIcons(img);
     applyLinuxWindowIdentity();
-    // Chromium может перезаписать свойства после показа окна — переприменяем
-    for (int delay : {300, 1200, 3000}) {
+    for (int delay : {100, 300, 1200, 3000}) {
         CefPostDelayedTask(TID_UI, new FuncTask([]() { applyLinuxWindowIdentity(); }), delay);
     }
 #endif

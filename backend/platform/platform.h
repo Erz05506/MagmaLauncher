@@ -88,6 +88,11 @@ bool applyX11WindowIdentity(unsigned long xwindow,
                             const std::vector<IconImage>& icons,
                             const std::string& wmClass,
                             const std::string& desktopFileId);
-#endif
 
+void guardX11WindowIdentity(unsigned long xwindow,
+                            const std::vector<IconImage>& icons,
+                            const std::string& wmClass,
+                            const std::string& desktopFileId);
+
+#endif
 }

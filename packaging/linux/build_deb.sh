@@ -9,9 +9,6 @@ PKG="magmalauncher"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 
-<<<<<<< HEAD
-[ -x "$DIST/MagmaLauncher" ] || { echo "Не найден $DIST/MagmaLauncher — сначала собери проект"; exit 1; }
-=======
 cp -a "$DIST"/. "$ROOT/opt/$NAME/"
 chmod 0755 "$ROOT/opt/$NAME/MagmaLauncher"
 install -m 0755 packaging/linux/magmalauncher.sh      "$ROOT/usr/bin/magmalauncher"
@@ -24,7 +21,6 @@ done
 mkdir -p "$ROOT/usr/share/pixmaps"
 "$IM" assets/magmalauncher.png -resize 256x256 "$ROOT/usr/share/pixmaps/magmalauncher.png"
 install -m 0755 packaging/linux/postinst "$ROOT/DEBIAN/postinst"
->>>>>>> bb59b519a9969cd2dc48117bfd967f943e44d56b
 
 ICON_SRC="$ROOT/assets/magmalauncher.png"
 [ -f "$ICON_SRC" ] || { echo "Не найден $ICON_SRC"; exit 1; }
@@ -36,12 +32,10 @@ install -d "$STAGE/DEBIAN" "$STAGE/opt/$PKG" \
     "$STAGE/usr/bin" "$STAGE/usr/share/applications" \
     "$STAGE/usr/share/pixmaps"
 
-# Программа
 cp -a "$DIST/." "$STAGE/opt/$PKG/"
 install -d "$STAGE/opt/$PKG/assets"
 install -m 644 "$ICON_SRC" "$STAGE/opt/$PKG/assets/magmalauncher.png"
 
-# Удаление отладочных символов и файлов разработки
 find "$STAGE/opt/$PKG" -type f \( \
     -name '*.so' -o -name '*.so.*' \
     -o -name 'MagmaLauncher' -o -name 'chrome-sandbox' \
@@ -59,14 +53,12 @@ if [ -f "$STAGE/opt/$PKG/chrome-sandbox" ]; then
     chmod 4755 "$STAGE/opt/$PKG/chrome-sandbox"
 fi
 
-# Запускатор
 cat > "$STAGE/usr/bin/magmalauncher" <<'EOF'
 #!/bin/sh
 exec /opt/magmalauncher/MagmaLauncher "$@"
 EOF
 chmod 755 "$STAGE/usr/bin/magmalauncher"
 
-# Иконки разных размеров
 for s in 16 24 32 48 64 128 256 512; do
     d="$STAGE/usr/share/icons/hicolor/${s}x${s}/apps"
     mkdir -p "$d"
@@ -90,7 +82,6 @@ StartupWMClass=MagmaLauncher
 EOF
 chmod 644 "$STAGE/usr/share/applications/magmalauncher.desktop"
 
-# Обновление кэша иконок и ярлыков после установки
 cat > "$STAGE/DEBIAN/postinst" <<'EOF'
 #!/bin/sh
 set -e
@@ -100,7 +91,6 @@ exit 0
 EOF
 chmod 755 "$STAGE/DEBIAN/postinst"
 
-# Размер установленного пакета в KiB
 SIZE_KB=$(du -sk "$STAGE/opt/$PKG" | cut -f1)
 
 cat > "$STAGE/DEBIAN/control" <<EOF
