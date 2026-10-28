@@ -9,7 +9,22 @@ PKG="magmalauncher"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 
+<<<<<<< HEAD
 [ -x "$DIST/MagmaLauncher" ] || { echo "Не найден $DIST/MagmaLauncher — сначала собери проект"; exit 1; }
+=======
+cp -a "$DIST"/. "$ROOT/opt/$NAME/"
+chmod 0755 "$ROOT/opt/$NAME/MagmaLauncher"
+install -m 0755 packaging/linux/magmalauncher.sh      "$ROOT/usr/bin/magmalauncher"
+install -m 0644 packaging/linux/magmalauncher.desktop "$ROOT/usr/share/applications/magmalauncher.desktop"
+for S in 16 32 48 64 128 256 512; do
+  mkdir -p "$ROOT/usr/share/icons/hicolor/${S}x${S}/apps"
+  "$IM" assets/magmalauncher.png -resize ${S}x${S} \
+        "$ROOT/usr/share/icons/hicolor/${S}x${S}/apps/magmalauncher.png"
+done
+mkdir -p "$ROOT/usr/share/pixmaps"
+"$IM" assets/magmalauncher.png -resize 256x256 "$ROOT/usr/share/pixmaps/magmalauncher.png"
+install -m 0755 packaging/linux/postinst "$ROOT/DEBIAN/postinst"
+>>>>>>> bb59b519a9969cd2dc48117bfd967f943e44d56b
 
 ICON_SRC="$ROOT/assets/magmalauncher.png"
 [ -f "$ICON_SRC" ] || { echo "Не найден $ICON_SRC"; exit 1; }

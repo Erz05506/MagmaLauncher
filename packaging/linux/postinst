@@ -2,4 +2,6 @@
 set -e
 command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database -q || true
 command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -q /usr/share/icons/hicolor || true
+gtk-update-icon-cache -q /usr/share/icons/hicolor 2>/dev/null || true
+update-desktop-database -q 2>/dev/null || true
 exit 0

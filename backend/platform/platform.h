@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+#include <cstdint>
 
 namespace platform {
 
@@ -75,6 +76,18 @@ inline std::string lastNonEmptyLine(const std::string& text) {
     flush();
     return last;
 }
+#endif
+
+#if defined(__linux__)
+struct IconImage {
+    int width = 0, height = 0;
+    std::vector<uint32_t> argb;  
+};
+
+bool applyX11WindowIdentity(unsigned long xwindow,
+                            const std::vector<IconImage>& icons,
+                            const std::string& wmClass,
+                            const std::string& desktopFileId);
 #endif
 
 }

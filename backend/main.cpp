@@ -1787,6 +1787,60 @@ private:
     CefRefPtr<CefMessageRouterBrowserSide> message_router_;
 };
 
+#ifdef __linux__
+static std::vector<platform::IconImage> g_linuxIcons;
+
+static platform::IconImage downscaleIcon(const platform::IconImage& src, int target) {
+    platform::IconImage out;
+    out.width = out.height = target;
+    out.argb.assign(static_cast<size_t>(target) * target, 0);
+    for (int y = 0; y < target; y++) {
+        for (int x = 0; x < target; x++) {
+            int x0 = x * src.width / target,  x1 = std::max(x0 + 1, (x + 1) * src.width / target);
+            int y0 = y * src.height / target, y1 = std::max(y0 + 1, (y + 1) * src.height / target);
+            double a = 0, r = 0, g = 0, b = 0; int n = 0;
+            for (int yy = y0; yy < y1; yy++)
+                for (int xx = x0; xx < x1; xx++) {
+                    uint32_t p = src.argb[static_cast<size_t>(yy) * src.width + xx];
+                    double pa = (p >> 24) & 0xFF;
+                    a += pa; r += ((p >> 16) & 0xFF) * pa; g += ((p >> 8) & 0xFF) * pa; b += (p & 0xFF) * pa; n++;
+                }
+            if (a <= 0 || n == 0) continue;
+            uint32_t A = (uint32_t)(a / n), R = (uint32_t)(r / a), G = (uint32_t)(g / a), B = (uint32_t)(b / a);
+            out.argb[static_cast<size_t>(y) * target + x] = (A << 24) | (R << 16) | (G << 8) | B;
+        }
+    }
+    return out;
+}
+
+static void buildLinuxIcons(CefRefPtr<CefImage> img) {
+    if (!g_linuxIcons.empty() || !img) return;
+    int w = (int)img->GetWidth(), h = (int)img->GetHeight();
+    if (w <= 0 || h <= 0) return;
+    CefRefPtr<CefBinaryValue> bin = img->GetAsBitmap(
+        1.0f, CEF_COLOR_TYPE_BGRA_8888, CEF_ALPHA_TYPE_POSTMULTIPLIED, w, h);
+    if (!bin || bin->GetSize() < (size_t)w * h * 4) return;
+
+    platform::IconImage full;
+    full.width = w; full.height = h;
+    full.argb.resize((size_t)w * h);
+    bin->GetData(full.argb.data(), (size_t)w * h * 4, 0);   // BGRA little-endian = 0xAARRGGBB
+
+    for (int s : {256, 128, 64, 48, 32, 16}) {
+        if (s > w || s > h) continue;
+        g_linuxIcons.push_back(s == w && s == h ? full : downscaleIcon(full, s));
+    }
+    if (g_linuxIcons.empty()) g_linuxIcons.push_back(full);
+}
+
+static void applyLinuxWindowIdentity() {
+    if (!g_mainWindow) return;
+    platform::applyX11WindowIdentity(
+        (unsigned long)g_mainWindow->GetWindowHandle(),
+        g_linuxIcons, "MagmaLauncher", "magmalauncher.desktop");
+}
+#endif
+
 #ifndef _WIN32
 class MagmaBrowserViewDelegate : public CefBrowserViewDelegate {
 public:
@@ -1798,24 +1852,34 @@ class MagmaWindowDelegate : public CefWindowDelegate {
 public:
     explicit MagmaWindowDelegate(CefRefPtr<CefBrowserView> v) : view_(v) {}
     void OnWindowCreated(CefRefPtr<CefWindow> window) override {
-        g_mainWindow = window;
-        window->AddChildView(view_);
-        window->SetTitle("MagmaLauncher");
-        {
-            std::ifstream in((platform::resourceDir() / "assets" / "magmalauncher.png").string(), std::ios::binary);
-            if (in) {
-                std::string data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-                CefRefPtr<CefImage> img = CefImage::CreateImage();
-                if (img->AddPNG(1.0f, data.data(), data.size())) {
-                    window->SetWindowIcon(img);
-                    window->SetWindowAppIcon(img);
-                }
-            }
+    g_mainWindow = window;
+    window->AddChildView(view_);
+    window->SetTitle("MagmaLauncher");
+    CefRefPtr<CefImage> img;
+    {
+        std::ifstream in((platform::resourceDir() / "assets" / "magmalauncher.png").string(), std::ios::binary);
+        if (in) {
+            std::string data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+            img = CefImage::CreateImage();
+            if (img->AddPNG(1.0f, data.data(), data.size())) {
+                window->SetWindowIcon(img);
+                window->SetWindowAppIcon(img);
+            } else img = nullptr;
         }
-        window->Maximize();
-        window->Show();
-        view_->RequestFocus();
     }
+    window->Maximize();
+    window->Show();
+    view_->RequestFocus();
+
+#ifdef __linux__
+    buildLinuxIcons(img);
+    applyLinuxWindowIdentity();
+    // Chromium может перезаписать свойства после показа окна — переприменяем
+    for (int delay : {300, 1200, 3000}) {
+        CefPostDelayedTask(TID_UI, new FuncTask([]() { applyLinuxWindowIdentity(); }), delay);
+    }
+#endif
+}
     void OnWindowDestroyed(CefRefPtr<CefWindow>) override { view_ = nullptr; g_mainWindow = nullptr; }
     bool CanClose(CefRefPtr<CefWindow>) override {
         CefRefPtr<CefBrowser> b = view_ ? view_->GetBrowser() : nullptr;

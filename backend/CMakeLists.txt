@@ -79,7 +79,9 @@ elseif(APPLE)
 elseif(UNIX)
     set(MAGMA_PLATFORM_SOURCE
         platform/platform_linux.cpp
+        platform/platform_x11.cpp
     )
+    find_package(X11 REQUIRED)
 else()
     message(FATAL_ERROR "Unsupported operating system")
 endif()
@@ -307,6 +309,7 @@ set(MAGMA_DIST_DIR "${CMAKE_CURRENT_BINARY_DIR}/dist")
 file(MAKE_DIRECTORY "${MAGMA_DIST_DIR}")
 
 if(UNIX AND NOT APPLE)
+target_link_libraries(MagmaLauncher PRIVATE X11::X11)
     target_link_libraries(MagmaLauncher PRIVATE
         "${CEF_ROOT}/Release/libcef.so" pthread dl)
     set_target_properties(MagmaLauncher PROPERTIES
