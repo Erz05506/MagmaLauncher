@@ -34,6 +34,7 @@ inline int WideCharToMultiByte(unsigned, unsigned long, const wchar_t*, int, cha
 #include <map>
 #include <chrono>
 #include <thread>
+#include <mutex>
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
@@ -396,6 +397,37 @@ bool httpDownloadFile(const std::string& url, const fs::path& destPath, std::str
         }
         return httpDownloadFileOnce(url, destPath, attemptError, resumeFrom, connectTimeoutSec, lowSpeedTimeSec, absoluteTimeoutSec);
     }, maxAttempts, errorOut, onRetry);
+}
+
+fs::path pathFromUtf8(const std::string& value) {
+#ifdef _WIN32
+    if (value.empty()) return {};
+    int size = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+        value.data(), static_cast<int>(value.size()), nullptr, 0);
+    if (size <= 0) return fs::path(value);
+    std::wstring wide(static_cast<size_t>(size), L'\\0');
+    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+        value.data(), static_cast<int>(value.size()), wide.data(), size);
+    return fs::path(wide);
+#else
+    return fs::path(value);
+#endif
+}
+
+std::string pathToUtf8(const fs::path& value) {
+#ifdef _WIN32
+    const std::wstring& wide = value.native();
+    if (wide.empty()) return {};
+    int size = WideCharToMultiByte(CP_UTF8, 0, wide.data(),
+        static_cast<int>(wide.size()), nullptr, 0, nullptr, nullptr);
+    if (size <= 0) return value.string();
+    std::string result(static_cast<size_t>(size), '\\0');
+    WideCharToMultiByte(CP_UTF8, 0, wide.data(), static_cast<int>(wide.size()),
+        result.data(), size, nullptr, nullptr);
+    return result;
+#else
+    return value.string();
+#endif
 }
 
 #ifdef _WIN32
@@ -825,6 +857,70 @@ bool fileMatchesSha1(const fs::path& path, const std::string& expectedSha1) {
 bool ensureFile(const std::string& url, const fs::path& destPath, const std::string& expectedSha1, std::string& errorOut) {
     if (fileMatchesSha1(destPath, expectedSha1)) return true;
     return httpDownloadFile(url, destPath, errorOut);
+}
+
+struct DownloadTask {
+    std::string url;
+    fs::path destination;
+    std::string sha1;
+};
+
+bool downloadFilesParallel(const std::vector<DownloadTask>& tasks, std::string& errorOut,
+                           const ProgressFn& onProgress, const std::string& stage,
+                           size_t maxWorkers = 8) {
+    if (tasks.empty()) {
+        onProgress(stage, 1.0, "");
+        return true;
+    }
+
+    std::atomic<size_t> nextTask{0};
+    std::atomic<bool> failed{false};
+    std::mutex errorMutex;
+    std::mutex progressMutex;
+    size_t completed = 0;
+    const size_t workerCount = std::min(maxWorkers, tasks.size());
+    std::vector<std::thread> workers;
+    workers.reserve(workerCount);
+
+    for (size_t worker = 0; worker < workerCount; ++worker) {
+        workers.emplace_back([&]() {
+            while (!failed.load() && !g_cancelled.load()) {
+                const size_t index = nextTask.fetch_add(1);
+                if (index >= tasks.size()) break;
+
+                std::string taskError;
+                if (!waitWhilePausedOrCancelled(taskError) ||
+                    !ensureFile(tasks[index].url, tasks[index].destination,
+                                tasks[index].sha1, taskError)) {
+                    std::lock_guard<std::mutex> lock(errorMutex);
+                    if (!failed.exchange(true)) {
+                        errorOut = taskError.empty() ? "CANCELLED" : taskError;
+                    }
+                    break;
+                }
+
+                std::lock_guard<std::mutex> lock(progressMutex);
+                ++completed;
+                if (completed % 20 == 0 || completed == tasks.size()) {
+                    onProgress(stage, static_cast<double>(completed) /
+                        static_cast<double>(tasks.size()), "");
+                }
+            }
+        });
+    }
+
+    for (auto& worker : workers) {
+        if (worker.joinable()) worker.join();
+    }
+
+    if (g_cancelled.load()) {
+        errorOut = "CANCELLED";
+        return false;
+    }
+    if (failed.load()) return false;
+
+    onProgress(stage, 1.0, "");
+    return true;
 }
 
 bool extractZipFlatIgnoringDirsAndMeta(const fs::path& zipPath, const fs::path& outDir) {
@@ -3476,7 +3572,7 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         return false;
     }
 
-    fs::path root(req.gameDir);
+    fs::path root = pathFromUtf8(req.gameDir);
     fs::path versionsDir = root / "versions" / req.version;
     fs::path librariesDir = root / "libraries";
     fs::path assetsDir = root / "assets";
@@ -3518,7 +3614,7 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
     }
 
     std::string javaPath;
-    bool manualPathValid = !req.javaPath.empty() && fs::exists(req.javaPath);
+    bool manualPathValid = !req.javaPath.empty() && fs::exists(pathFromUtf8(req.javaPath));
 
     if (manualPathValid) {
 
@@ -3529,7 +3625,7 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
 
         if (fallback && (fallbackMajor == requiredMajor || fallbackMajor == -1)) {
 
-            javaPath = fallback->string();
+            javaPath = pathToUtf8(*fallback);
         } else {
 
             fs::path runtimeRoot = root / "runtime";
@@ -3537,7 +3633,7 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
             if (!ensureBundledJavaRuntime(requiredComponent, runtimeRoot, onProgress, bundledJava, errorOut)) {
                 return false;
             }
-            javaPath = bundledJava.string();
+            javaPath = pathToUtf8(bundledJava);
         }
     }
 
@@ -3562,39 +3658,36 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
     std::vector<fs::path> nativesJarsToExtract;
 
     if (vjson.contains("libraries")) {
-        size_t total = vjson["libraries"].size();
-        size_t idx = 0;
+        std::vector<DownloadTask> libraryDownloads;
         for (const auto& lib : vjson["libraries"]) {
-            idx++;
             if (!waitWhilePausedOrCancelled(errorOut)) return false;
-            onProgress("libraries", (double)idx / (double)std::max<size_t>(1,total), "");
-
             if (lib.contains("rules") && !rulesAllowWindows(lib["rules"])) continue;
+            if (!lib.contains("downloads")) continue;
 
-            if (lib.contains("downloads")) {
-                const auto& downloads = lib["downloads"];
+            const auto& downloads = lib["downloads"];
+            if (downloads.contains("artifact")) {
+                const auto& art = downloads["artifact"];
+                fs::path dest = librariesDir / fs::path(art.value("path", ""));
+                libraryDownloads.push_back({art.value("url", ""), dest, art.value("sha1", "")});
+                classpathEntries.push_back(pathToUtf8(dest));
+            }
 
-                if (downloads.contains("artifact")) {
-                    const auto& art = downloads["artifact"];
-                    fs::path dest = librariesDir / fs::path(art.value("path",""));
-                    if (!ensureFile(art.value("url",""), dest, art.value("sha1",""), errorOut)) return false;
-                    classpathEntries.push_back(dest.string());
-                }
+            if (lib.contains("natives") && downloads.contains("classifiers")) {
+                std::string classifierKey = lib["natives"].value(platform::kOsName, "");
+                size_t archPos = classifierKey.find("${arch}");
+                if (archPos != std::string::npos) classifierKey.replace(archPos, 7, "64");
 
-                if (lib.contains("natives") && downloads.contains("classifiers")) {
-                    std::string classifierKey = lib["natives"].value(platform::kOsName, "");
-                    size_t archPos = classifierKey.find("${arch}");
-                    if (archPos != std::string::npos) classifierKey.replace(archPos, 7, "64");
-
-                    if (!classifierKey.empty() && downloads["classifiers"].contains(classifierKey)) {
-                        const auto& art = downloads["classifiers"][classifierKey];
-                        fs::path dest = librariesDir / fs::path(art.value("path",""));
-                        if (!ensureFile(art.value("url",""), dest, art.value("sha1",""), errorOut)) return false;
-                        nativesJarsToExtract.push_back(dest);
-                    }
+                if (!classifierKey.empty() && downloads["classifiers"].contains(classifierKey)) {
+                    const auto& art = downloads["classifiers"][classifierKey];
+                    fs::path dest = librariesDir / fs::path(art.value("path", ""));
+                    libraryDownloads.push_back({art.value("url", ""), dest, art.value("sha1", "")});
+                    nativesJarsToExtract.push_back(dest);
                 }
             }
         }
+
+        onProgress("libraries", 0.0, "Загружаем библиотеки параллельно...");
+        if (!downloadFilesParallel(libraryDownloads, errorOut, onProgress, "libraries", 8)) return false;
     }
 
     onProgress("libraries", 1.0, "Распаковываем нативные библиотеки...");
@@ -3627,23 +3720,20 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         catch (const std::exception& e) { errorOut = std::string("Не удалось разобрать asset index: ") + e.what(); return false; }
 
         if (assetIndex.contains("objects")) {
-            size_t total = assetIndex["objects"].size();
-            size_t idx = 0;
+            std::vector<DownloadTask> assetDownloads;
+            assetDownloads.reserve(assetIndex["objects"].size());
+
             for (auto it = assetIndex["objects"].begin(); it != assetIndex["objects"].end(); ++it) {
-                idx++;
-                if (!waitWhilePausedOrCancelled(errorOut)) return false;
                 std::string hash = it.value().value("hash", "");
                 if (hash.size() < 2) continue;
                 std::string prefix = hash.substr(0, 2);
                 fs::path dest = assetsDir / "objects" / prefix / hash;
                 std::string url = "https://resources.download.minecraft.net/" + prefix + "/" + hash;
-
-                if ((idx % 25) == 0 || idx == total) {
-                    onProgress("assets", (double)idx / (double)std::max<size_t>(1,total), "");
-                }
-
-                if (!ensureFile(url, dest, hash, errorOut)) return false;
+                assetDownloads.push_back({url, dest, hash});
             }
+
+            onProgress("assets", 0.0, "Загружаем ассеты параллельно...");
+            if (!downloadFilesParallel(assetDownloads, errorOut, onProgress, "assets", 8)) return false;
         }
     }
 
@@ -3665,7 +3755,7 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
     if (ramMb < 512) ramMb = 512;
     if (ramMb > 65536) ramMb = 65536;
 
-    std::string classpath = clientJarPath.string();
+    std::string classpath = pathToUtf8(clientJarPath);
     for (const auto& e : classpathEntries) { classpath += platform::kPathListSep; classpath += e; }
 
     std::vector<std::pair<std::string,std::string>> vars = {
@@ -3780,14 +3870,17 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
 #ifdef _WIN32
 
     std::string cmdLine = cmd.str();
-    std::vector<char> cmdBuf(cmdLine.begin(), cmdLine.end());
-    cmdBuf.push_back('\0');
+    std::wstring wideCommand = pathFromUtf8(cmdLine).wstring();
+    std::vector<wchar_t> cmdBuf(wideCommand.begin(), wideCommand.end());
+    cmdBuf.push_back(L'\0');
 
-    STARTUPINFOA si{}; si.cb = sizeof(si);
+    std::wstring wideJavaPath = pathFromUtf8(javaPath).wstring();
+    std::wstring wideWorkingDirectory = instanceDir.wstring();
+    STARTUPINFOW si{}; si.cb = sizeof(si);
     PROCESS_INFORMATION pi{};
-    BOOL ok = CreateProcessA(
-        nullptr, cmdBuf.data(), nullptr, nullptr, FALSE,
-        CREATE_NO_WINDOW, nullptr, instanceDir.string().c_str(), &si, &pi);
+    BOOL ok = CreateProcessW(
+        wideJavaPath.c_str(), cmdBuf.data(), nullptr, nullptr, FALSE,
+        CREATE_NO_WINDOW, nullptr, wideWorkingDirectory.c_str(), &si, &pi);
 
         if (!ok) {
         DWORD err = GetLastError();
