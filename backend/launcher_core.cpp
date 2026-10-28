@@ -3722,10 +3722,11 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         if (assetIndex.contains("objects")) {
             std::vector<DownloadTask> assetDownloads;
             assetDownloads.reserve(assetIndex["objects"].size());
+            std::map<std::string, bool> scheduledAssetHashes;
 
             for (auto it = assetIndex["objects"].begin(); it != assetIndex["objects"].end(); ++it) {
                 std::string hash = it.value().value("hash", "");
-                if (hash.size() < 2) continue;
+                if (hash.size() < 2 || !scheduledAssetHashes.emplace(hash, true).second) continue;
                 std::string prefix = hash.substr(0, 2);
                 fs::path dest = assetsDir / "objects" / prefix / hash;
                 std::string url = "https://resources.download.minecraft.net/" + prefix + "/" + hash;
