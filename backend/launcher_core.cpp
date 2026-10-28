@@ -3744,7 +3744,7 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
     std::string accessToken = isOnlineAuth ? req.authAccessToken : "0";
     std::string userType = isOnlineAuth ? "msa" : "legacy";
 
-    fs::path instanceDir = req.instanceName.empty() ? root : (root / "instances" / req.instanceName);
+    fs::path instanceDir = req.instanceName.empty() ? root : (root / "instances" / pathFromUtf8(req.instanceName));
     fs::create_directories(instanceDir);
 
     if (req.instanceName.empty()) {
@@ -3761,22 +3761,22 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
     std::vector<std::pair<std::string,std::string>> vars = {
         {"auth_player_name", req.username},
         {"version_name", req.version},
-        {"game_directory", instanceDir.string()},
-        {"assets_root", assetsDir.string()},
+        {"game_directory", pathToUtf8(instanceDir)},
+        {"assets_root", pathToUtf8(assetsDir)},
         {"assets_index_name", vjson.value("assets", req.version)},
         {"auth_uuid", uuid},
         {"auth_access_token", accessToken},
         {"user_type", userType},
         {"version_type", vjson.value("type", "release")},
-        {"natives_directory", nativesDir.string()},
+        {"natives_directory", pathToUtf8(nativesDir)},
         {"launcher_name", "MagmaLauncher"},
         {"launcher_version", "1.0"},
         {"classpath", classpath},
         {"auth_session", "0"},
-        {"game_assets", (assetsDir / "virtual" / "legacy").string()},
+        {"game_assets", pathToUtf8(assetsDir / "virtual" / "legacy")},
         {"user_properties", "{}"},
         {"classpath_separator", platform::kPathListSep},
-        {"library_directory", librariesDir.string()},
+        {"library_directory", pathToUtf8(librariesDir)},
     };
 
     std::vector<std::string> jvmArgs;
@@ -3853,7 +3853,7 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         if (a == "-cp" || a == "-classpath") hasCp = true;
         if (a.rfind("-Djava.library.path", 0) == 0) hasLibPath = true;
     }
-    if (!hasLibPath) jvmArgs.insert(jvmArgs.begin(), "-Djava.library.path=" + nativesDir.string());
+    if (!hasLibPath) jvmArgs.insert(jvmArgs.begin(), "-Djava.library.path=" + pathToUtf8(nativesDir));
     if (!hasCp) { jvmArgs.push_back("-cp"); jvmArgs.push_back(classpath); }
 
     std::string mainClass = ((req.loader == "fabric" || req.loader == "quilt") && !fabricMainClass.empty())
