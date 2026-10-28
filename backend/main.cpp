@@ -12,7 +12,11 @@
 #include "include/views/cef_browser_view.h"
 #include "include/views/cef_window.h"
 #include "include/cef_image.h"
+#ifdef __APPLE__
+#include "include/wrapper/cef_library_loader.h"
 #endif
+#endif
+#include <cstring>
 
 #include "include/cef_app.h"
 #include "include/cef_client.h"
@@ -1917,6 +1921,8 @@ void OnBeforeCommandLineProcessing(const CefString& process_type,
     command_line->AppendSwitchWithValue("use-gl", "angle");
     command_line->AppendSwitchWithValue("use-angle", "d3d11");
     command_line->AppendSwitch("ignore-gpu-blocklist");
+#elif defined(__APPLE__)
+    command_line->AppendSwitch("use-mock-keychain");
 #else
     command_line->AppendSwitchWithValue("class", "MagmaLauncher");
     command_line->AppendSwitchWithValue("name", "MagmaLauncher");
@@ -2030,11 +2036,23 @@ private:
 
 #ifndef _WIN32
 int main(int argc, char* argv[]) {
+#ifdef __APPLE__
+    bool isChildProcess = false;
+    for (int i = 1; i < argc; i++) {
+        if (std::strncmp(argv[i], "--type=", 7) == 0) isChildProcess = true;
+    }
+    CefScopedLibraryLoader libraryLoader;
+    if (isChildProcess ? !libraryLoader.LoadInHelper() : !libraryLoader.LoadInMain()) return 1;
+#endif
     CefMainArgs main_args(argc, argv);
     CefRefPtr<MagmaApp> app(new MagmaApp());
 
     int exit_code = CefExecuteProcess(main_args, app.get(), nullptr);
     if (exit_code >= 0) return exit_code;
+
+#ifdef __APPLE__
+    platform::macInitApplication();
+#endif
 
     curl_global_init(CURL_GLOBAL_DEFAULT);
 

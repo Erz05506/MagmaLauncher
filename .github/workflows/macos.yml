@@ -1,0 +1,76 @@
+name: macOS build
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CEF_VERSION: "156.0.14+g4fa4ab5+chromium-156.0.8078.48"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            cef_platform: macosarm64
+            arch: arm64
+          - runner: macos-15-intel
+            cef_platform: macosx64
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: brew install ninja nlohmann-json
+
+      - name: Create secret.h
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
+        run: |
+          if [ ! -f backend/secret.h ]; then
+            printf '#pragma once\n#define GOOGLE_CLIENT_ID "%s"\n#define GOOGLE_CLIENT_SECRET "%s"\n#define CURSEFORGE_API_KEY "%s"\n' "$GOOGLE_CLIENT_ID" "$GOOGLE_CLIENT_SECRET" "$CURSEFORGE_API_KEY" > backend/secret.h
+          fi
+
+      - name: Download CEF
+        run: |
+          VERSION="${CEF_VERSION//+/%2B}"
+          curl -fL -o cef.tar.bz2 "https://cef-builds.spotifycdn.com/cef_binary_${VERSION}_${{ matrix.cef_platform }}.tar.bz2"
+          mkdir -p backend/cef-macos
+          tar -xjf cef.tar.bz2 --strip-components=1 -C backend/cef-macos
+
+      - name: Build icns
+        run: |
+          mkdir -p icon.iconset
+          for s in 16 32 128 256 512; do
+            sips -z $s $s assets/magmalauncher.png --out icon.iconset/icon_${s}x${s}.png
+            sips -z $((s*2)) $((s*2)) assets/magmalauncher.png --out icon.iconset/icon_${s}x${s}@2x.png
+          done
+          iconutil -c icns icon.iconset -o assets/magmalauncher.icns
+
+      - name: Configure
+        run: |
+          cmake -S backend -B backend/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
+            -DPROJECT_ARCH=${{ matrix.arch }} \
+            -DCMAKE_PREFIX_PATH="$(brew --prefix)"
+
+      - name: Build
+        run: cmake --build backend/build --target MagmaLauncher
+
+      - name: Sign and package
+        run: |
+          codesign --force --deep --sign - backend/build/MagmaLauncher.app
+          hdiutil create -volname MagmaLauncher -srcfolder backend/build/MagmaLauncher.app -ov -format UDZO MagmaLauncher-macos-${{ matrix.arch }}.dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MagmaLauncher-macos-${{ matrix.arch }}
+          path: MagmaLauncher-macos-${{ matrix.arch }}.dmg

@@ -78,6 +78,10 @@ inline std::string lastNonEmptyLine(const std::string& text) {
 }
 #endif
 
+#if defined(__APPLE__)
+void macInitApplication();
+#endif
+
 #if defined(__linux__)
 struct IconImage {
     int width = 0, height = 0;

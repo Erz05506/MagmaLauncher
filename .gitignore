@@ -3,6 +3,8 @@ secret.h
 installer/*.exe
 
 **/cef/
+**/cef-linux/
+**/cef-macos/
 **/build/
 **/vcpkg/
 **/vcpkg_installed/

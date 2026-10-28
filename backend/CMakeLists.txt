@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(MagmaLauncher CXX)
+project(MagmaLauncher C CXX)
+
+if(APPLE)
+    enable_language(OBJCXX)
+    set(CMAKE_OBJCXX_STANDARD 20)
+    set(CMAKE_OBJCXX_STANDARD_REQUIRED ON)
+endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -75,6 +81,7 @@ if(WIN32)
 elseif(APPLE)
     set(MAGMA_PLATFORM_SOURCE
         platform/platform_macos.cpp
+        platform/platform_mac_app.mm
     )
 elseif(UNIX)
     set(MAGMA_PLATFORM_SOURCE
@@ -173,19 +180,21 @@ endif()
 # CEF FILES
 # ============================================================
 
-COPY_FILES(
-    "MagmaLauncher"
-    "${CEF_BINARY_FILES}"
-    "${CEF_BINARY_DIR}"
-    "$<TARGET_FILE_DIR:MagmaLauncher>"
-)
+if(NOT APPLE)
+    COPY_FILES(
+        "MagmaLauncher"
+        "${CEF_BINARY_FILES}"
+        "${CEF_BINARY_DIR}"
+        "$<TARGET_FILE_DIR:MagmaLauncher>"
+    )
 
-COPY_FILES(
-    "MagmaLauncher"
-    "${CEF_RESOURCE_FILES}"
-    "${CEF_RESOURCE_DIR}"
-    "$<TARGET_FILE_DIR:MagmaLauncher>"
-)
+    COPY_FILES(
+        "MagmaLauncher"
+        "${CEF_RESOURCE_FILES}"
+        "${CEF_RESOURCE_DIR}"
+        "$<TARGET_FILE_DIR:MagmaLauncher>"
+    )
+endif()
 
 # ============================================================
 # FRONTEND / ASSETS
@@ -197,20 +206,22 @@ target_compile_definitions(MagmaLauncher PRIVATE
     PROJECT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../frontend"
 )
 
-add_custom_command(
-    TARGET MagmaLauncher
-    POST_BUILD
+if(NOT APPLE)
+    add_custom_command(
+        TARGET MagmaLauncher
+        POST_BUILD
 
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/../frontend"
-        "$<TARGET_FILE_DIR:MagmaLauncher>/frontend"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/../frontend"
+            "$<TARGET_FILE_DIR:MagmaLauncher>/frontend"
 
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/../assets"
-        "$<TARGET_FILE_DIR:MagmaLauncher>/assets"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/../assets"
+            "$<TARGET_FILE_DIR:MagmaLauncher>/assets"
 
-    VERBATIM
-)
+        VERBATIM
+    )
+endif()
 
 # ============================================================
 # DISABLE CEF DEMO TARGETS
@@ -364,6 +375,110 @@ if(WIN32)
     )
 endif()
 
+
+# ============================================================
+# MACOS BUNDLE
+# ============================================================
+
+if(APPLE)
+    set(MAGMA_APP_CONTENTS "$<TARGET_BUNDLE_CONTENT_DIR:MagmaLauncher>")
+    set(MAGMA_APP_FRAMEWORKS "${MAGMA_APP_CONTENTS}/Frameworks")
+    set(MAGMA_APP_RESOURCES "${MAGMA_APP_CONTENTS}/Resources")
+
+    set_target_properties(MagmaLauncher PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/mac/Info.plist"
+    )
+
+    target_link_libraries(MagmaLauncher PRIVATE "-framework Cocoa")
+
+    add_custom_command(
+        TARGET MagmaLauncher
+        POST_BUILD
+
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "${MAGMA_APP_FRAMEWORKS}"
+            "${MAGMA_APP_RESOURCES}"
+
+        COMMAND ditto
+            "${CEF_ROOT}/$<CONFIG>/Chromium Embedded Framework.framework"
+            "${MAGMA_APP_FRAMEWORKS}/Chromium Embedded Framework.framework"
+
+        COMMAND ditto
+            "${CMAKE_CURRENT_SOURCE_DIR}/../frontend"
+            "${MAGMA_APP_RESOURCES}/frontend"
+
+        COMMAND ditto
+            "${CMAKE_CURRENT_SOURCE_DIR}/../assets"
+            "${MAGMA_APP_RESOURCES}/assets"
+
+        VERBATIM
+    )
+
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../assets/magmalauncher.icns")
+        add_custom_command(
+            TARGET MagmaLauncher
+            POST_BUILD
+
+            COMMAND "${CMAKE_COMMAND}" -E copy
+                "${CMAKE_CURRENT_SOURCE_DIR}/../assets/magmalauncher.icns"
+                "${MAGMA_APP_RESOURCES}/magmalauncher.icns"
+
+            VERBATIM
+        )
+    endif()
+
+    set(MAGMA_HELPER_PLIST_TEMPLATE [=[<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleExecutable</key><string>@HELPER_NAME@</string>
+  <key>CFBundleIdentifier</key><string>@HELPER_ID@</string>
+  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+  <key>CFBundleName</key><string>@HELPER_NAME@</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>LSFileQuarantineEnabled</key><true/>
+  <key>LSMinimumSystemVersion</key><string>11.0</string>
+  <key>LSUIElement</key><string>1</string>
+  <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
+</dict>
+</plist>
+]=])
+
+    foreach(MAGMA_HELPER_SUFFIX IN ITEMS "" " (GPU)" " (Renderer)" " (Plugin)" " (Alerts)")
+        set(HELPER_NAME "MagmaLauncher Helper${MAGMA_HELPER_SUFFIX}")
+        string(REGEX REPLACE "[ ()]" "" HELPER_ID_SUFFIX "${MAGMA_HELPER_SUFFIX}")
+        set(HELPER_ID "com.magmalauncher.launcher.helper")
+        if(HELPER_ID_SUFFIX)
+            set(HELPER_ID "${HELPER_ID}.${HELPER_ID_SUFFIX}")
+        endif()
+
+        set(HELPER_PLIST "${CMAKE_CURRENT_BINARY_DIR}/helper_plists/${HELPER_NAME}.plist")
+        file(CONFIGURE OUTPUT "${HELPER_PLIST}" CONTENT "${MAGMA_HELPER_PLIST_TEMPLATE}" @ONLY)
+
+        set(HELPER_APP "${MAGMA_APP_FRAMEWORKS}/${HELPER_NAME}.app")
+
+        add_custom_command(
+            TARGET MagmaLauncher
+            POST_BUILD
+
+            COMMAND "${CMAKE_COMMAND}" -E make_directory
+                "${HELPER_APP}/Contents/MacOS"
+
+            COMMAND "${CMAKE_COMMAND}" -E copy
+                "$<TARGET_FILE:MagmaLauncher>"
+                "${HELPER_APP}/Contents/MacOS/${HELPER_NAME}"
+
+            COMMAND "${CMAKE_COMMAND}" -E copy
+                "${HELPER_PLIST}"
+                "${HELPER_APP}/Contents/Info.plist"
+
+            VERBATIM
+        )
+    endforeach()
+endif()
 
 # ============================================================
 # END
