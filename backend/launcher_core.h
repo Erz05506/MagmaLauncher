@@ -285,6 +285,7 @@ struct UpdateInfo {
     std::string version;
     std::string url;
     std::string notes;
+    int build = 0;
     bool available = false;
 };
 

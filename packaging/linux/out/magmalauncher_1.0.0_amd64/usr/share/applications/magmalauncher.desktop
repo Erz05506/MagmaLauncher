@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Magma Launcher
+Comment=Minecraft Launcher
+Exec=magmalauncher
+Icon=magmalauncher
+Terminal=false
+Categories=Game;
+StartupNotify=true
+StartupWMClass=MagmaLauncher

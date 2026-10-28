@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(MagmaLauncher CXX)
+project(MagmaLauncher C CXX)
+
+if(APPLE)
+    enable_language(OBJCXX)
+    set(CMAKE_OBJCXX_STANDARD 20)
+    set(CMAKE_OBJCXX_STANDARD_REQUIRED ON)
+endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -23,7 +29,21 @@ endif()
 # CEF
 # ============================================================
 
-set(CEF_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/cef")
+# Platform-specific CEF distribution.
+# Keep the existing Windows directory unchanged.
+if(WIN32)
+    set(CEF_DEFAULT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/cef")
+elseif(APPLE)
+    set(CEF_DEFAULT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/cef-macos")
+elseif(UNIX)
+    set(CEF_DEFAULT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/cef-linux")
+endif()
+
+set(CEF_ROOT "${CEF_DEFAULT_ROOT}" CACHE PATH
+    "Path to the CEF distribution for the target platform")
+
+message(STATUS "Target OS: ${CMAKE_SYSTEM_NAME}")
+message(STATUS "CEF root: ${CEF_ROOT}")
 
 if(NOT EXISTS "${CEF_ROOT}/CMakeLists.txt")
     message(FATAL_ERROR
@@ -49,14 +69,54 @@ find_package(CURL REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(ZLIB REQUIRED)
 
+
 # ============================================================
 # MAGMA LAUNCHER
 # ============================================================
 
-add_executable(MagmaLauncher WIN32
+if(WIN32)
+    set(MAGMA_PLATFORM_SOURCE
+        platform/platform_windows.cpp
+    )
+elseif(APPLE)
+    set(MAGMA_PLATFORM_SOURCE
+        platform/platform_macos.cpp
+        platform/platform_mac_app.mm
+    )
+elseif(UNIX)
+    set(MAGMA_PLATFORM_SOURCE
+        platform/platform_linux.cpp
+        platform/platform_x11.cpp
+    )
+    find_package(X11 REQUIRED)
+else()
+    message(FATAL_ERROR "Unsupported operating system")
+endif()
+
+if(NOT WIN32)
+    set(MAGMA_PLATFORM_COMMON platform/platform_posix.cpp)
+endif()
+
+add_executable(MagmaLauncher
     main.cpp
     launcher_core.cpp
+    platform/platform_process.cpp
+    ${MAGMA_PLATFORM_COMMON}
+    ${MAGMA_PLATFORM_SOURCE}
 )
+
+if(WIN32)
+    set_target_properties(MagmaLauncher PROPERTIES
+        WIN32_EXECUTABLE TRUE
+        MSVC_RUNTIME_LIBRARY
+        "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+    )
+endif()
+
+target_include_directories(MagmaLauncher PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/platform"
+)
+
 
 # ============================================================
 # WINDOWS UTF-8 MANIFEST
@@ -100,38 +160,41 @@ target_include_directories(MagmaLauncher PRIVATE
 # ============================================================
 
 target_link_libraries(MagmaLauncher PRIVATE
-
     libcef_dll_wrapper
-
-    "$<$<CONFIG:Debug>:${CEF_ROOT}/Debug/libcef.lib>"
-    "$<$<CONFIG:Release>:${CEF_ROOT}/Release/libcef.lib>"
-
     CURL::libcurl
     nlohmann_json::nlohmann_json
     ZLIB::ZLIB
-
-    ws2_32
-    shell32
-    ole32
 )
+
+if(WIN32)
+    target_link_libraries(MagmaLauncher PRIVATE
+        "$<$<CONFIG:Debug>:${CEF_ROOT}/Debug/libcef.lib>"
+        "$<$<CONFIG:Release>:${CEF_ROOT}/Release/libcef.lib>"
+        ws2_32
+        shell32
+        ole32
+    )
+endif()
 
 # ============================================================
 # CEF FILES
 # ============================================================
 
-COPY_FILES(
-    "MagmaLauncher"
-    "${CEF_BINARY_FILES}"
-    "${CEF_BINARY_DIR}"
-    "$<TARGET_FILE_DIR:MagmaLauncher>"
-)
+if(NOT APPLE)
+    COPY_FILES(
+        "MagmaLauncher"
+        "${CEF_BINARY_FILES}"
+        "${CEF_BINARY_DIR}"
+        "$<TARGET_FILE_DIR:MagmaLauncher>"
+    )
 
-COPY_FILES(
-    "MagmaLauncher"
-    "${CEF_RESOURCE_FILES}"
-    "${CEF_RESOURCE_DIR}"
-    "$<TARGET_FILE_DIR:MagmaLauncher>"
-)
+    COPY_FILES(
+        "MagmaLauncher"
+        "${CEF_RESOURCE_FILES}"
+        "${CEF_RESOURCE_DIR}"
+        "$<TARGET_FILE_DIR:MagmaLauncher>"
+    )
+endif()
 
 # ============================================================
 # FRONTEND / ASSETS
@@ -143,20 +206,22 @@ target_compile_definitions(MagmaLauncher PRIVATE
     PROJECT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../frontend"
 )
 
-add_custom_command(
-    TARGET MagmaLauncher
-    POST_BUILD
+if(NOT APPLE)
+    add_custom_command(
+        TARGET MagmaLauncher
+        POST_BUILD
 
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/../frontend"
-        "$<TARGET_FILE_DIR:MagmaLauncher>/frontend"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/../frontend"
+            "$<TARGET_FILE_DIR:MagmaLauncher>/frontend"
 
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/../assets"
-        "$<TARGET_FILE_DIR:MagmaLauncher>/assets"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/../assets"
+            "$<TARGET_FILE_DIR:MagmaLauncher>/assets"
 
-    VERBATIM
-)
+        VERBATIM
+    )
+endif()
 
 # ============================================================
 # DISABLE CEF DEMO TARGETS
@@ -182,40 +247,50 @@ foreach(_cef_demo_target
 
 endforeach()
 
+
 # ============================================================
 # CEF RUNTIME
 # ============================================================
 
-set(CEF_RUNTIME_DIR
-    "${CEF_ROOT}/$<CONFIG>"
-)
+if(WIN32)
+    set(CEF_RUNTIME_DIR "${CEF_ROOT}/$<CONFIG>")
+    set(CEF_RESOURCES_DIR "${CEF_ROOT}/Resources")
 
-set(CEF_RESOURCES_DIR
-    "${CEF_ROOT}/Resources"
-)
+    add_custom_command(
+        TARGET MagmaLauncher
+        POST_BUILD
 
-add_custom_command(
-    TARGET MagmaLauncher
-    POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${CEF_RUNTIME_DIR}/libcef.dll"
+            "${CEF_RUNTIME_DIR}/chrome_elf.dll"
+            "${CEF_RUNTIME_DIR}/d3dcompiler_47.dll"
+            "${CEF_RUNTIME_DIR}/dxcompiler.dll"
+            "${CEF_RUNTIME_DIR}/dxil.dll"
+            "${CEF_RUNTIME_DIR}/libEGL.dll"
+            "${CEF_RUNTIME_DIR}/libGLESv2.dll"
+            "${CEF_RUNTIME_DIR}/vk_swiftshader.dll"
+            "${CEF_RUNTIME_DIR}/vulkan-1.dll"
+            "${CEF_RUNTIME_DIR}/vk_swiftshader_icd.json"
+            "${CEF_RUNTIME_DIR}/v8_context_snapshot.bin"
+            "$<TARGET_FILE_DIR:MagmaLauncher>"
 
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CEF_RUNTIME_DIR}/libcef.dll"
-        "${CEF_RUNTIME_DIR}/chrome_elf.dll"
-        "${CEF_RUNTIME_DIR}/d3dcompiler_47.dll"
-        "${CEF_RUNTIME_DIR}/dxcompiler.dll"
-        "${CEF_RUNTIME_DIR}/dxil.dll"
-        "${CEF_RUNTIME_DIR}/libEGL.dll"
-        "${CEF_RUNTIME_DIR}/libGLESv2.dll"
-        "${CEF_RUNTIME_DIR}/vk_swiftshader.dll"
-        "${CEF_RUNTIME_DIR}/vulkan-1.dll"
-        "${CEF_RUNTIME_DIR}/vk_swiftshader_icd.json"
-        "${CEF_RUNTIME_DIR}/v8_context_snapshot.bin"
-        "$<TARGET_FILE_DIR:MagmaLauncher>"
+        COMMAND_EXPAND_LISTS
+        VERBATIM
+    )
 
-    COMMAND_EXPAND_LISTS
+    if(EXISTS "${CEF_RESOURCES_DIR}")
+        add_custom_command(
+            TARGET MagmaLauncher
+            POST_BUILD
 
-    VERBATIM
-)
+            COMMAND "${CMAKE_COMMAND}" -E copy_directory
+                "${CEF_RESOURCES_DIR}"
+                "$<TARGET_FILE_DIR:MagmaLauncher>"
+
+            VERBATIM
+        )
+    endif()
+endif()
 
 # ============================================================
 # CEF RESOURCES
@@ -236,107 +311,174 @@ if(EXISTS "${CEF_RESOURCES_DIR}")
 
 endif()
 
+
 # ============================================================
 # DISTRIBUTION
 # ============================================================
 
-set(MAGMA_DIST_DIR
-    "${CMAKE_CURRENT_BINARY_DIR}/dist"
-)
+set(MAGMA_DIST_DIR "${CMAKE_CURRENT_BINARY_DIR}/dist")
+file(MAKE_DIRECTORY "${MAGMA_DIST_DIR}")
+
+if(UNIX AND NOT APPLE)
+target_link_libraries(MagmaLauncher PRIVATE X11::X11)
+    target_link_libraries(MagmaLauncher PRIVATE
+        "${CEF_ROOT}/Release/libcef.so" pthread dl)
+    set_target_properties(MagmaLauncher PROPERTIES
+        BUILD_RPATH "\$ORIGIN"
+        INSTALL_RPATH "\$ORIGIN")
+    COPY_FILES("MagmaLauncher" "${CEF_BINARY_FILES}" "${CEF_BINARY_DIR}" "${MAGMA_DIST_DIR}")
+    COPY_FILES("MagmaLauncher" "${CEF_RESOURCE_FILES}" "${CEF_RESOURCE_DIR}" "${MAGMA_DIST_DIR}")
+endif()
+
+if(WIN32)
+    set(MAGMA_DIST_EXECUTABLE "MagmaLauncher.exe")
+else()
+    set(MAGMA_DIST_EXECUTABLE "MagmaLauncher")
+endif()
 
 add_custom_command(
     TARGET MagmaLauncher
     POST_BUILD
 
-    COMMAND ${CMAKE_COMMAND} -E make_directory
+    COMMAND "${CMAKE_COMMAND}" -E make_directory
         "${MAGMA_DIST_DIR}"
 
-    COMMAND ${CMAKE_COMMAND} -E copy
+    COMMAND "${CMAKE_COMMAND}" -E copy
         "$<TARGET_FILE:MagmaLauncher>"
-        "${MAGMA_DIST_DIR}/MagmaLauncher.exe"
+        "${MAGMA_DIST_DIR}/${MAGMA_DIST_EXECUTABLE}"
 
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_BINARY_DIR}/libcef.dll"
-        "${MAGMA_DIST_DIR}/libcef.dll"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_BINARY_DIR}/frontend"
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/../frontend"
         "${MAGMA_DIST_DIR}/frontend"
 
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_BINARY_DIR}/assets"
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/../assets"
         "${MAGMA_DIST_DIR}/assets"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_BINARY_DIR}/locales"
-        "${MAGMA_DIST_DIR}/locales"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_BINARY_DIR}/chrome_100_percent.pak"
-        "${MAGMA_DIST_DIR}/chrome_100_percent.pak"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_BINARY_DIR}/chrome_200_percent.pak"
-        "${MAGMA_DIST_DIR}/chrome_200_percent.pak"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_BINARY_DIR}/chrome_elf.dll"
-        "${MAGMA_DIST_DIR}/chrome_elf.dll"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_BINARY_DIR}/d3dcompiler_47.dll"
-        "${MAGMA_DIST_DIR}/d3dcompiler_47.dll"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_BINARY_DIR}/dxcompiler.dll"
-        "${MAGMA_DIST_DIR}/dxcompiler.dll"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_BINARY_DIR}/dxil.dll"
-        "${MAGMA_DIST_DIR}/dxil.dll"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_BINARY_DIR}/icudtl.dat"
-        "${MAGMA_DIST_DIR}/icudtl.dat"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_BINARY_DIR}/libcurl.dll"
-        "${MAGMA_DIST_DIR}/libcurl.dll"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_BINARY_DIR}/libEGL.dll"
-        "${MAGMA_DIST_DIR}/libEGL.dll"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_BINARY_DIR}/libGLESv2.dll"
-        "${MAGMA_DIST_DIR}/libGLESv2.dll"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_BINARY_DIR}/resources.pak"
-        "${MAGMA_DIST_DIR}/resources.pak"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_BINARY_DIR}/v8_context_snapshot.bin"
-        "${MAGMA_DIST_DIR}/v8_context_snapshot.bin"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_BINARY_DIR}/vk_swiftshader.dll"
-        "${MAGMA_DIST_DIR}/vk_swiftshader.dll"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_BINARY_DIR}/vk_swiftshader_icd.json"
-        "${MAGMA_DIST_DIR}/vk_swiftshader_icd.json"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_BINARY_DIR}/vulkan-1.dll"
-        "${MAGMA_DIST_DIR}/vulkan-1.dll"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_BINARY_DIR}/z.dll"
-        "${MAGMA_DIST_DIR}/z.dll"
 
     VERBATIM
 )
+
+if(WIN32)
+    add_custom_command(
+        TARGET MagmaLauncher
+        POST_BUILD
+
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${CMAKE_CURRENT_BINARY_DIR}/libcef.dll"
+            "${MAGMA_DIST_DIR}/libcef.dll"
+
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory
+            "${CMAKE_CURRENT_BINARY_DIR}/locales"
+            "${MAGMA_DIST_DIR}/locales"
+
+        VERBATIM
+    )
+endif()
+
+
+# ============================================================
+# MACOS BUNDLE
+# ============================================================
+
+if(APPLE)
+    set(MAGMA_APP_CONTENTS "$<TARGET_BUNDLE_CONTENT_DIR:MagmaLauncher>")
+    set(MAGMA_APP_FRAMEWORKS "${MAGMA_APP_CONTENTS}/Frameworks")
+    set(MAGMA_APP_RESOURCES "${MAGMA_APP_CONTENTS}/Resources")
+
+    set_target_properties(MagmaLauncher PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/mac/Info.plist"
+    )
+
+    target_link_libraries(MagmaLauncher PRIVATE "-framework Cocoa")
+
+    add_custom_command(
+        TARGET MagmaLauncher
+        POST_BUILD
+
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "${MAGMA_APP_FRAMEWORKS}"
+            "${MAGMA_APP_RESOURCES}"
+
+        COMMAND ditto
+            "${CEF_ROOT}/$<CONFIG>/Chromium Embedded Framework.framework"
+            "${MAGMA_APP_FRAMEWORKS}/Chromium Embedded Framework.framework"
+
+        COMMAND ditto
+            "${CMAKE_CURRENT_SOURCE_DIR}/../frontend"
+            "${MAGMA_APP_RESOURCES}/frontend"
+
+        COMMAND ditto
+            "${CMAKE_CURRENT_SOURCE_DIR}/../assets"
+            "${MAGMA_APP_RESOURCES}/assets"
+
+        VERBATIM
+    )
+
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../assets/magmalauncher.icns")
+        add_custom_command(
+            TARGET MagmaLauncher
+            POST_BUILD
+
+            COMMAND "${CMAKE_COMMAND}" -E copy
+                "${CMAKE_CURRENT_SOURCE_DIR}/../assets/magmalauncher.icns"
+                "${MAGMA_APP_RESOURCES}/magmalauncher.icns"
+
+            VERBATIM
+        )
+    endif()
+
+    set(MAGMA_HELPER_PLIST_TEMPLATE [=[<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleExecutable</key><string>@HELPER_NAME@</string>
+  <key>CFBundleIdentifier</key><string>@HELPER_ID@</string>
+  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+  <key>CFBundleName</key><string>@HELPER_NAME@</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>LSFileQuarantineEnabled</key><true/>
+  <key>LSMinimumSystemVersion</key><string>11.0</string>
+  <key>LSUIElement</key><string>1</string>
+  <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
+</dict>
+</plist>
+]=])
+
+    foreach(MAGMA_HELPER_SUFFIX IN ITEMS "" " (GPU)" " (Renderer)" " (Plugin)" " (Alerts)")
+        set(HELPER_NAME "MagmaLauncher Helper${MAGMA_HELPER_SUFFIX}")
+        string(REGEX REPLACE "[ ()]" "" HELPER_ID_SUFFIX "${MAGMA_HELPER_SUFFIX}")
+        set(HELPER_ID "com.magmalauncher.launcher.helper")
+        if(HELPER_ID_SUFFIX)
+            set(HELPER_ID "${HELPER_ID}.${HELPER_ID_SUFFIX}")
+        endif()
+
+        set(HELPER_PLIST "${CMAKE_CURRENT_BINARY_DIR}/helper_plists/${HELPER_NAME}.plist")
+        file(CONFIGURE OUTPUT "${HELPER_PLIST}" CONTENT "${MAGMA_HELPER_PLIST_TEMPLATE}" @ONLY)
+
+        set(HELPER_APP "${MAGMA_APP_FRAMEWORKS}/${HELPER_NAME}.app")
+
+        add_custom_command(
+            TARGET MagmaLauncher
+            POST_BUILD
+
+            COMMAND "${CMAKE_COMMAND}" -E make_directory
+                "${HELPER_APP}/Contents/MacOS"
+
+            COMMAND "${CMAKE_COMMAND}" -E copy
+                "$<TARGET_FILE:MagmaLauncher>"
+                "${HELPER_APP}/Contents/MacOS/${HELPER_NAME}"
+
+            COMMAND "${CMAKE_COMMAND}" -E copy
+                "${HELPER_PLIST}"
+                "${HELPER_APP}/Contents/Info.plist"
+
+            VERBATIM
+        )
+    endforeach()
+endif()
 
 # ============================================================
 # END

@@ -1,9 +1,22 @@
 // MagmaLauncher — native entry point
 
+#ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
 #include <shellapi.h>
+#else
+#include <unistd.h>
+#include <codecvt>
+#include <locale>
+#include "include/views/cef_browser_view.h"
+#include "include/views/cef_window.h"
+#include "include/cef_image.h"
+#ifdef __APPLE__
+#include "include/wrapper/cef_library_loader.h"
+#endif
+#endif
+#include <cstring>
 
 #include "include/cef_app.h"
 #include "include/cef_client.h"
@@ -13,7 +26,9 @@
 #include "include/wrapper/cef_helpers.h"
 #include "include/wrapper/cef_message_router.h"
 
+#ifdef _WIN32
 #include <shlobj.h>
+#endif
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
 #include <iostream>
@@ -26,11 +41,12 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#ifdef _WIN32
 #include <shobjidl.h>
-#include <exception>
-#include <cstdlib>
+#endif
 
 #include "secret.h"
+#include "platform/platform.h"
 #include "launcher_core.h"
 
 #pragma comment(lib, "ws2_32.lib")
@@ -39,45 +55,21 @@
 using json = nlohmann::json;
 using Callback = CefMessageRouterBrowserSide::Callback;
 
-
-static void writeCrashLog(const std::string& message) noexcept {
-    try {
-        PWSTR localAppData = nullptr;
-        if (FAILED(SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, nullptr, &localAppData)) || !localAppData) return;
-        std::filesystem::path logDir = std::filesystem::path(localAppData) / L"MagmaLauncher";
-        CoTaskMemFree(localAppData);
-        std::error_code ec;
-        std::filesystem::create_directories(logDir, ec);
-        if (ec) return;
-        std::ofstream log(logDir / L"crash.log", std::ios::app | std::ios::binary);
-        if (log) { log << message << "\n----\n"; log.flush(); }
-    } catch (...) {
-        // Crash logging must never hide the original failure.
-    }
-}
-
-static void onTerminate() noexcept {
-    std::string message = "std::terminate called";
-    try {
-        if (const std::exception_ptr ep = std::current_exception()) {
-            try {
-                std::rethrow_exception(ep);
-            } catch (const std::exception& e) {
-                message = std::string("uncaught exception: ") + e.what();
-            } catch (...) {
-                message = "uncaught unknown exception";
-            }
-        }
-    } catch (...) {
-        message = "std::terminate called (failed to inspect exception)";
-    }
-    writeCrashLog(message);
-    std::abort();
-}
+#ifndef _WIN32
+using HWND = cef_window_handle_t;
+#define SW_SHOWNORMAL 1
+inline void Sleep(unsigned ms) { platform::sleepMs(ms); }
+inline void ShellExecuteA(void*, const char*, const char* target, const char*, const char*, int) { platform::openUrl(target); }
+inline void* GetCurrentProcess() { return nullptr; }
+inline void TerminateProcess(void*, int) { _exit(0); }
+#endif
 
 static const int GOOGLE_REDIRECT_PORT = 53682;
-static const char* MAGMA_LAUNCHER_VERSION = "Alpha 1.1";
+static const char* MAGMA_LAUNCHER_VERSION = "Alpha 1"; 
 
+#ifndef _WIN32
+static void showErrorBox(const std::string& m, const std::string& t) { platform::showError(t, m); }
+#else
 static void showErrorBox(const std::string& utf8Message, const std::string& utf8Title) {
     int wideLen = MultiByteToWideChar(CP_UTF8, 0, utf8Message.c_str(), -1, nullptr, 0);
     std::wstring wideMessage(wideLen, L'\0');
@@ -89,6 +81,8 @@ static void showErrorBox(const std::string& utf8Message, const std::string& utf8
 
     MessageBoxW(nullptr, wideMessage.c_str(), wideTitle.c_str(), MB_OK | MB_ICONERROR);
 }
+
+#endif
 
 static size_t writeCallback(char* ptr, size_t size, size_t nmemb, std::string* data) {
     data->append(ptr, size * nmemb);
@@ -102,6 +96,7 @@ static std::string urlEncode(CURL* curl, const std::string& value) {
     return result;
 }
 
+#ifdef _WIN32
 static std::wstring utf8ToWide(const std::string& utf8) {
     if (utf8.empty()) return std::wstring();
     int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
@@ -177,13 +172,74 @@ static std::filesystem::path getExeDir() {
     return std::filesystem::path(buf).parent_path();
 }
 
+#else
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+static std::wstring utf8ToWide(const std::string& s) {
+    try { return std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(s); } catch (...) { return {}; }
+}
+static std::string wideToUtf8(const std::wstring& w) {
+    try { return std::wstring_convert<std::codecvt_utf8<wchar_t>>().to_bytes(w); } catch (...) { return {}; }
+}
+static bool showNativePickerDialog(bool pickFolders, const std::wstring&, const std::wstring&,
+                                    const std::wstring& initialDir, std::wstring& pathOut) {
+    std::filesystem::path out, init = wideToUtf8(initialDir);
+    bool ok = pickFolders ? platform::pickFolder(init, out) : platform::pickFile(init, out);
+    if (ok) pathOut = utf8ToWide(out.string());
+    return ok;
+}
+static std::filesystem::path getExeDir() { return platform::executableDir(); }
+#endif
+
 static std::filesystem::path getFrontendDir() {
-    std::filesystem::path local = getExeDir() / "frontend";
+    std::filesystem::path local = platform::resourceDir() / "frontend";
     std::error_code ec;
     if (std::filesystem::exists(local / "index.html", ec)) return local;
     return std::filesystem::path(PROJECT_DIR);
 }
 
+static std::filesystem::path getUpdateGuardPath() {
+    const char* base = std::getenv("LOCALAPPDATA");
+    std::filesystem::path dir = base ? (std::filesystem::path(base) / "MagmaLauncher") : getExeDir();
+    std::error_code ec;
+    std::filesystem::create_directories(dir, ec);
+    return dir / "update_attempt.txt";
+}
+
+#ifndef _WIN32
+static void waitForPreviousInstanceIfUpdated() {}
+#else
+static void waitForPreviousInstanceIfUpdated() {
+    std::wstring cmd = GetCommandLineW();
+    const std::wstring key = L"--updated-from=";
+    size_t pos = cmd.find(key);
+    if (pos == std::wstring::npos) return;
+    DWORD pid = (DWORD)wcstoul(cmd.c_str() + pos + key.size(), nullptr, 10);
+    if (pid) {
+        HANDLE h = OpenProcess(SYNCHRONIZE, FALSE, pid);
+        if (h) {
+            WaitForSingleObject(h, 20000);
+            CloseHandle(h);
+        }
+    }
+    Sleep(500);
+}
+
+#endif
+
+static void cleanupOldUpdateBackups() {
+    std::error_code ec;
+    for (auto it = std::filesystem::recursive_directory_iterator(
+             getExeDir(), std::filesystem::directory_options::skip_permission_denied, ec);
+         !ec && it != std::filesystem::recursive_directory_iterator(); it.increment(ec)) {
+        std::error_code fe;
+        if (!it->is_regular_file(fe)) continue;
+        if (it->path().extension() == ".old") std::filesystem::remove(it->path(), fe);
+    }
+}
+
+#ifndef _WIN32
+static void applyWindowIcon(HWND) {}
+#else
 static void applyWindowIcon(HWND hwnd) {
     if (!hwnd) return;
     HWND root = GetAncestor(hwnd, GA_ROOT);
@@ -222,6 +278,8 @@ static void applyWindowIcon(HWND hwnd) {
         SetClassLongPtrW(hwnd, GCLP_HICONSM, (LONG_PTR)smallIcon);
     }
 }
+
+#endif
 
 static std::vector<unsigned char> base64Decode(const std::string& in) {
     static const std::string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -279,6 +337,9 @@ static bool httpGetBinary(const std::string& url, std::string& out, std::string&
     return true;
 }
 
+#ifndef _WIN32
+bool waitForGoogleAuthCode(std::string&, std::string& errorOut) { errorOut = "Google OAuth: только Windows"; return false; }
+#else
 bool waitForGoogleAuthCode(std::string& authCode, std::string& errorOut) {
     CURL* curlTmp = curl_easy_init();
     if (!curlTmp) { errorOut = "curl_easy_init failed"; return false; }
@@ -397,6 +458,8 @@ bool waitForGoogleAuthCode(std::string& authCode, std::string& errorOut) {
     return true;
 }
 
+#endif
+
 bool exchangeGoogleCode(const std::string& authCode, std::string& accessToken, std::string& idToken, std::string& errorOut) {
     CURL* curl = curl_easy_init();
     if (!curl) { errorOut = "curl_easy_init failed"; return false; }
@@ -511,6 +574,23 @@ bool googleOAuthFlow(std::string& email, std::string& name, std::string& idToken
     return fetchGoogleUserInfo(accessToken, email, name, errorOut);
 }
 
+#ifndef _WIN32
+static bool g_launcherFullscreen = false;
+static CefRefPtr<CefWindow> g_mainWindow;
+static void applyLauncherFullscreen(HWND, bool enable) {
+    if (!g_mainWindow) return;
+    g_mainWindow->SetFullscreen(enable);
+    g_launcherFullscreen = enable;
+}
+static void applyLauncherWindowSize(HWND, int width, int height) {
+    if (!g_mainWindow) return;
+    if (g_launcherFullscreen) applyLauncherFullscreen(0, false);
+    if (width <= 0 || height <= 0) { g_mainWindow->Maximize(); return; }
+    g_mainWindow->Restore();
+    g_mainWindow->SetSize(CefSize(width, height));
+    g_mainWindow->CenterWindow(CefSize(width, height));
+}
+#else
 static bool g_launcherFullscreen = false;
 static WINDOWPLACEMENT g_launcherSavedPlacement{ sizeof(WINDOWPLACEMENT) };
 
@@ -572,6 +652,8 @@ static void applyLauncherWindowSize(HWND hwnd, int width, int height) {
         SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
 }
 
+#endif
+
 class FuncTask : public CefTask {
 public:
     explicit FuncTask(std::function<void()> fn) : fn_(std::move(fn)) {}
@@ -607,6 +689,19 @@ public:
         std::string name = req.value("name", "");
         json args = req.value("args", json::array());
         json arg0 = args.empty() ? json::object() : args[0];
+#ifndef _WIN32
+        if (arg0.is_object()) {
+            for (const char* k : {"dir", "gameDir", "targetDir", "modsDir", "javaPath",
+                                  "oldPath", "newPath", "initialDir", "extraJvmArgs"}) {
+                auto it = arg0.find(k);
+                if (it != arg0.end() && it->is_string()) {
+                    std::string s = it->get<std::string>();
+                    std::replace(s.begin(), s.end(), '\\', '/');
+                    *it = s;
+                }
+            }
+        }
+#endif
 
         try {
             if (name == "fetchSkinBytes") {
@@ -677,24 +772,14 @@ if (name == "getInstallConfig") {
     return true;
 }
 
-            if (name == "getDefaultGameDir") {
-                json result;
-                PWSTR appData = nullptr;
-                if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, nullptr, &appData)) && appData) {
-                    std::wstring defaultPath(appData);
-                    CoTaskMemFree(appData);
-                    defaultPath += L"\\MagmaLauncher";
-                    result["success"] = true;
-                    result["path"] = wideToUtf8(defaultPath);
-                } else {
-                    result["success"] = false;
-                    result["error"] = "ERR_DEFAULT_GAME_DIR";
-                }
-                callback->Success(result.dump());
-                return true;
-            }
+if (name == "getDefaultGameDir") {
+    json r; r["success"] = true;
+    r["path"] = platform::defaultGameDir().string();
+    callback->Success(r.dump());
+    return true;
+}
 
-            if (name == "getLauncherVersion") {
+if (name == "getLauncherVersion") {
     json r; r["version"] = MAGMA_LAUNCHER_VERSION;
     callback->Success(r.dump());
     return true;
@@ -706,7 +791,7 @@ if (name == "checkLauncherUpdate") {
         launcher::UpdateInfo info; std::string err;
         bool ok = launcher::checkLauncherUpdate(manifestUrl, MAGMA_LAUNCHER_VERSION, info, err);
         json r; r["success"] = ok;
-        if (ok) { r["available"] = info.available; r["version"] = info.version; r["url"] = info.url; r["notes"] = info.notes; }
+        if (ok) { r["available"] = info.available; r["version"] = info.version; r["build"] = info.build; r["url"] = info.url; r["notes"] = info.notes; }
         else r["error"] = err;
         std::string payload = r.dump();
         PostUi([callback, payload]() { callback->Success(payload); });
@@ -716,16 +801,35 @@ if (name == "checkLauncherUpdate") {
 
 if (name == "installLauncherUpdate") {
     std::string url = arg0.value("url", "");
-    std::thread([browser, url]() {
+    int build = arg0.value("build", 0);
+    std::string attemptKey = std::to_string(build) + "|" + url;
+    std::filesystem::path guardPath = getUpdateGuardPath();
+
+    std::string prevKey;
+    { std::ifstream in(guardPath, std::ios::binary); if (in) std::getline(in, prevKey); }
+    while (!prevKey.empty() && (prevKey.back() == '\r' || prevKey.back() == '\n')) prevKey.pop_back();
+    if (prevKey == attemptKey) {
+        json r; r["started"] = false; r["error"] = "ERR_UPDATE_LOOP||build " + std::to_string(build);
+        callback->Success(r.dump());
+        return true;
+    }
+    { std::ofstream out(guardPath, std::ios::binary | std::ios::trunc); out << attemptKey; }
+
+    std::thread([browser, url, guardPath]() {
         std::string err;
         bool ok = launcher::downloadAndInstallLauncherUpdate(url,
             [browser](const std::string& stage, double progress, const std::string& detail) {
                 json p; p["stage"] = stage; p["progress"] = progress; p["detail"] = detail;
                 PushJs(browser, "window.__updateProgress && window.__updateProgress(" + p.dump() + ");");
             }, err);
+        if (!ok) { std::error_code ec; std::filesystem::remove(guardPath, ec); }
         json done; done["success"] = ok; if (!ok) done["error"] = err;
         PushJs(browser, "window.__updateDone && window.__updateDone(" + done.dump() + ");");
-        if (ok) PostUi([]() { CefQuitMessageLoop(); }); 
+        if (ok) {
+            PostUi([]() { CefQuitMessageLoop(); });
+            Sleep(10000);                                   
+            TerminateProcess(GetCurrentProcess(), 0);
+        }
     }).detach();
     json started; started["started"] = true;
     callback->Success(started.dump());
@@ -1010,22 +1114,13 @@ if (name == "installLauncherUpdate") {
 
                 std::thread([browser, lr]() {
                     std::string errorOut;
-                    bool ok = false;
-                    try {
-                        ok = launcher::launchMinecraft(lr,
-                            [browser](const std::string& stage, double progress, const std::string& detail) {
-                                json p; p["stage"] = stage; p["progress"] = progress; p["detail"] = detail;
-                                std::string payload = p.dump();
-                                PushJs(browser, "window.__launchProgress && window.__launchProgress(" + payload + ");");
-                            },
-                            errorOut);
-                    } catch (const std::exception& e) {
-                        errorOut = std::string("ERR_INTERNAL||") + e.what();
-                        writeCrashLog(errorOut);
-                    } catch (...) {
-                        errorOut = "ERR_INTERNAL||unknown";
-                        writeCrashLog(errorOut);
-                    }
+                    bool ok = launcher::launchMinecraft(lr,
+                        [browser](const std::string& stage, double progress, const std::string& detail) {
+                            json p; p["stage"] = stage; p["progress"] = progress; p["detail"] = detail;
+                            std::string payload = p.dump();
+                            PushJs(browser, "window.__launchProgress && window.__launchProgress(" + payload + ");");
+                        },
+                        errorOut);
 
                     bool wasCancelled = (!ok && errorOut == "CANCELLED");
                     json done;
@@ -1589,7 +1684,13 @@ public:
         model->Clear();
     }
 
-        void OnAfterCreated(CefRefPtr<CefBrowser> browser) override {
+        #ifndef _WIN32
+    void OnAfterCreated(CefRefPtr<CefBrowser> browser) override {
+        CEF_REQUIRE_UI_THREAD();
+        browser_list_.push_back(browser);
+    }
+#else
+    void OnAfterCreated(CefRefPtr<CefBrowser> browser) override {
     CEF_REQUIRE_UI_THREAD();
     browser_list_.push_back(browser);
     applyWindowIcon(browser->GetHost()->GetWindowHandle());
@@ -1630,6 +1731,8 @@ public:
         browser->GetHost()->WasResized();
     }
 }
+
+#endif
 
     bool OnBeforePopup(CefRefPtr<CefBrowser> browser,
                     CefRefPtr<CefFrame> frame,
@@ -1688,20 +1791,157 @@ private:
     CefRefPtr<CefMessageRouterBrowserSide> message_router_;
 };
 
+#ifdef __linux__
+static std::vector<platform::IconImage> g_linuxIcons;
+
+static platform::IconImage downscaleIcon(const platform::IconImage& src, int target) {
+    platform::IconImage out;
+    out.width = out.height = target;
+    out.argb.assign(static_cast<size_t>(target) * target, 0);
+    for (int y = 0; y < target; y++) {
+        for (int x = 0; x < target; x++) {
+            int x0 = x * src.width / target,  x1 = std::max(x0 + 1, (x + 1) * src.width / target);
+            int y0 = y * src.height / target, y1 = std::max(y0 + 1, (y + 1) * src.height / target);
+            double a = 0, r = 0, g = 0, b = 0; int n = 0;
+            for (int yy = y0; yy < y1; yy++)
+                for (int xx = x0; xx < x1; xx++) {
+                    uint32_t p = src.argb[static_cast<size_t>(yy) * src.width + xx];
+                    double pa = (p >> 24) & 0xFF;
+                    a += pa; r += ((p >> 16) & 0xFF) * pa; g += ((p >> 8) & 0xFF) * pa; b += (p & 0xFF) * pa; n++;
+                }
+            if (a <= 0 || n == 0) continue;
+            uint32_t A = (uint32_t)(a / n), R = (uint32_t)(r / a), G = (uint32_t)(g / a), B = (uint32_t)(b / a);
+            out.argb[static_cast<size_t>(y) * target + x] = (A << 24) | (R << 16) | (G << 8) | B;
+        }
+    }
+    return out;
+}
+
+static void buildLinuxIcons(CefRefPtr<CefImage> img) {
+    if (!g_linuxIcons.empty() || !img) return;
+    int w = (int)img->GetWidth(), h = (int)img->GetHeight();
+    if (w <= 0 || h <= 0) return;
+    CefRefPtr<CefBinaryValue> bin = img->GetAsBitmap(
+        1.0f, CEF_COLOR_TYPE_BGRA_8888, CEF_ALPHA_TYPE_POSTMULTIPLIED, w, h);
+    if (!bin || bin->GetSize() < (size_t)w * h * 4) return;
+
+    platform::IconImage full;
+    full.width = w; full.height = h;
+    full.argb.resize((size_t)w * h);
+    bin->GetData(full.argb.data(), (size_t)w * h * 4, 0);   // BGRA little-endian = 0xAARRGGBB
+
+    for (int s : {256, 128, 64, 48, 32, 16}) {
+        if (s > w || s > h) continue;
+        g_linuxIcons.push_back(s == w && s == h ? full : downscaleIcon(full, s));
+    }
+    if (g_linuxIcons.empty()) g_linuxIcons.push_back(full);
+}
+
+static void applyLinuxWindowIdentity() {
+    if (!g_mainWindow) return;
+    unsigned long xw = (unsigned long)g_mainWindow->GetWindowHandle();
+    if (!xw) return;
+    platform::applyX11WindowIdentity(xw, g_linuxIcons, "MagmaLauncher", "magmalauncher.desktop");
+    platform::guardX11WindowIdentity(xw, g_linuxIcons, "MagmaLauncher", "magmalauncher.desktop");
+}
+#endif
+
+#ifndef _WIN32
+static CefRefPtr<CefImage> loadLauncherIconPng() {
+    const std::filesystem::path candidates[] = {
+        platform::resourceDir() / "assets" / "magmalauncher.png",
+        "/opt/magmalauncher/assets/magmalauncher.png",
+        "/usr/share/icons/hicolor/256x256/apps/magmalauncher.png",
+        "/usr/share/pixmaps/magmalauncher.png",
+    };
+    for (const auto& p : candidates) {
+        std::ifstream in(p, std::ios::binary);
+        if (!in) continue;
+        std::string data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        CefRefPtr<CefImage> img = CefImage::CreateImage();
+        if (img->AddPNG(1.0f, data.data(), data.size())) return img;
+    }
+    return nullptr;
+}
+class MagmaBrowserViewDelegate : public CefBrowserViewDelegate {
+public:
+    cef_runtime_style_t GetBrowserRuntimeStyle() override { return CEF_RUNTIME_STYLE_ALLOY; }
+    IMPLEMENT_REFCOUNTING(MagmaBrowserViewDelegate);
+};
+
+class MagmaWindowDelegate : public CefWindowDelegate {
+public:
+    explicit MagmaWindowDelegate(CefRefPtr<CefBrowserView> v) : view_(v) {}
+    void OnWindowCreated(CefRefPtr<CefWindow> window) override {
+    g_mainWindow = window;
+    window->AddChildView(view_);
+    window->SetTitle("MagmaLauncher");
+    CefRefPtr<CefImage> img = loadLauncherIconPng();
+    if (img) {
+        window->SetWindowIcon(img);
+        window->SetWindowAppIcon(img);
+    }
+    window->Maximize();
+    window->Show();
+    view_->RequestFocus();
+
+#ifdef __linux__
+    buildLinuxIcons(img);
+    applyLinuxWindowIdentity();
+    for (int delay : {100, 300, 1200, 3000}) {
+        CefPostDelayedTask(TID_UI, new FuncTask([]() { applyLinuxWindowIdentity(); }), delay);
+    }
+#endif
+}
+    void OnWindowDestroyed(CefRefPtr<CefWindow>) override { view_ = nullptr; g_mainWindow = nullptr; }
+    bool CanClose(CefRefPtr<CefWindow>) override {
+        CefRefPtr<CefBrowser> b = view_ ? view_->GetBrowser() : nullptr;
+        return b ? b->GetHost()->TryCloseBrowser() : true;
+    }
+    CefSize GetPreferredSize(CefRefPtr<CefView>) override { return CefSize(1280, 800); }
+    CefSize GetMinimumSize(CefRefPtr<CefView>) override { return CefSize(900, 600); }
+    cef_runtime_style_t GetWindowRuntimeStyle() override { return CEF_RUNTIME_STYLE_ALLOY; }
+    IMPLEMENT_REFCOUNTING(MagmaWindowDelegate);
+private:
+    CefRefPtr<CefBrowserView> view_;
+};
+#endif
+
 class MagmaApp : public CefApp, public CefBrowserProcessHandler, public CefRenderProcessHandler {
 public:
     CefRefPtr<CefBrowserProcessHandler> GetBrowserProcessHandler() override { return this; }
     CefRefPtr<CefRenderProcessHandler> GetRenderProcessHandler() override { return this; }
 
-    void OnBeforeCommandLineProcessing(const CefString& process_type,
-                                    CefRefPtr<CefCommandLine> command_line) override {
+    
+void OnBeforeCommandLineProcessing(const CefString& process_type,
+                                   CefRefPtr<CefCommandLine> command_line) override {
     command_line->AppendSwitch("allow-file-access-from-files");
 
+#ifdef _WIN32
     command_line->AppendSwitchWithValue("use-gl", "angle");
     command_line->AppendSwitchWithValue("use-angle", "d3d11");
     command_line->AppendSwitch("ignore-gpu-blocklist");
+#elif defined(__APPLE__)
+    command_line->AppendSwitch("use-mock-keychain");
+#else
+    command_line->AppendSwitchWithValue("class", "MagmaLauncher");
+    command_line->AppendSwitchWithValue("name", "MagmaLauncher");
+#endif
 }
 
+
+#ifndef _WIN32
+    void OnContextInitialized() override {
+        CEF_REQUIRE_UI_THREAD();
+        CefRefPtr<MagmaClient> client(new MagmaClient());
+        CefBrowserSettings browserSettings;
+        browserSettings.background_color = CefColorSetARGB(255, 10, 10, 12);
+        std::string url = "file://" + getFrontendDir().generic_string() + "/index.html";
+        CefRefPtr<CefBrowserView> view = CefBrowserView::CreateBrowserView(
+            client, url, browserSettings, nullptr, nullptr, new MagmaBrowserViewDelegate());
+        CefWindow::CreateTopLevelWindow(new MagmaWindowDelegate(view));
+    }
+#else
     void OnContextInitialized() override {
     CEF_REQUIRE_UI_THREAD();
 
@@ -1728,6 +1968,8 @@ public:
 
     CefBrowserHost::CreateBrowser(windowInfo, client, url, browserSettings, nullptr, nullptr);
 }
+
+#endif
 
     void OnContextCreated(CefRefPtr<CefBrowser> browser,
                            CefRefPtr<CefFrame> frame,
@@ -1768,7 +2010,7 @@ private:
             "installMod", "listModsInDir", "toggleModFile", "deleteModFile", "createModpack", "toggleFullscreen",
             "setLauncherFullscreen", "setLauncherWindowSize",
             "discordPresenceStart", "discordPresenceSetActivity", "discordPresenceClear", "discordPresenceStop",
-            "cleanOldGameLogs", "getModsManifest", "getDefaultGameDir", "closeLauncher"
+            "cleanOldGameLogs", "getModsManifest", "closeLauncher", "getDefaultGameDir"
         };
         
         std::ostringstream js;
@@ -1792,6 +2034,44 @@ private:
     CefRefPtr<CefMessageRouterRendererSide> message_router_renderer_;
 };
 
+#ifndef _WIN32
+int main(int argc, char* argv[]) {
+#ifdef __APPLE__
+    bool isChildProcess = false;
+    for (int i = 1; i < argc; i++) {
+        if (std::strncmp(argv[i], "--type=", 7) == 0) isChildProcess = true;
+    }
+    CefScopedLibraryLoader libraryLoader;
+    if (isChildProcess ? !libraryLoader.LoadInHelper() : !libraryLoader.LoadInMain()) return 1;
+#endif
+    CefMainArgs main_args(argc, argv);
+    CefRefPtr<MagmaApp> app(new MagmaApp());
+
+    int exit_code = CefExecuteProcess(main_args, app.get(), nullptr);
+    if (exit_code >= 0) return exit_code;
+
+#ifdef __APPLE__
+    platform::macInitApplication();
+#endif
+
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+
+    CefSettings settings;
+    settings.no_sandbox = true;
+    settings.background_color = CefColorSetARGB(255, 10, 10, 12);
+    std::string cachePath = (platform::userDataDir() / "cef_cache").string();
+    CefString(&settings.cache_path).FromString(cachePath);
+
+    if (!CefInitialize(main_args, settings, app.get(), nullptr)) {
+        curl_global_cleanup();
+        return 0;
+    }
+    CefRunMessageLoop();
+    CefShutdown();
+    curl_global_cleanup();
+    return 0;
+}
+#else
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int) {
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
@@ -1803,8 +2083,8 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int) {
         return exit_code;
     }
 
-    std::set_terminate(onTerminate);
-
+    waitForPreviousInstanceIfUpdated();
+    cleanupOldUpdateBackups();
     HANDLE singleInstanceMutex = CreateMutexA(nullptr, TRUE, "MagmaLauncherSingleInstanceMutex");
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
         HWND existing = FindWindowA(nullptr, "MagmaLauncher");
@@ -1846,3 +2126,4 @@ if (cacheBase) {
     curl_global_cleanup();
     return 0;
 }
+#endif
