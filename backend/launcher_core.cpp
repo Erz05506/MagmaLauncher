@@ -3461,6 +3461,7 @@ bool extractZipFromRarArchiveImpl(const fs::path& rarPath, const fs::path& targe
 
 bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std::string& errorOut) {
 
+    try {
     g_cancelled.store(false);
     g_paused.store(false);
 
@@ -3837,6 +3838,13 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
 #endif
     onProgress("launch", 1.0, "Игра запущена");
     return true;
+    } catch (const std::exception& e) {
+        errorOut = std::string("ERR_LAUNCH_EXCEPTION||") + e.what();
+        return false;
+    } catch (...) {
+        errorOut = "ERR_LAUNCH_EXCEPTION||Неизвестная ошибка";
+        return false;
+    }
 }
 
 bool detectSystemJava(std::string& javaPathOut, std::string& errorOut) {
