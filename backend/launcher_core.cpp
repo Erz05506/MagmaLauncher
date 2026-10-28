@@ -3683,6 +3683,7 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
 
     if (vjson.contains("libraries")) {
         std::vector<DownloadTask> libraryDownloads;
+        std::map<std::string, bool> scheduledLibraryPaths;
         for (const auto& lib : vjson["libraries"]) {
             if (!waitWhilePausedOrCancelled(errorOut)) return false;
             if (lib.contains("rules") && !rulesAllowWindows(lib["rules"])) continue;
@@ -3692,7 +3693,9 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
             if (downloads.contains("artifact")) {
                 const auto& art = downloads["artifact"];
                 fs::path dest = librariesDir / fs::path(art.value("path", ""));
-                libraryDownloads.push_back({art.value("url", ""), dest, art.value("sha1", "")});
+                if (scheduledLibraryPaths.emplace(pathToUtf8(dest), true).second) {
+                    libraryDownloads.push_back({art.value("url", ""), dest, art.value("sha1", "")});
+                }
                 classpathEntries.push_back(pathToUtf8(dest));
             }
 
@@ -3704,7 +3707,9 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
                 if (!classifierKey.empty() && downloads["classifiers"].contains(classifierKey)) {
                     const auto& art = downloads["classifiers"][classifierKey];
                     fs::path dest = librariesDir / fs::path(art.value("path", ""));
-                    libraryDownloads.push_back({art.value("url", ""), dest, art.value("sha1", "")});
+                    if (scheduledLibraryPaths.emplace(pathToUtf8(dest), true).second) {
+                        libraryDownloads.push_back({art.value("url", ""), dest, art.value("sha1", "")});
+                    }
                     nativesJarsToExtract.push_back(dest);
                 }
             }
