@@ -405,7 +405,7 @@ fs::path pathFromUtf8(const std::string& value) {
     int size = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
         value.data(), static_cast<int>(value.size()), nullptr, 0);
     if (size <= 0) return fs::path(value);
-    std::wstring wide(static_cast<size_t>(size), L'\\0');
+    std::wstring wide(static_cast<size_t>(size), L'\0');
     MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
         value.data(), static_cast<int>(value.size()), wide.data(), size);
     return fs::path(wide);
@@ -421,7 +421,7 @@ std::string pathToUtf8(const fs::path& value) {
     int size = WideCharToMultiByte(CP_UTF8, 0, wide.data(),
         static_cast<int>(wide.size()), nullptr, 0, nullptr, nullptr);
     if (size <= 0) return value.string();
-    std::string result(static_cast<size_t>(size), '\\0');
+    std::string result(static_cast<size_t>(size), '\0');
     WideCharToMultiByte(CP_UTF8, 0, wide.data(), static_cast<int>(wide.size()),
         result.data(), size, nullptr, nullptr);
     return result;
@@ -3801,7 +3801,7 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         if (vjson["arguments"].contains("jvm")) collect(vjson["arguments"]["jvm"], jvmArgs);
         if (vjson["arguments"].contains("game")) collect(vjson["arguments"]["game"], gameArgs);
     } else if (vjson.contains("minecraftArguments")) {
-        jvmArgs = { "-Djava.library.path=" + nativesDir.string(), "-cp", classpath };
+        jvmArgs = { "-Djava.library.path=" + pathToUtf8(nativesDir), "-cp", classpath };
         std::istringstream iss(vjson["minecraftArguments"].get<std::string>());
         std::string tok;
         while (iss >> tok) gameArgs.push_back(substitutePlaceholders(tok, vars));
