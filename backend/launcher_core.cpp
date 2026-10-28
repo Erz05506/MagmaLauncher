@@ -885,45 +885,52 @@ bool downloadFilesParallel(const std::vector<DownloadTask>& tasks, std::string& 
     std::vector<std::thread> workers;
     workers.reserve(workerCount);
 
-    for (size_t worker = 0; worker < workerCount; ++worker) {
-        workers.emplace_back([&]() {
-            while (!failed.load() && !g_cancelled.load()) {
-                try {
-                    const size_t index = nextTask.fetch_add(1);
-                    if (index >= tasks.size()) break;
+    try {
+        for (size_t worker = 0; worker < workerCount; ++worker) {
+            workers.emplace_back([&]() {
+                while (!failed.load() && !g_cancelled.load()) {
+                    try {
+                        const size_t index = nextTask.fetch_add(1);
+                        if (index >= tasks.size()) break;
 
-                    std::string taskError;
-                    if (!waitWhilePausedOrCancelled(taskError) ||
-                        !ensureFile(tasks[index].url, tasks[index].destination,
-                                    tasks[index].sha1, taskError)) {
+                        std::string taskError;
+                        if (!waitWhilePausedOrCancelled(taskError) ||
+                            !ensureFile(tasks[index].url, tasks[index].destination,
+                                        tasks[index].sha1, taskError)) {
+                            std::lock_guard<std::mutex> lock(errorMutex);
+                            if (!failed.exchange(true)) {
+                                errorOut = taskError.empty() ? "CANCELLED" : taskError;
+                            }
+                            break;
+                        }
+
+                        std::lock_guard<std::mutex> lock(progressMutex);
+                        ++completed;
+                        if (completed % 20 == 0 || completed == tasks.size()) {
+                            onProgress(stage, static_cast<double>(completed) /
+                                static_cast<double>(tasks.size()), "");
+                        }
+                    } catch (const std::exception& e) {
                         std::lock_guard<std::mutex> lock(errorMutex);
                         if (!failed.exchange(true)) {
-                            errorOut = taskError.empty() ? "CANCELLED" : taskError;
+                            errorOut = std::string("ERR_DOWNLOAD_EXCEPTION||") + e.what();
+                        }
+                        break;
+                    } catch (...) {
+                        std::lock_guard<std::mutex> lock(errorMutex);
+                        if (!failed.exchange(true)) {
+                            errorOut = "ERR_DOWNLOAD_EXCEPTION||Неизвестная ошибка в потоке загрузки";
                         }
                         break;
                     }
-
-                    std::lock_guard<std::mutex> lock(progressMutex);
-                    ++completed;
-                    if (completed % 20 == 0 || completed == tasks.size()) {
-                        onProgress(stage, static_cast<double>(completed) /
-                            static_cast<double>(tasks.size()), "");
-                    }
-                } catch (const std::exception& e) {
-                    std::lock_guard<std::mutex> lock(errorMutex);
-                    if (!failed.exchange(true)) {
-                        errorOut = std::string("ERR_DOWNLOAD_EXCEPTION||") + e.what();
-                    }
-                    break;
-                } catch (...) {
-                    std::lock_guard<std::mutex> lock(errorMutex);
-                    if (!failed.exchange(true)) {
-                        errorOut = "ERR_DOWNLOAD_EXCEPTION||Неизвестная ошибка в потоке загрузки";
-                    }
-                    break;
                 }
-            }
-        });
+            });
+        }
+    } catch (const std::exception& e) {
+        std::lock_guard<std::mutex> lock(errorMutex);
+        if (!failed.exchange(true)) {
+            errorOut = std::string("ERR_DOWNLOAD_WORKER_CREATE||") + e.what();
+        }
     }
 
     for (auto& worker : workers) {
