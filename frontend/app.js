@@ -8726,7 +8726,7 @@ function renderNewsFeed(language = currentLang) {
       (desc ? `<p>${desc}</p>` : '');
     const cls = 'news-card' + (img ? ' has-image' : '') + (link ? ' is-link' : '');
     return link
-      ? `<a class="${cls}" href="${link}">${inner}</a>`
+      ? `<a class="${cls}" href="${link}" draggable="false">${inner}</a>`
       : `<article class="${cls}">${inner}</article>`;
   }).join('');
 
