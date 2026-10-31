@@ -58,6 +58,7 @@ jobs:
         run: |
           cmake -S backend -B backend/build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
             -DPROJECT_ARCH=${{ matrix.arch }} \
             -DCMAKE_PREFIX_PATH="$(brew --prefix)"
@@ -67,7 +68,10 @@ jobs:
 
       - name: Sign and package
         run: |
-          codesign --force --deep --sign - backend/build/MagmaLauncher.app
+          APP=backend/build/MagmaLauncher.app
+          codesign --force --sign - "$APP/Contents/Frameworks/Chromium Embedded Framework.framework"
+          for h in "$APP"/Contents/Frameworks/*.app; do codesign --force --sign - "$h"; done
+          codesign --force --sign - "$APP"
           create-dmg \
             --volname "MagmaLauncher" \
             --volicon "assets/magmalauncher.icns" \

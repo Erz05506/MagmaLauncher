@@ -674,6 +674,18 @@ void PushJs(CefRefPtr<CefBrowser> browser, const std::string& code) {
     });
 }
 
+static bool moveFileReplace(const std::filesystem::path& from, const std::filesystem::path& to) {
+    std::error_code ec;
+    std::filesystem::create_directories(to.parent_path(), ec);
+    std::filesystem::remove(to, ec);
+    ec.clear();
+    std::filesystem::rename(from, to, ec);
+    if (!ec) return true;
+    ec.clear();
+    std::filesystem::copy_file(from, to, std::filesystem::copy_options::overwrite_existing, ec);
+    return !ec;
+}
+
 class ApiHandler : public CefMessageRouterBrowserSide::Handler {
 public:
     bool OnQuery(CefRefPtr<CefBrowser> browser,
@@ -755,6 +767,121 @@ public:
     }).detach();
     return true;
 }
+if (name == "uploadChunk") {
+    namespace fs = std::filesystem;
+    json result;
+    std::string uploadId = arg0.value("uploadId", "");
+    std::string data = arg0.value("dataBase64", "");
+    bool first = arg0.value("first", false);
+    if (uploadId.empty() || uploadId.find_first_of("/\\.:") != std::string::npos) {
+        result["success"] = false; result["error"] = "Bad uploadId";
+    } else {
+        std::error_code ec;
+        fs::path dir = platform::userDataDir() / "uploads" / uploadId;
+        fs::create_directories(dir, ec);
+        auto bytes = base64Decode(data);
+        std::ofstream out(dir / "payload.bin", std::ios::binary | (first ? std::ios::trunc : std::ios::app));
+        if (!out) { result["success"] = false; result["error"] = "Не удалось записать временный файл"; }
+        else {
+            out.write((const char*)bytes.data(), (std::streamsize)bytes.size());
+            out.close();
+            result["success"] = true;
+        }
+    }
+    callback->Success(result.dump());
+    return true;
+}
+
+if (name == "installFromUpload") {
+    namespace fs = std::filesystem;
+    std::string uploadId = arg0.value("uploadId", "");
+    std::string kind = arg0.value("kind", "");
+    std::string filename = arg0.value("filename", "");
+    std::string targetDir = arg0.value("targetDir", "");
+    std::string instanceName = arg0.value("instanceName", "");
+    std::string gameDir = arg0.value("gameDir", "");
+    size_t slashPos = filename.find_last_of("/\\");
+    std::string safeName = (slashPos == std::string::npos) ? filename : filename.substr(slashPos + 1);
+
+    if (uploadId.empty() || uploadId.find_first_of("/\\.:") != std::string::npos || safeName.empty()) {
+        json r; r["success"] = false; r["started"] = false; r["error"] = "Bad upload";
+        callback->Success(r.dump());
+        return true;
+    }
+    fs::path uploadDir = platform::userDataDir() / "uploads" / uploadId;
+    fs::path payload = uploadDir / "payload.bin";
+
+    if (kind == "modpack") {
+        launcher::g_cancelled = false;
+        launcher::g_paused = false;
+        std::thread([browser, uploadDir, payload, safeName, instanceName, gameDir]() {
+            std::string errorOut, resolvedVersion, resolvedLoader;
+            bool ok = false;
+            std::error_code ec2;
+            fs::path tmpFile = fs::path(gameDir) / "modpack_tmp" / ("import_" + instanceName + "_" + safeName);
+            if (!moveFileReplace(payload, tmpFile)) {
+                errorOut = "ERR_PACK_PREPARE||";
+            } else {
+                ok = launcher::installModpackFromLocalFile(tmpFile.string(), instanceName, gameDir,
+                    [browser](const std::string& stage, double progress, const std::string& detail) {
+                        json p; p["stage"] = stage; p["progress"] = progress; p["detail"] = detail;
+                        PushJs(browser, "window.__modpackProgress && window.__modpackProgress(" + p.dump() + ");");
+                    },
+                    resolvedVersion, resolvedLoader, errorOut);
+                fs::remove(tmpFile, ec2);
+            }
+            fs::remove_all(uploadDir, ec2);
+            json done;
+            done["success"] = ok;
+            done["instanceName"] = instanceName;
+            done["mcVersion"] = resolvedVersion;
+            done["loader"] = resolvedLoader;
+            if (!ok) done["error"] = errorOut;
+            PushJs(browser, "window.__catalogModpackDone && window.__catalogModpackDone(" + done.dump() + ");");
+        }).detach();
+        json started; started["started"] = true;
+        callback->Success(started.dump());
+        return true;
+    }
+
+    std::thread([callback, uploadDir, payload, kind, safeName, targetDir]() {
+        json result;
+        std::string err;
+        bool ok = false;
+        std::error_code ec;
+        fs::create_directories(targetDir, ec);
+        if (kind == "local") {
+            ok = moveFileReplace(payload, fs::path(targetDir) / safeName);
+            if (ok) result["filename"] = safeName; else err = "Не удалось сохранить файл";
+        } else {
+            fs::path tmpDir = fs::path(targetDir) / "manual_import_tmp";
+            fs::path tmpFile = tmpDir / safeName;
+            if (!moveFileReplace(payload, tmpFile)) {
+                err = "ERR_PACK_PREPARE||";
+            } else if (kind == "mods") {
+                int jarCount = 0;
+                ok = launcher::extractModJarsFromArchive(tmpFile.string(), targetDir, jarCount, err);
+                if (ok) result["count"] = jarCount;
+            } else if (kind == "map") {
+                ok = launcher::extractMapArchive(tmpFile.string(), targetDir, err);
+            } else if (kind == "content") {
+                std::string outName;
+                ok = launcher::extractZipFromRarArchive(tmpFile.string(), targetDir, outName, err);
+                if (ok) result["filename"] = outName;
+            } else {
+                err = "Unknown kind";
+            }
+            fs::remove_all(tmpDir, ec);
+        }
+        fs::remove_all(uploadDir, ec);
+        result["success"] = ok;
+        if (!ok) result["error"] = err;
+        std::string payloadJson = result.dump();
+        PostUi([callback, payloadJson]() { callback->Success(payloadJson); });
+    }).detach();
+    return true;
+}
+
 if (name == "getInstallConfig") {
     json r;
     std::ifstream in(getExeDir() / "install_config.json", std::ios::binary);
@@ -2024,7 +2151,8 @@ private:
             "installMod", "listModsInDir", "toggleModFile", "deleteModFile", "createModpack", "toggleFullscreen",
             "setLauncherFullscreen", "setLauncherWindowSize",
             "discordPresenceStart", "discordPresenceSetActivity", "discordPresenceClear", "discordPresenceStop",
-            "cleanOldGameLogs", "getModsManifest", "closeLauncher", "getDefaultGameDir"
+            "cleanOldGameLogs", "getModsManifest", "closeLauncher", "getDefaultGameDir",
+            "uploadChunk", "installFromUpload"
         };
         
         std::ostringstream js;

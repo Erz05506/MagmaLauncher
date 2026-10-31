@@ -803,6 +803,24 @@ const LAUNCH_DETAIL_I18N = {
   ru: {'manifest.list':'Получение списка версий','manifest.version':'Подготовка версии Minecraft {value}','java.check':'Проверка Java','java.detect':'Поиск Java','java.files':'Проверка файлов Java','java.download':'Загрузка Java','client.download':'Загрузка клиента Minecraft','forge.prepare':'Подготовка Forge','forge.resolve':'Поиск версии Forge','forge.installer':'Загрузка установщика Forge','forge.installing':'Установка Forge','forge.profile':'Подготовка профиля Forge','neoforge.prepare':'Подготовка NeoForge','neoforge.resolve':'Поиск версии NeoForge','neoforge.installer':'Загрузка установщика NeoForge','neoforge.installing':'Установка NeoForge','neoforge.profile':'Подготовка профиля NeoForge','fabric.download':'Установка Fabric','quilt.download':'Установка Quilt','assets.index':'Подготовка игровых ресурсов','natives.extract':'Распаковка библиотек','launch.prepare':'Подготовка к запуску','launch.java':'Запуск Java','launch.started':'Игра запущена','modpack.findMr':'Поиск модпака на Modrinth','modpack.findCf':'Поиск модпака на CurseForge','modpack.download':'Загрузка модпака','modpack.done':'Модпак установлен','mods.downloading':'Загрузка мода: {value}'},
   en: {'manifest.list':'Fetching version list','manifest.version':'Preparing Minecraft {value}','java.check':'Checking Java','java.detect':'Detecting Java','java.files':'Checking Java files','java.download':'Downloading Java','client.download':'Downloading Minecraft client','forge.prepare':'Preparing Forge','forge.resolve':'Resolving Forge version','forge.installer':'Downloading Forge installer','forge.installing':'Installing Forge','forge.profile':'Preparing Forge profile','neoforge.prepare':'Preparing NeoForge','neoforge.resolve':'Resolving NeoForge version','neoforge.installer':'Downloading NeoForge installer','neoforge.installing':'Installing NeoForge','neoforge.profile':'Preparing NeoForge profile','fabric.download':'Installing Fabric','quilt.download':'Installing Quilt','assets.index':'Preparing game assets','natives.extract':'Extracting native libraries','launch.prepare':'Preparing to launch','launch.java':'Starting Java','launch.started':'Game launched','modpack.findMr':'Finding modpack on Modrinth','modpack.findCf':'Finding modpack on CurseForge','modpack.download':'Downloading modpack','modpack.done':'Modpack installed','mods.downloading':'Downloading mod: {value}'}
 };
+const MODPACK_DETAIL_PATCH = {
+  ru: {'modpack.unpack':'Распаковываем архив...','modpack.copy':'Копируем файлы сборки...','modpack.skip':'Пропускаем недоступный файл...','modpack.findMr':'Поиск модпака на Modrinth','modpack.findCf':'Поиск модпака на CurseForge','modpack.download':'Загрузка модпака','modpack.done':'Модпак установлен'},
+  en: {'modpack.unpack':'Extracting archive...','modpack.copy':'Copying pack files...','modpack.skip':'Skipping unavailable file...','modpack.findMr':'Finding modpack on Modrinth','modpack.findCf':'Finding modpack on CurseForge','modpack.download':'Downloading modpack','modpack.done':'Modpack installed'},
+  uk: {'modpack.unpack':'Розпаковуємо архів...','modpack.copy':'Копіюємо файли збірки...','modpack.skip':'Пропускаємо недоступний файл...','modpack.findMr':'Пошук модпака на Modrinth','modpack.findCf':'Пошук модпака на CurseForge','modpack.download':'Завантаження модпака','modpack.done':'Модпак встановлено'},
+  fr: {'modpack.unpack':"Extraction de l'archive...",'modpack.copy':'Copie des fichiers du pack...','modpack.skip':'Fichier indisponible ignoré...','modpack.findMr':'Recherche du modpack sur Modrinth','modpack.findCf':'Recherche du modpack sur CurseForge','modpack.download':'Téléchargement du modpack','modpack.done':'Modpack installé'},
+  de: {'modpack.unpack':'Archiv wird entpackt...','modpack.copy':'Pack-Dateien werden kopiert...','modpack.skip':'Nicht verfügbare Datei wird übersprungen...','modpack.findMr':'Modpack wird auf Modrinth gesucht','modpack.findCf':'Modpack wird auf CurseForge gesucht','modpack.download':'Modpack wird heruntergeladen','modpack.done':'Modpack installiert'},
+  es: {'modpack.unpack':'Extrayendo el archivo...','modpack.copy':'Copiando archivos del pack...','modpack.skip':'Omitiendo archivo no disponible...','modpack.findMr':'Buscando el modpack en Modrinth','modpack.findCf':'Buscando el modpack en CurseForge','modpack.download':'Descargando el modpack','modpack.done':'Modpack instalado'},
+  it: {'modpack.unpack':"Estrazione dell'archivio...",'modpack.copy':'Copia dei file del pack...','modpack.skip':'File non disponibile ignorato...','modpack.findMr':'Ricerca del modpack su Modrinth','modpack.findCf':'Ricerca del modpack su CurseForge','modpack.download':'Download del modpack','modpack.done':'Modpack installato'},
+  pt: {'modpack.unpack':'Extraindo o arquivo...','modpack.copy':'Copiando arquivos do pack...','modpack.skip':'Ignorando arquivo indisponível...','modpack.findMr':'Procurando o modpack no Modrinth','modpack.findCf':'Procurando o modpack no CurseForge','modpack.download':'Baixando o modpack','modpack.done':'Modpack instalado'},
+  ja: {'modpack.unpack':'アーカイブを展開中...','modpack.copy':'パックのファイルをコピー中...','modpack.skip':'利用できないファイルをスキップ中...','modpack.findMr':'Modrinthでモッドパックを検索中','modpack.findCf':'CurseForgeでモッドパックを検索中','modpack.download':'モッドパックをダウンロード中','modpack.done':'モッドパックをインストールしました'},
+  ko: {'modpack.unpack':'압축 파일 푸는 중...','modpack.copy':'팩 파일 복사 중...','modpack.skip':'사용할 수 없는 파일 건너뛰는 중...','modpack.findMr':'Modrinth에서 모드팩 검색 중','modpack.findCf':'CurseForge에서 모드팩 검색 중','modpack.download':'모드팩 다운로드 중','modpack.done':'모드팩 설치 완료'},
+  hi: {'modpack.unpack':'आर्काइव खोला जा रहा है...','modpack.copy':'पैक की फ़ाइलें कॉपी हो रही हैं...','modpack.skip':'अनुपलब्ध फ़ाइल छोड़ी जा रही है...','modpack.findMr':'Modrinth पर मॉडपैक खोजा जा रहा है','modpack.findCf':'CurseForge पर मॉडपैक खोजा जा रहा है','modpack.download':'मॉडपैक डाउनलोड हो रहा है','modpack.done':'मॉडपैक इंस्टॉल हो गया'},
+  id: {'modpack.unpack':'Mengekstrak arsip...','modpack.copy':'Menyalin file pack...','modpack.skip':'Melewati file yang tidak tersedia...','modpack.findMr':'Mencari modpack di Modrinth','modpack.findCf':'Mencari modpack di CurseForge','modpack.download':'Mengunduh modpack','modpack.done':'Modpack terinstal'},
+};
+Object.keys(MODPACK_DETAIL_PATCH).forEach(l => {
+  LAUNCH_DETAIL_I18N[l] = Object.assign(LAUNCH_DETAIL_I18N[l] || {}, MODPACK_DETAIL_PATCH[l]);
+});
+
 function translateLaunchDetail(detail) {
   if (typeof detail !== 'string' || !detail.startsWith('d:')) return detail || '';
   const raw = detail.slice(2), sep = raw.indexOf('|');
@@ -846,7 +864,7 @@ window.__launchDone = function (data) {
     setLaunchProgress(true, 0, t('launch.cancelled'), false, { showControls: false });
     setTimeout(() => setLaunchProgress(false, 0, ''), 1500);
   } else {
-    const fullError = data.error || t('auth.magma.genericError');
+    const fullError = translateBackendError(data.error) || t('auth.magma.genericError');
     const shortError = fullError.length > 90 ? fullError.slice(0, 90) + '…' : fullError;
 
     setLaunchProgress(true, 0, shortError, true, {
@@ -3072,6 +3090,25 @@ const ERROR_I18N = {
     ERR_NEOFORGE_INSTALL_FAILED: 'Installer NeoForge keluar dengan kesalahan',
   },
 };
+
+const PACK_ERROR_PATCH = {
+  ru: {ERR_NOT_MODPACK:'Это не похоже на модпак (нет modrinth.index.json, manifest.json или mmc-pack.json)',ERR_PACK_NO_MC_VERSION:'Не удалось определить версию Minecraft из сборки',ERR_FILE_NOT_FOUND:'Файл не найден',ERR_PACK_PREPARE:'Не удалось подготовить файл к установке'},
+  en: {ERR_NOT_MODPACK:'This does not look like a modpack (no modrinth.index.json, manifest.json or mmc-pack.json)',ERR_PACK_NO_MC_VERSION:'Could not determine the Minecraft version from the pack',ERR_FILE_NOT_FOUND:'File not found',ERR_PACK_PREPARE:'Could not prepare the file for installation'},
+  uk: {ERR_NOT_MODPACK:'Це не схоже на модпак (немає modrinth.index.json, manifest.json або mmc-pack.json)',ERR_PACK_NO_MC_VERSION:'Не вдалося визначити версію Minecraft зі збірки',ERR_FILE_NOT_FOUND:'Файл не знайдено',ERR_PACK_PREPARE:'Не вдалося підготувати файл до встановлення'},
+  fr: {ERR_NOT_MODPACK:"Ce n'est pas un modpack (ni modrinth.index.json, ni manifest.json, ni mmc-pack.json)",ERR_PACK_NO_MC_VERSION:'Impossible de déterminer la version de Minecraft du pack',ERR_FILE_NOT_FOUND:'Fichier introuvable',ERR_PACK_PREPARE:"Impossible de préparer le fichier pour l'installation"},
+  de: {ERR_NOT_MODPACK:'Das sieht nicht nach einem Modpack aus (kein modrinth.index.json, manifest.json oder mmc-pack.json)',ERR_PACK_NO_MC_VERSION:'Die Minecraft-Version des Packs konnte nicht ermittelt werden',ERR_FILE_NOT_FOUND:'Datei nicht gefunden',ERR_PACK_PREPARE:'Die Datei konnte nicht für die Installation vorbereitet werden'},
+  es: {ERR_NOT_MODPACK:'No parece un modpack (falta modrinth.index.json, manifest.json o mmc-pack.json)',ERR_PACK_NO_MC_VERSION:'No se pudo determinar la versión de Minecraft del pack',ERR_FILE_NOT_FOUND:'Archivo no encontrado',ERR_PACK_PREPARE:'No se pudo preparar el archivo para la instalación'},
+  it: {ERR_NOT_MODPACK:'Non sembra un modpack (manca modrinth.index.json, manifest.json o mmc-pack.json)',ERR_PACK_NO_MC_VERSION:'Impossibile determinare la versione di Minecraft del pack',ERR_FILE_NOT_FOUND:'File non trovato',ERR_PACK_PREPARE:"Impossibile preparare il file per l'installazione"},
+  pt: {ERR_NOT_MODPACK:'Isto não parece um modpack (sem modrinth.index.json, manifest.json ou mmc-pack.json)',ERR_PACK_NO_MC_VERSION:'Não foi possível determinar a versão do Minecraft do pack',ERR_FILE_NOT_FOUND:'Arquivo não encontrado',ERR_PACK_PREPARE:'Não foi possível preparar o arquivo para a instalação'},
+  ja: {ERR_NOT_MODPACK:'モッドパックではないようです（modrinth.index.json、manifest.json、mmc-pack.jsonがありません）',ERR_PACK_NO_MC_VERSION:'パックからMinecraftのバージョンを特定できませんでした',ERR_FILE_NOT_FOUND:'ファイルが見つかりません',ERR_PACK_PREPARE:'インストール用にファイルを準備できませんでした'},
+  ko: {ERR_NOT_MODPACK:'모드팩이 아닌 것 같습니다 (modrinth.index.json, manifest.json, mmc-pack.json 없음)',ERR_PACK_NO_MC_VERSION:'팩에서 Minecraft 버전을 확인할 수 없습니다',ERR_FILE_NOT_FOUND:'파일을 찾을 수 없습니다',ERR_PACK_PREPARE:'설치를 위해 파일을 준비하지 못했습니다'},
+  hi: {ERR_NOT_MODPACK:'यह मॉडपैक जैसा नहीं लगता (modrinth.index.json, manifest.json या mmc-pack.json नहीं मिला)',ERR_PACK_NO_MC_VERSION:'पैक से Minecraft वर्शन पता नहीं चल सका',ERR_FILE_NOT_FOUND:'फ़ाइल नहीं मिली',ERR_PACK_PREPARE:'इंस्टॉल के लिए फ़ाइल तैयार नहीं हो सकी'},
+  id: {ERR_NOT_MODPACK:'Ini tidak terlihat seperti modpack (tidak ada modrinth.index.json, manifest.json, atau mmc-pack.json)',ERR_PACK_NO_MC_VERSION:'Tidak dapat menentukan versi Minecraft dari pack',ERR_FILE_NOT_FOUND:'File tidak ditemukan',ERR_PACK_PREPARE:'Tidak dapat menyiapkan file untuk instalasi'},
+};
+Object.keys(PACK_ERROR_PATCH).forEach(l => {
+  ERROR_I18N[l] = Object.assign(ERROR_I18N[l] || {}, PACK_ERROR_PATCH[l]);
+});
+ERROR_I18N['es-ES'] = ERROR_I18N.es;
 
 function translateBackendError(raw) {
   if (!raw || typeof raw !== 'string') return raw;
@@ -8057,6 +8094,151 @@ async function installCatalogModpack(hit, btn) {
   }
 }
 
+function findCatalogCardButton(uid) {
+  if (!instancesCatalogListEl) return null;
+  for (const card of instancesCatalogListEl.querySelectorAll('.mod-card')) {
+    if (card.dataset.uid === uid) return card.querySelector('.mod-install-btn');
+  }
+  return null;
+}
+
+function addCatalogInstallSlot(entry, btn) {
+  if (!btn) return;
+  entry.slots = entry.slots || [];
+  const old = entry.slots.find(s => s.btn === btn);
+  if (old) old.cancelBtn.remove();
+  entry.slots = entry.slots.filter(s => s.btn !== btn && s.btn.isConnected);
+
+  const isModal = btn.id === 'modDetailsInstallBtn';
+  btn.disabled = true;
+  btn.classList.remove('is-installed');
+  btn.classList.add('is-loading');
+  btn.textContent = entry.lastText || t('mods.installing');
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = (isModal ? 'ghost-btn catalog-cancel-modal ' : 'mod-cancel-btn ') + 'catalog-cancel-btn';
+  cancelBtn.textContent = t('launch.cancelBtn');
+  cancelBtn.disabled = !!entry.cancelled;
+  cancelBtn.addEventListener('click', (e) => { e.stopPropagation(); requestCancelCatalogInstall(entry.name); });
+  btn.insertAdjacentElement('afterend', cancelBtn); // карточка: справа, окно: под кнопкой
+  entry.slots.push({ btn, cancelBtn });
+}
+
+function syncModalInstallState(hit) {
+  modDetailsOverlay.querySelectorAll('.catalog-cancel-btn').forEach(b => b.remove());
+  activeCatalogInstalls.forEach(entry => {
+    if (entry.uid && entry.uid === hit.uid) addCatalogInstallSlot(entry, modDetailsInstallBtn);
+  });
+}
+
+function restoreCatalogInstallButtons() {
+  activeCatalogInstalls.forEach(entry => {
+    if (!entry.uid) return;
+    const b = findCatalogCardButton(entry.uid);
+    if (b) addCatalogInstallSlot(entry, b);
+  });
+}
+
+function requestCancelCatalogInstall(instanceName) {
+  const entry = activeCatalogInstalls.get(instanceName);
+  if (!entry || entry.cancelled) return;
+  entry.cancelled = true;
+  (entry.slots || []).forEach(s => {
+    s.cancelBtn.disabled = true;
+    if (s.btn.isConnected) s.btn.textContent = '…';
+  });
+  const send = () => { if (typeof window.cancelLaunch === 'function') window.cancelLaunch().catch(() => {}); };
+  send();
+  entry.cancelTimer = setInterval(send, 500);
+}
+
+function reportCatalogInstallProgress(data) {
+  const text = Math.round((data.progress || 0) * 100) + '%';
+  activeCatalogInstalls.forEach(entry => {
+    if (entry.cancelled) return;
+    entry.lastText = text;
+    (entry.slots || []).forEach(s => { if (s.btn.isConnected) s.btn.textContent = text; });
+  });
+}
+
+window.__catalogModpackDone = async function (data) {
+  const entry = activeCatalogInstalls.get(data.instanceName);
+  activeCatalogInstalls.delete(data.instanceName);
+  const statusEl = document.getElementById('importInstanceStatus');
+  const slots = (entry && entry.slots) || [];
+  if (entry && entry.cancelTimer) clearInterval(entry.cancelTimer);
+  slots.forEach(s => s.cancelBtn.remove());
+
+  const wasCancelled = !data.success && (data.error === 'CANCELLED' || (entry && entry.cancelled));
+  if (wasCancelled) {
+    if (typeof window.deleteInstance === 'function') {
+      try { await window.deleteInstance({ name: data.instanceName, gameDir: getGameDir() }); } catch {}
+    }
+    slots.forEach(s => { s.btn.disabled = false; s.btn.classList.remove('is-loading'); s.btn.textContent = t('mods.install'); });
+    if (statusEl) statusEl.textContent = '';
+    return;
+  }
+
+  if (data.success) {
+    saveModpack({
+      name: data.instanceName,
+      mcVersion: data.mcVersion || instancesCatalogVersion,
+      loader: data.loader || 'vanilla',
+      mods: [],
+      icon_url: (entry && entry.iconUrl) || '',
+    });
+    renderInstances();
+    slots.forEach(s => {
+      s.btn.disabled = true;
+      s.btn.classList.remove('is-loading');
+      s.btn.classList.add('is-installed');
+      s.btn.textContent = t('mods.added');
+    });
+    if (statusEl) statusEl.textContent = '';
+    return;
+  }
+
+  const msg = translateBackendError(data.error) || t('auth.magma.genericError');
+  console.error('[MagmaLauncher] Ошибка установки сборки:', data.error);
+  slots.forEach(s => { s.btn.classList.remove('is-loading'); s.btn.textContent = msg.slice(0, 60); });
+  setTimeout(() => slots.forEach(s => { s.btn.disabled = false; s.btn.textContent = t('mods.install'); }), 4000);
+  if (!slots.length && statusEl) statusEl.textContent = msg;
+};
+
+async function installCatalogModpack(hit, btn, fromModal) {
+  if (typeof window.installModpackFromCatalog !== 'function') { btn.textContent = t('mods.devOnlyExe'); return; }
+  const id = instancesCatalogSource === 'curseforge' ? String(hit.curseforgeId) : hit.modrinthSlug;
+  if (!id) return;
+
+  const instanceName = uniqueInstanceName(hit.title || 'Modpack');
+  const entry = {
+    name: instanceName, uid: hit.uid, iconUrl: hit.icon_url || '',
+    cancelled: false, cancelTimer: null, slots: [], lastText: t('mods.installing'),
+  };
+  activeCatalogInstalls.set(instanceName, entry);
+  addCatalogInstallSlot(entry, btn);
+  if (fromModal) addCatalogInstallSlot(entry, findCatalogCardButton(hit.uid));
+
+  try {
+    const raw = await window.installModpackFromCatalog({
+      source: instancesCatalogSource, id, version: instancesCatalogVersion,
+      instanceName, gameDir: getGameDir(),
+    });
+    const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!result.started) throw new Error(translateBackendError(result.error) || t('auth.magma.genericError'));
+  } catch (err) {
+    console.error('[MagmaLauncher] Ошибка установки сборки из каталога:', err);
+    activeCatalogInstalls.delete(instanceName);
+    entry.slots.forEach(s => {
+      s.cancelBtn.remove();
+      s.btn.disabled = false;
+      s.btn.classList.remove('is-loading');
+      s.btn.textContent = t('mods.install');
+    });
+  }
+}
+
 async function runInstancesCatalogSearch(page) {
   if (!instancesCatalogListEl) return;
   instancesCatalogPage = page;
@@ -8127,6 +8309,7 @@ async function runInstancesCatalogSearch(page) {
 
   const total = result.total || 0;
   const totalPages = Math.max(1, Math.ceil(total / INSTANCES_CATALOG_PAGE_SIZE));
+  restoreCatalogInstallButtons();
   instancesCatalogPage = Math.min(Math.max(1, page), totalPages);
 
   instancesCatalogPaginationEl.innerHTML = '';
@@ -8529,12 +8712,23 @@ function renderNewsFeed(language = currentLang) {
     return firstTranslation || '';
   };
 
-  const cardsHtml = newsFeedCache.slice(0, 6).map(item => `
-    <article class="news-card">
-      <span class="news-tag">${pick(item.tag)}</span>
-      <h3>${pick(item.title)}</h3>
-      <p>${pick(item.desc)}</p>
-    </article>`).join('');
+  const safeUrl = (u) => (typeof u === 'string' && /^https?:\/\//i.test(u.trim()))
+    ? u.trim().replace(/"/g, '&quot;') : '';
+
+  const cardsHtml = newsFeedCache.slice(0, 6).map(item => {
+    const img = safeUrl(pick(item.image));
+    const link = safeUrl(pick(item.link));
+    const tag = pick(item.tag), title = pick(item.title), desc = pick(item.desc);
+    const inner =
+      (img ? `<img class="news-card-img" src="${img}" alt="" loading="lazy" onerror="this.remove()">` : '') +
+      (tag ? `<span class="news-tag">${tag}</span>` : '') +
+      (title ? `<h3>${title}</h3>` : '') +
+      (desc ? `<p>${desc}</p>` : '');
+    const cls = 'news-card' + (img ? ' has-image' : '') + (link ? ' is-link' : '');
+    return link
+      ? `<a class="${cls}" href="${link}">${inner}</a>`
+      : `<article class="${cls}">${inner}</article>`;
+  }).join('');
 
   container.innerHTML = headHtml + cardsHtml;
 }
@@ -9259,6 +9453,7 @@ function renderModCardsInto(container, hits, { installedUids = new Set(), uidToF
 
     const card = document.createElement('div');
     card.className = 'mod-card';
+    card.dataset.uid = uid;
 
    const iconFallbackChar = (hit.title || uid).charAt(0).toUpperCase();
 const iconHtml = hit.icon_url
@@ -9392,6 +9587,8 @@ async function openModDetails(hit, onInstall, alreadyInstalled) {
   modDetailsIcon.textContent = (hit.title || uid).charAt(0).toUpperCase();
   modDetailsInstallBtn.style.display = 'none';
 
+  modDetailsOverlay.querySelectorAll('.catalog-cancel-btn').forEach(b => b.remove());
+  modDetailsInstallBtn.classList.remove('is-loading');
   const myRequestId = ++modDetailsRequestId;
 
   const renderBody = (title, downloads, followers, iconUrl, bodyHtml) => {
@@ -9410,8 +9607,10 @@ async function openModDetails(hit, onInstall, alreadyInstalled) {
       modDetailsInstallBtn.style.display = 'block';
       modDetailsInstallBtn.textContent = t('mods.install');
       modDetailsInstallBtn.disabled = false;
+      queueMicrotask(() => syncModalInstallState(hit));
       modDetailsInstallBtn.onclick = () => {
-        onInstall(hit, modDetailsInstallBtn);
+      onInstall(hit, modDetailsInstallBtn, true);
+        return;
         modDetailsInstallBtn.textContent = t('mods.added');
         modDetailsInstallBtn.disabled = true;
       };
@@ -10658,11 +10857,11 @@ modpackLoaderTabsEl?.querySelectorAll('.loader-tab').forEach(tab => {
 window.__modpackProgress = function (data) {
   modpackProgress.style.display = 'block';
   modpackProgressFill.style.width = Math.round((data.progress || 0) * 100) + '%';
-  modpackProgressLabel.textContent = data.detail || '';
+  modpackProgressLabel.textContent = translateLaunchDetail(data.detail || '');
   reportCatalogInstallProgress(data);
   const importStatusEl = document.getElementById('importInstanceStatus');
   if (importStatusEl && importStatusEl.textContent) {
-    importStatusEl.textContent = data.detail || t('instances.importing');
+    importStatusEl.textContent = translateLaunchDetail(data.detail || '') || t('instances.importing');
   }
 };
 
@@ -13085,9 +13284,28 @@ const MANUAL_INSTALL_HINTS = {
   modpack: { ru: 'Перетащите .zip, .rar или .mrpack со сборкой.', en: 'Drop a .zip, .rar or .mrpack modpack file.' },
 };
 
+const MANUAL_HINT_I18N = {
+  ru: {mod:'Перетащите .jar моды или .zip/.rar-архив с несколькими модами.',content:'Перетащите .zip или .rar пак — распаковывать не нужно.',map:'Перетащите .zip или .rar с картой (копией мира) — лаунчер сам её распакует.',modpack:'Перетащите .zip, .rar или .mrpack со сборкой.'},
+  en: {mod:'Drop .jar mods, or a .zip/.rar archive with several mods.',content:'Drop a .zip or .rar pack — no need to unpack it.',map:'Drop a .zip or .rar world backup — the launcher will extract it for you.',modpack:'Drop a .zip, .rar or .mrpack modpack file.'},
+  uk: {mod:'Перетягніть .jar моди або .zip/.rar-архів з кількома модами.',content:'Перетягніть .zip або .rar пак — розпаковувати не потрібно.',map:'Перетягніть .zip або .rar з картою (копією світу) — лаунчер сам її розпакує.',modpack:'Перетягніть .zip, .rar або .mrpack зі збіркою.'},
+  fr: {mod:'Déposez des mods .jar ou une archive .zip/.rar contenant plusieurs mods.',content:'Déposez un pack .zip ou .rar — inutile de le décompresser.',map:"Déposez une sauvegarde de monde .zip ou .rar — le launcher l'extraira pour vous.",modpack:'Déposez un fichier de modpack .zip, .rar ou .mrpack.'},
+  de: {mod:'Lege .jar-Mods oder ein .zip/.rar-Archiv mit mehreren Mods ab.',content:'Lege ein .zip- oder .rar-Pack ab — Entpacken ist nicht nötig.',map:'Lege ein .zip- oder .rar-Weltbackup ab — der Launcher entpackt es für dich.',modpack:'Lege eine .zip-, .rar- oder .mrpack-Modpack-Datei ab.'},
+  es: {mod:'Suelta mods .jar o un archivo .zip/.rar con varios mods.',content:'Suelta un pack .zip o .rar — no hace falta descomprimirlo.',map:'Suelta una copia de mundo .zip o .rar — el launcher la extraerá por ti.',modpack:'Suelta un archivo de modpack .zip, .rar o .mrpack.'},
+  it: {mod:'Trascina mod .jar o un archivio .zip/.rar con più mod.',content:'Trascina un pack .zip o .rar — non serve estrarlo.',map:'Trascina un backup del mondo .zip o .rar — il launcher lo estrarrà per te.',modpack:'Trascina un file modpack .zip, .rar o .mrpack.'},
+  pt: {mod:'Solte mods .jar ou um arquivo .zip/.rar com vários mods.',content:'Solte um pack .zip ou .rar — não precisa extrair.',map:'Solte um backup de mundo .zip ou .rar — o launcher extrai para você.',modpack:'Solte um arquivo de modpack .zip, .rar ou .mrpack.'},
+  ja: {mod:'.jar形式のMOD、または複数のMODを含む.zip/.rarをドロップしてください。',content:'.zipまたは.rarのパックをドロップしてください。展開は不要です。',map:'.zipまたは.rarのワールドバックアップをドロップすると、ランチャーが自動で展開します。',modpack:'.zip、.rar、.mrpack形式のモッドパックをドロップしてください。'},
+  ko: {mod:'.jar 모드 또는 여러 모드가 든 .zip/.rar 압축 파일을 끌어다 놓으세요.',content:'.zip 또는 .rar 팩을 끌어다 놓으세요 — 압축을 풀 필요 없습니다.',map:'.zip 또는 .rar 월드 백업을 끌어다 놓으면 런처가 알아서 풉니다.',modpack:'.zip, .rar 또는 .mrpack 모드팩 파일을 끌어다 놓으세요.'},
+  hi: {mod:'.jar मॉड्स या कई मॉड्स वाला .zip/.rar आर्काइव यहाँ डालें।',content:'.zip या .rar पैक यहाँ डालें — खोलने की ज़रूरत नहीं।',map:'.zip या .rar वर्ल्ड बैकअप डालें — लॉन्चर खुद खोल देगा।',modpack:'.zip, .rar या .mrpack मॉडपैक फ़ाइल यहाँ डालें।'},
+  id: {mod:'Letakkan mod .jar, atau arsip .zip/.rar berisi beberapa mod.',content:'Letakkan pack .zip atau .rar — tidak perlu diekstrak.',map:'Letakkan cadangan dunia .zip atau .rar — launcher akan mengekstraknya.',modpack:'Letakkan file modpack .zip, .rar, atau .mrpack.'},
+};
+MANUAL_HINT_I18N['es-ES'] = MANUAL_HINT_I18N.es;
+
 function manualInstallHintText(kind) {
-  const entry = MANUAL_INSTALL_HINTS[kind] || MANUAL_INSTALL_HINTS.mod;
-  return entry[currentLang] || entry.ru || entry.en;
+  const group = (kind === 'mod' || kind === 'instanceMod') ? 'mod'
+    : (kind === 'resourcepack' || kind === 'shader') ? 'content'
+    : kind === 'map' ? 'map' : 'modpack';
+  const table = MANUAL_HINT_I18N[currentLang] || MANUAL_HINT_I18N.en;
+  return table[group] || MANUAL_HINT_I18N.en[group];
 }
 
 function openManualInstallModal(kind, targetDir, onDone) {
@@ -13181,6 +13399,7 @@ async function processManualInstallFiles(files) {
       if (ext === 'zip' || ext === 'mrpack' || ext === 'rar') {
         await importModpackFile(file);
         addManualInstallRow(file.name, t('instances.importing'), false);
+        setTimeout(closeManualInstallModal, 600);
       } else {
         addManualInstallRow(file.name, t('mods.badZipFile'), true);
       }
@@ -13189,6 +13408,110 @@ async function processManualInstallFiles(files) {
 
   if (anySuccess && manualInstallOnDone) manualInstallOnDone();
 }
+
+// ===== Chunked upload: больше никаких гигантских base64-сообщений =====
+async function uploadFileInChunks(file) {
+  const uploadId = 'u' + Date.now() + Math.floor(Math.random() * 1e6);
+  const CHUNK = 768 * 1024;
+  for (let offset = 0, i = 0; offset < file.size || i === 0; offset += CHUNK, i++) {
+    const buf = await file.slice(offset, offset + CHUNK).arrayBuffer();
+    const raw = await window.uploadChunk({ uploadId, first: i === 0, dataBase64: arrayBufferToBase64(buf) });
+    const res = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!res.success) throw new Error(res.error || t('auth.magma.genericError'));
+  }
+  return uploadId;
+}
+
+async function installViaUpload(file, kind, targetDir) {
+  if (typeof window.uploadChunk !== 'function' || typeof window.installFromUpload !== 'function') {
+    return { success: false, error: t('mods.devModeHint') };
+  }
+  try {
+    const uploadId = await uploadFileInChunks(file);
+    const raw = await window.installFromUpload({ uploadId, kind, filename: file.name, targetDir });
+    const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!result.success) return { success: false, error: translateBackendError(result.error) || t('auth.magma.genericError') };
+    return { success: true, count: result.count || 0, filename: result.filename };
+  } catch (err) {
+    return { success: false, error: String(err.message || err) };
+  }
+}
+
+async function installArchiveModsToDir(file, targetDir) { return installViaUpload(file, 'mods', targetDir); }
+async function installArchiveMapToDir(file, targetDir) { return installViaUpload(file, 'map', targetDir); }
+async function installArchiveContentToDir(file, targetDir) { return installViaUpload(file, 'content', targetDir); }
+
+async function uploadLocalFilesToDir(files, targetDir) {
+  let ok = 0, lastError = '';
+  for (const file of files) {
+    const r = await installViaUpload(file, 'local', targetDir);
+    if (r.success) ok++; else lastError = r.error;
+  }
+  return { success: ok > 0, error: lastError, count: ok };
+}
+
+async function importModpackFile(file) {
+  const statusEl = document.getElementById('importInstanceStatus');
+  if (typeof window.uploadChunk !== 'function' || typeof window.installFromUpload !== 'function') return;
+  const instanceName = uniqueInstanceName(file.name.replace(/\.(zip|mrpack|rar)$/i, ''));
+  if (statusEl) statusEl.textContent = t('instances.importing');
+  activeCatalogInstalls.set(instanceName, { name: instanceName, slots: [], cancelled: false });
+  try {
+    const uploadId = await uploadFileInChunks(file);
+    const raw = await window.installFromUpload({ uploadId, kind: 'modpack', filename: file.name, instanceName, gameDir: getGameDir() });
+    const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!result.started) throw new Error(translateBackendError(result.error) || t('auth.magma.genericError'));
+  } catch (err) {
+    console.error('[MagmaLauncher] Ошибка импорта сборки:', err);
+    activeCatalogInstalls.delete(instanceName);
+    if (statusEl) statusEl.textContent = String(err.message || err);
+  }
+}
+
+function manualDropContext() {
+  if (instanceModsOverlay && instanceModsOverlay.classList.contains('is-open') && currentInstanceModsPack) {
+    const pack = currentInstanceModsPack, cat = instanceModsCategory;
+    return {
+      kind: cat === 'mod' ? 'instanceMod' : cat,
+      dir: instanceContentDir(pack, cat),
+      onDone: () => loadInstanceModsList(pack),
+    };
+  }
+  if (isAnyModalOpen()) return null;
+  if (currentActiveView === 'instances') return { kind: 'modpack', dir: '', onDone: null };
+  if (currentActiveView === 'mods') {
+    if (isModpackScopeActive() && !modsTargetInstanceName) return null;
+    return {
+      kind: modsActiveCategory,
+      dir: currentContentDir(),
+      onDone: () => {
+        modsSubtabs.forEach(tb => tb.classList.toggle('is-active', tb.dataset.subtab === 'installed'));
+        modsSubviews.forEach(v => v.classList.toggle('is-active', v.dataset.subview === 'installed'));
+        loadInstalledMods();
+      },
+    };
+  }
+  return null;
+}
+
+function dragHasFiles(e) {
+  return !!(e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files'));
+}
+
+document.addEventListener('dragover', (e) => { if (dragHasFiles(e)) e.preventDefault(); }, true);
+
+document.addEventListener('drop', async (e) => {
+  if (!dragHasFiles(e)) return;
+  e.preventDefault(); 
+  if (manualInstallOverlay && manualInstallOverlay.classList.contains('is-open')) return;
+  e.stopPropagation();
+  document.querySelectorAll('.is-drop-target').forEach(el => el.classList.remove('is-drop-target'));
+  const ctx = manualDropContext();
+  if (!ctx) return;
+  const files = await collectFilesFromDataTransfer(e.dataTransfer);
+  openManualInstallModal(ctx.kind, ctx.dir, ctx.onDone);
+  if (files.length) await processManualInstallFiles(files);
+}, true);
 
 const accountChangePasswordBtn = document.getElementById('accountChangePasswordBtn');
 const accountChangePasswordError = document.getElementById('accountChangePasswordError');

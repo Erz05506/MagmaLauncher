@@ -3045,6 +3045,8 @@ body.is-modal-scroll-lock .content {
 .mod-cancel-btn:disabled { opacity: .5; cursor: default; }
 #privacySessionsRow { opacity: .5; pointer-events: none; }
 .ghost-btn:disabled { opacity: .5; cursor: default; pointer-events: none; }
+.catalog-cancel-modal { width: 100%; margin-top: 8px; text-align: center; }
+#privacySessionsRow { display: none; }
 
 /* ============================================================
    HALLOWEEN THEME
@@ -3252,3 +3254,15 @@ html[data-theme="halloween"] body {
 [data-reduce-motion="1"] .rail::after { animation: none !important; }
 [data-disable-glow="1"] .topbar::before,
 [data-disable-glow="1"] .topbar::after { display: none; }
+
+.news-card { overflow: hidden; }
+.news-card.is-link { display: block; color: inherit; text-decoration: none; cursor: pointer; }
+.news-card.is-link:hover { border-color: var(--magma-1); }
+.news-card-img {
+  display: block;
+  width: calc(100% + 32px);
+  max-height: 170px;
+  margin: -14px -16px 12px;
+  object-fit: cover;
+}
+.news-card-img:last-child { margin-bottom: -14px; } /* карточка-баннер без текста */

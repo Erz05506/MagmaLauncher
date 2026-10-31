@@ -32,6 +32,7 @@ inline int WideCharToMultiByte(unsigned, unsigned long, const wchar_t*, int, cha
 #include <optional>
 #include <filesystem>
 #include <map>
+#include <set>
 #include <chrono>
 #include <thread>
 #include <mutex>
@@ -210,6 +211,74 @@ void applyCommonCurlOpts(CURL* curl) {
     curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
 }
 
+std::mutex g_deadHostMutex;
+std::set<std::string> g_deadHosts;
+
+std::string hostOfUrl(const std::string& url) {
+    size_t s = url.find("://");
+    if (s == std::string::npos) return "";
+    s += 3;
+    size_t e = url.find('/', s);
+    return url.substr(s, e == std::string::npos ? std::string::npos : e - s);
+}
+
+std::vector<std::string> orderedMirrorUrls(const std::string& url) {
+    static const std::pair<const char*, const char*> kMirrors[] = {
+        {"https://meta.fabricmc.net/",                  "https://bmclapi2.bangbang93.com/fabric-meta/"},
+        {"https://maven.fabricmc.net/",                 "https://bmclapi2.bangbang93.com/maven/"},
+        {"https://meta.quiltmc.org/",                   "https://bmclapi2.bangbang93.com/quilt-meta/"},
+        {"https://maven.quiltmc.org/repository/release/", "https://bmclapi2.bangbang93.com/maven/"},
+        {"https://maven.minecraftforge.net/",           "https://bmclapi2.bangbang93.com/maven/"},
+        {"https://maven.neoforged.net/releases/",       "https://bmclapi2.bangbang93.com/maven/"},
+        {"https://libraries.minecraft.net/",            "https://bmclapi2.bangbang93.com/maven/"},
+        {"https://repo1.maven.org/maven2/",             "https://bmclapi2.bangbang93.com/maven/"},
+        {"https://repo.maven.apache.org/maven2/",       "https://bmclapi2.bangbang93.com/maven/"},
+        {"https://launchermeta.mojang.com/",            "https://bmclapi2.bangbang93.com/"},
+        {"https://piston-data.mojang.com/",             "https://bmclapi2.bangbang93.com/"},
+        {"https://piston-meta.mojang.com/",             "https://bmclapi2.bangbang93.com/"},
+        {"https://resources.download.minecraft.net/",   "https://bmclapi2.bangbang93.com/assets/"},
+    };
+    std::vector<std::string> urls{url};
+    for (const auto& m : kMirrors) {
+        size_t n = std::strlen(m.first);
+        if (url.compare(0, n, m.first) == 0) {
+            urls.push_back(std::string(m.second) + url.substr(n));
+            break;
+        }
+    }
+    if (urls.size() > 1) {
+        std::lock_guard<std::mutex> lock(g_deadHostMutex);
+        if (g_deadHosts.count(hostOfUrl(url))) std::swap(urls[0], urls[1]);
+    }
+    return urls;
+}
+
+void noteNetworkFailure(const std::string& url, const std::string& err) {
+    if (err.rfind("ERR_NETWORK", 0) != 0) return;
+    if (err.find("resolve") == std::string::npos && err.find("connect") == std::string::npos) return;
+    std::lock_guard<std::mutex> lock(g_deadHostMutex);
+    g_deadHosts.insert(hostOfUrl(url));
+}
+
+std::string withHostHint(std::string err, const std::string& url) {
+    if (err.rfind("ERR_NETWORK", 0) == 0) err += " [" + hostOfUrl(url) + "]";
+    return err;
+}
+
+bool httpGetOnceMirrored(const std::string& url, std::string& out, std::string& errorOut,
+                         const std::function<bool(const std::string&, std::string&, std::string&)>& once) {
+    auto urls = orderedMirrorUrls(url);
+    std::string firstErr;
+    for (const auto& u : urls) {
+        std::string e;
+        if (once(u, out, e)) return true;
+        noteNetworkFailure(u, e);
+        if (firstErr.empty()) firstErr = withHostHint(e, u);
+    }
+    errorOut = firstErr;
+    return false;
+}
+
 bool httpGetStringOnce(const std::string& url, std::string& out, std::string& errorOut) {
     CURL* curl = curl_easy_init();
     if (!curl) { errorOut = "curl_easy_init failed"; return false; }
@@ -236,7 +305,8 @@ bool httpGetStringOnce(const std::string& url, std::string& out, std::string& er
 
 bool httpGetString(const std::string& url, std::string& out, std::string& errorOut) {
     return withRetries([&](std::string& attemptError) {
-        return httpGetStringOnce(url, out, attemptError);
+        return httpGetOnceMirrored(url, out, attemptError,
+            [](const std::string& u, std::string& o, std::string& e) { return httpGetStringOnce(u, o, e); });
     }, 4, errorOut);
 }
 
@@ -267,7 +337,8 @@ bool httpGetStringOnceFast(const std::string& url, std::string& out, std::string
 bool httpGetStringFast(const std::string& url, std::string& out, std::string& errorOut) {
 
     return withRetries([&](std::string& attemptError) {
-        return httpGetStringOnceFast(url, out, attemptError);
+        return httpGetOnceMirrored(url, out, attemptError,
+            [](const std::string& u, std::string& o, std::string& e) { return httpGetStringOnceFast(u, o, e); });
     }, 4, errorOut);
 }
 
@@ -865,7 +936,21 @@ bool fileMatchesSha1(const fs::path& path, const std::string& expectedSha1) {
 
 bool ensureFile(const std::string& url, const fs::path& destPath, const std::string& expectedSha1, std::string& errorOut) {
     if (fileMatchesSha1(destPath, expectedSha1)) return true;
-    return httpDownloadFile(url, destPath, errorOut);
+    auto urls = orderedMirrorUrls(url);
+    std::string firstErr;
+    for (size_t i = 0; i < urls.size(); i++) {
+        std::error_code rec;
+        fs::path part = destPath; part += ".part";
+        if (i > 0) fs::remove(part, rec);
+        std::string e;
+        int attempts = (i + 1 < urls.size()) ? 3 : 8;
+        if (httpDownloadFile(urls[i], destPath, e, attempts)) return true;
+        if (e == "CANCELLED") { errorOut = e; return false; }
+        noteNetworkFailure(urls[i], e);
+        if (firstErr.empty()) firstErr = withHostHint(e, urls[i]);
+    }
+    errorOut = firstErr;
+    return false;
 }
 
 bool downloadFilesParallel(const std::vector<DownloadTask>& tasks, std::string& errorOut,
@@ -2862,7 +2947,7 @@ bool installModrinthModpackImpl(const std::string& id, const std::string& mcVers
                                  const std::string& instanceName, const std::string& gameDir,
                                  const ProgressFn& onProgress, std::string& resolvedVersionOut,
                                  std::string& resolvedLoaderOut, std::string& errorOut) {
-    onProgress("manifest", 0.0, "Ищем сборку на Modrinth...");
+    onProgress("manifest", 0.0, "d:modpack.findMr");
 
     std::string url = "https://api.modrinth.com/v2/project/" + urlEncodeForModrinth(id) + "/version";
     if (!mcVersion.empty()) url += "?game_versions=" + urlEncodeForModrinth("[\"" + mcVersion + "\"]");
@@ -2985,7 +3070,7 @@ bool installCurseForgeModpackImpl(const std::string& id, const std::string& mcVe
                                    const std::string& instanceName, const std::string& gameDir,
                                    const ProgressFn& onProgress, std::string& resolvedVersionOut,
                                    std::string& resolvedLoaderOut, std::string& errorOut) {
-    onProgress("manifest", 0.0, "Ищем сборку на CurseForge...");
+    onProgress("manifest", 0.0, "d:modpack.findCf");
 
     std::string versionParam = mcVersion.empty() ? "" :
         ("&gameVersion=" + urlEncodeForModrinth(curseforgeVersionParam(mcVersion)));
@@ -3013,7 +3098,7 @@ bool installCurseForgeModpackImpl(const std::string& id, const std::string& mcVe
     fs::create_directories(tmpDir, ec);
 
     fs::path packZipPath = tmpDir / "pack.zip";
-    onProgress("manifest", 0.1, "Загружаем сборку...");
+    onProgress("manifest", 0.1, "d:modpack.download");
     if (!httpDownloadFile(packUrl, packZipPath, errorOut)) return false;
 
     fs::path extractDir = tmpDir / "extracted";
@@ -3097,8 +3182,24 @@ bool installCurseForgeModpackImpl(const std::string& id, const std::string& mcVe
 
     resolvedVersionOut = resolvedMcVersion;
     resolvedLoaderOut = resolvedLoader;
-    onProgress("mods", 1.0, "Сборка установлена");
-    return true;
+    onProgress("mods", 1.0, "Modpack installed");
+    return true;"d:modpack.done";
+}
+
+std::optional<fs::path> findShallowestFile(const fs::path& root, const std::string& filename) {
+    std::optional<fs::path> best;
+    int bestDepth = 1 << 30;
+    std::error_code ec;
+    for (auto it = fs::recursive_directory_iterator(root, fs::directory_options::skip_permission_denied, ec);
+         it != fs::recursive_directory_iterator(); it.increment(ec)) {
+        if (ec) break;
+        std::error_code fe;
+        if (!it->is_regular_file(fe)) continue;
+        if (it->path().filename() != filename) continue;
+        if (it->path().string().find("__MACOSX") != std::string::npos) continue;
+        if (it.depth() < bestDepth) { bestDepth = it.depth(); best = it->path(); }
+    }
+    return best;
 }
 
 bool installModpackFromLocalFileImpl(const std::string& localPath, const std::string& instanceName,
@@ -3107,7 +3208,7 @@ bool installModpackFromLocalFileImpl(const std::string& localPath, const std::st
                                       std::string& errorOut) {
     fs::path srcFile(localPath);
     std::error_code ec;
-    if (!fs::exists(srcFile, ec)) { errorOut = "Файл не найден: " + localPath; return false; }
+    if (!fs::exists(srcFile, ec)) { errorOut = "ERR_FILE_NOT_FOUND||" + localPath; return false; }
 
     fs::path root(gameDir);
     fs::path tmpDir = root / "modpack_tmp" / instanceName;
@@ -3115,8 +3216,12 @@ bool installModpackFromLocalFileImpl(const std::string& localPath, const std::st
     fs::create_directories(tmpDir, ec);
 
     fs::path extractDir = tmpDir / "extracted";
-    onProgress("manifest", 0.05, "Распаковываем архив...");
+    onProgress("manifest", 0.05, "d:modpack.unpack");
     if (!extractZipPreservingStructure(srcFile, extractDir, errorOut)) return false;
+
+    if (auto mr = findShallowestFile(extractDir, "modrinth.index.json")) extractDir = mr->parent_path();
+    else if (auto cf = findShallowestFile(extractDir, "manifest.json")) extractDir = cf->parent_path();
+    else if (auto mmc = findShallowestFile(extractDir, "mmc-pack.json")) extractDir = mmc->parent_path();
 
     fs::path mrpackIndex = extractDir / "modrinth.index.json";
     fs::path cfManifest = extractDir / "manifest.json";
@@ -3145,7 +3250,7 @@ bool installModpackFromLocalFileImpl(const std::string& localPath, const std::st
             else if (deps.contains("quilt-loader")) resolvedLoader = "quilt";
             else if (deps.contains("neoforge")) resolvedLoader = "neoforge";
         }
-        if (resolvedMcVersion.empty()) { errorOut = "Не удалось определить версию Minecraft из сборки"; return false; }
+        if (resolvedMcVersion.empty()) { errorOut = "ERR_PACK_NO_MC_VERSION||"; return false; }
 
         if (index.contains("files")) {
             size_t total = index["files"].size();
@@ -3199,7 +3304,7 @@ bool installModpackFromLocalFileImpl(const std::string& localPath, const std::st
                 if (dashPos != std::string::npos) { resolvedLoader = loaderId.substr(0, dashPos); break; }
             }
         }
-        if (resolvedMcVersion.empty()) { errorOut = "Не удалось определить версию Minecraft из сборки"; return false; }
+        if (resolvedMcVersion.empty()) { errorOut = "ERR_PACK_NO_MC_VERSION||"; return false; }
 
         fs::path modsDir = instanceDir / "mods";
         fs::create_directories(modsDir, ec);
@@ -3218,7 +3323,7 @@ bool installModpackFromLocalFileImpl(const std::string& localPath, const std::st
                 std::string fileInfoUrl = "https://api.curseforge.com/v1/mods/" + projectId + "/files/" + fileId;
                 std::string fileRaw, fileErr;
                 if (!httpGetStringWithHeader(fileInfoUrl, curseforgeAuthHeader(), fileRaw, fileErr)) {
-                    onProgress("mods", (double)idx / (double)std::max<size_t>(1, total), "Пропускаем недоступный файл...");
+                    onProgress("mods", (double)idx / (double)std::max<size_t>(1, total), "d:modpack.skip");
                     continue;
                 }
 
@@ -3240,8 +3345,32 @@ bool installModpackFromLocalFileImpl(const std::string& localPath, const std::st
         if (fs::exists(overridesSrc, ec)) {
             fs::copy(overridesSrc, instanceDir, fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec);
         }
+    } else if (fs::exists(extractDir / "mmc-pack.json", ec)) {
+        resolvedMcVersion.clear();
+        resolvedLoader = "vanilla";
+        try {
+            std::ifstream f(extractDir / "mmc-pack.json", std::ios::binary);
+            std::stringstream ss; ss << f.rdbuf();
+            json mmc = json::parse(ss.str());
+            for (const auto& comp : mmc.value("components", json::array())) {
+                std::string uid = comp.value("uid", "");
+                if (uid == "net.minecraft") resolvedMcVersion = comp.value("version", "");
+                else if (uid == "net.fabricmc.fabric-loader") resolvedLoader = "fabric";
+                else if (uid == "org.quiltmc.quilt-loader") resolvedLoader = "quilt";
+                else if (uid == "net.minecraftforge") resolvedLoader = "forge";
+                else if (uid == "net.neoforged") resolvedLoader = "neoforge";
+            }
+        } catch (...) {}
+        if (resolvedMcVersion.empty()) { errorOut = "ERR_PACK_NO_MC_VERSION||"; return false; }
+
+        onProgress("mods", 0.5, "d:modpack.copy");
+        fs::path gameRoot = extractDir;
+        for (const char* d : {".minecraft", "minecraft"}) {
+            if (fs::exists(extractDir / d, ec)) { gameRoot = extractDir / d; break; }
+        }
+        fs::copy(gameRoot, instanceDir, fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec);
     } else {
-        errorOut = "Это не похоже на модпак (нет modrinth.index.json или manifest.json)";
+        errorOut = "ERR_NOT_MODPACK||";
         return false;
     }
 
@@ -4446,11 +4575,11 @@ bool createModpack(const ModpackRequest& req, const ProgressFn& onProgress, std:
     for (size_t i = 0; i < total; i++) {
         if (g_cancelled.load()) { errorOut = "CANCELLED"; return false; }
         onProgress("mods", (double)i / (double)std::max<size_t>(1, total),
-                   "Скачиваем " + enabledMods[i].slug + "...");
+        "d:mods.downloading|" + enabledMods[i].slug);
         std::string installedFileName; 
         if (!installModToDir(enabledMods[i].slug, req.mcVersion, req.loader, modsDir.string(), installedFileName, errorOut)) return false;
     }
-    onProgress("mods", 1.0, "Модпак создан");
+    onProgress("mods", 1.0, "d:modpack.done");
     return true;
 }
 
