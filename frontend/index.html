@@ -27,7 +27,7 @@
 
   <div class="app">
 
-    <!-- LEFT RAIL (MODRINTH STYLE) -->
+    
     <nav class="rail">
       <div class="rail-logo" data-tooltip="MagmaLauncher"></div>
       <div class="rail-nav">
@@ -47,10 +47,10 @@
       </button>
     </nav>
 
-    <!-- MAIN CONTENT -->
+    
     <main class="stage">
 
-      <!-- TOP BAR: ACCOUNT -->
+      
       <header class="topbar">
         <div class="brand">
           <span class="brand-name">Magma<span class="brand-accent">Launcher</span></span>
@@ -67,7 +67,7 @@
         </div>
       </header>
 
-      <!-- CONTENT -->
+      
       <section class="content">
 
         <div class="view is-active" data-view="home">
@@ -80,7 +80,7 @@
           <div class="mods-subview is-active" data-home-subview="overview">
             <div class="view-grid">
 
-              <!-- HERO SECTION -->
+              
               <div class="hero">
                 <div class="hero-glow"></div>
 
@@ -99,7 +99,7 @@
                       <svg viewBox="0 0 24 24" class="chev"><path d="m6 9 6 6 6-6"/></svg>
                     </button>
 
-                    <!-- VERSION SELECTOR -->
+                    
                     <div class="version-dropdown" id="versionDropdown">
   <div class="loader-tabs" id="loaderTabs"></div>
   <button type="button" class="loader-tab" id="snapshotToggleBtn" data-i18n="hero.snapshots">Снапшоты</button>
@@ -117,7 +117,7 @@
                   </button>
                 </div>
 
-                <!-- DOWNLOAD PROGRESS — HIDDEN UNTIL LAUNCH -->
+                
                 <div class="launch-progress" id="launchProgress" style="display:none;">
                   <button class="launch-pause-btn" id="launchPauseBtn" data-tooltip-i18n="launch.pauseTooltip" type="button">
                     <svg viewBox="0 0 24 24" class="pause-icon"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
@@ -137,7 +137,7 @@
                 </div>
               </div>
 
-              <!-- NEWS COLUMN -->
+              
               <aside class="news" id="newsContainer"></aside>
 
             </div>
@@ -163,7 +163,7 @@
 
           <div class="mods-subview" data-instances-subview="mine">
             <div class="instance-grid" id="instanceGrid">
-              <!-- INSTALLED INSTANCES ARE RENDERED BY app.js -->
+              
             </div>
           </div>
 
@@ -215,7 +215,7 @@
             <h2 data-i18n="mods.title">Моды</h2>
           </div>
 
-          <!-- MOD CATEGORIES: MODS / RESOURCE PACKS / SHADERS / WORLDS -->
+          
           <div class="mods-category-tabs" id="modsCategoryTabs"></div>
 
           <div class="mods-header-actions mods-header-actions-row">
@@ -271,10 +271,10 @@
           <div class="mods-subview is-active" data-subview="browse">
             <div class="mod-search-warning" id="modSearchWarning" style="display:none;"></div>
             <div class="mod-list" id="modList">
-              <!-- SEARCH RESULTS ARE RENDERED BY app.js -->
+              
             </div>
             <div class="mod-list-pagination" id="modListPagination">
-              <!-- PAGINATION IS RENDERED BY app.js -->
+              
             </div>
           </div>
 
@@ -284,7 +284,7 @@
               <button type="button" class="mods-subtab" data-installed-scope="all"></button>
             </div>
             <div class="installed-mod-list" id="installedModList">
-              <!-- DIRECTORY CONTENT IS RENDERED BY app.js -->
+              
             </div>
           </div>
         </div>
@@ -924,7 +924,7 @@
 
       <div class="auth-content">
 
-        <!-- GUEST -->
+        
         <div class="auth-pane is-active" data-pane="guest">
           <label class="auth-field-label" data-i18n="auth.guest.label">Никнейм</label>
           <input type="text" class="auth-input" id="guestNickname" placeholder="Steve" maxlength="16">
@@ -933,10 +933,10 @@
           <button class="auth-submit" id="guestSubmit" data-i18n="auth.guest.continue">Продолжить как гость</button>
         </div>
 
-        <!-- MAGMA ACCOUNT: SIGN IN -->
+        
 <div class="auth-pane" data-pane="magma">
 
-  <div class="auth-form" id="magmaLoginForpm" style="display:flex;">
+  <div class="auth-form" id="magmaLoginForm" style="display:flex;">
     <label class="auth-field-label" data-i18n="auth.magma.emailLabel">Почта или ник</label>
     <input type="text" class="auth-input" id="magmaLoginEmail" autocomplete="username">
 
@@ -982,7 +982,7 @@
       <button type="button" class="ghost-btn" id="magmaRegisterResend" style="width:100%;margin-top:10px;"></button>
       <p class="auth-switch"><a href="#" id="magmaRegisterChangeEmail" data-i18n="auth.magma.changeEmail">Изменить почту</a></p>
     </div>
-    <!-- шаг 3: ник + пароль -->
+    
     <div class="auth-form" id="magmaRegStep3" style="display:none;">
       <p class="auth-desc" data-i18n="auth.magma.finishStepDesc">Почта подтверждена! Придумайте никнейм и пароль.</p>
 
@@ -1042,12 +1042,6 @@
     <div class="auth-error" id="magmaGoogleSetupError"></div>
     <button class="auth-submit" id="magmaGoogleSetupSubmit" data-i18n="auth.google.finishButton">Завершить регистрацию</button>
   </div>
-  <p class="auth-desc" data-i18n="auth.magma.comingSoonDesc">
-    Вход через Magma Аккаунт временно отключён для альфа-версии — доступен только гостевой вход. Скоро вернём.
-  </p>
-  <button class="auth-submit auth-submit-ms" disabled>
-    <span data-i18n="auth.ms.comingSoonButton">Скоро будет доступно</span>
-  </button>
 </div>
 
         <div class="auth-pane" data-pane="microsoft">
@@ -1132,7 +1126,7 @@
 
       <label class="auth-field-label" data-i18n="mods.recommended">Рекомендуемые моды</label>
       <div class="modpack-default-mods" id="modpackDefaultMods">
-        <!-- RENDERED BY app.js BASED ON THE SELECTED LOADER -->
+        
       </div>
 
       <div class="auth-error" id="modpackError"></div>
