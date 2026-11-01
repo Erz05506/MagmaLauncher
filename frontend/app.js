@@ -1,7 +1,5 @@
 
-// ============================================
 // MagmaLauncher — frontend logic
-// ============================================
 
 const SUPABASE_URL = 'https://bjgpqlegoptegcbogncq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqZ3BxbGVnb3B0ZWdjYm9nbmNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzOTY4ODEsImV4cCI6MjA5OTk3Mjg4MX0.3iMFvghcz-IaXuLqk5WLRnou_4bpwFFmGrWSNSmHMS0';
@@ -77,9 +75,6 @@ function getGameDir() {
   return sanitizeGameDirPath(gameDirInputEl ? gameDirInputEl.value : '');
 }
 
-// ============================================
-
-// ============================================
 const VIEW_SCROLL_KEY = 'magma_view_scroll';
 let viewScrollState = {};
 try { viewScrollState = JSON.parse(sessionStorage.getItem(VIEW_SCROLL_KEY) || '{}'); } catch { viewScrollState = {}; }
@@ -97,9 +92,7 @@ function restoreViewScroll(view) {
   contentEl.scrollTop = savedTop;
   syncSmoothScrollTarget(contentEl, savedTop);
 }
-// ============================================
 
-// ============================================
 const jsTooltipEl = document.createElement('div');
 jsTooltipEl.className = 'js-tooltip';
 document.body.appendChild(jsTooltipEl);
@@ -725,9 +718,6 @@ function setLaunchProgress(visible, fraction, label, isError, opts = {}) {
   }
 }
 
-// ============================================
-
-// ============================================
 const errorDetailsOverlay = document.getElementById('errorDetailsOverlay');
 const errorDetailsBody = document.getElementById('errorDetailsBody');
 const errorDetailsClose = document.getElementById('errorDetailsClose');
@@ -740,9 +730,6 @@ function showErrorDetailsModal(fullText) {
 errorDetailsClose?.addEventListener('click', () => errorDetailsOverlay.classList.remove('is-open'));
 errorDetailsOverlay?.addEventListener('click', (e) => { if (e.target === errorDetailsOverlay) errorDetailsOverlay.classList.remove('is-open'); });
 
-// ============================================
-
-// ============================================
 let isLaunchPaused = false;
 let lastProgressLabelText = '';
 
@@ -945,9 +932,8 @@ playBtn.addEventListener('click', async () => {
   }
 });
 
-// ============================================
 // Localization (RU / EN)
-// ============================================
+
 const I18N = {
   ru: {
     'nav.home': 'Главная', 'nav.instances': 'Сборки', 'nav.mods': 'Моды', 'nav.settings': 'Настройки',
@@ -4424,12 +4410,6 @@ Object.keys(I18N_SUPPLEMENT).forEach(lang => {
 });
 I18N['es-ES'] = I18N.es;
 
-// ============================================
-
-// ============================================
-// ============================================
-
-// ============================================
 const I18N_SUPPLEMENT_2 = {
   ru: {
     'settings.launcherWindow.fullscreen.label': 'Полноэкранный режим лаунчера',
@@ -5644,10 +5624,8 @@ const UPDATE_2024_RANGE = {
   ko: '2024년 10월–12월', hi: 'अक्टूबर–दिसंबर 2024', id: 'Oktober–Desember 2024',
 };
 
-// ============================================
 // Minecraft release history
 
-// ============================================
 const UPDATES_DATA = [
   { version: '1.0', month: 11, year: 2011,
     title: { ru:'Релиз', en:'Release', uk:'Реліз', fr:'Sortie', de:'Release', es:'Lanzamiento', it:'Rilascio', pt:'Lançamento', ja:'リリース', ko:'릴리스', hi:'रिलीज़', id:'Rilis' },
@@ -6378,16 +6356,7 @@ Object.keys(I18N_REOPEN_PATCH).forEach(lang => {
   Object.assign(I18N[lang], I18N_REOPEN_PATCH[lang]);
 });
 I18N['es-ES'] = I18N.es;
-
-const I18N_MAGMA_SOON_PATCH = {
-  ru: { 'auth.magma.comingSoonDesc': 'Вход через Magma Аккаунт временно отключён для альфа-версии — доступен только гостевой вход. Скоро вернём.' },
-  en: { 'auth.magma.comingSoonDesc': 'Magma Account sign-in is temporarily disabled in the alpha — only guest sign-in is available. It will be back soon.' },
-};
-Object.keys(I18N_MAGMA_SOON_PATCH).forEach(lang => {
-  if (!I18N[lang]) I18N[lang] = {};
-  Object.assign(I18N[lang], I18N_MAGMA_SOON_PATCH[lang]);
-});
-
+\n
 function renderUpdatesTimeline() {
   const container = document.getElementById('homeUpdatesTimeline');
   if (!container) return;
@@ -6533,9 +6502,8 @@ langSelectList.querySelectorAll('.custom-select-item').forEach(item => {
 
 document.addEventListener('click', () => langSelectWrap.classList.remove('is-open'));
 
-// ============================================
 // Settings sub-tabs: Account / Launcher / Game
-// ============================================
+
 const settingsSubtabs = document.querySelectorAll('.mods-subtab[data-settings-subtab]');
 const settingsSubviews = document.querySelectorAll('.mods-subview[data-settings-subview]');
 
@@ -6580,9 +6548,8 @@ launcherCategoryTabs.forEach(tab => {
   tab.addEventListener('click', () => switchLauncherCategory(tab.dataset.launcherCategory));
 });
 
-// ============================================
 // Skin provider selection
-// ============================================
+
 const SKIN_SYSTEM_KEY = 'magma_skin_system';
 function getSkinSystemPref() { return localStorage.getItem(SKIN_SYSTEM_KEY) || 'elyby'; }
 
@@ -6599,9 +6566,8 @@ document.querySelectorAll('.skin-system-option').forEach(btn => {
   });
 });
 
-// ============================================
 // Change skin modal
-// ============================================
+
 const skinChangeInfoOverlay = document.getElementById('skinChangeInfoOverlay');
 const skinChangeInfoClose = document.getElementById('skinChangeInfoClose');
 const skinChangeDontShowAgain = document.getElementById('skinChangeDontShowAgain');
@@ -6623,9 +6589,6 @@ skinChangeGoBtn?.addEventListener('click', () => {
   openLinkInBrowser('https://ely.by/');
 });
 
-// ============================================
-
-// ============================================
 const CUSTOM_SKIN_LOADER_SLUG = 'customskinloader';
 const SKIN_LOADER_ENABLED_LOADERS = ['fabric', 'forge', 'neoforge', 'quilt'];
 
@@ -6667,9 +6630,7 @@ async function ensureCustomSkinLoaderInstalled(loader, version, modsDir, instanc
   }
 }
 
-// ============================================
 // Minecraft versions and loaders
-// ============================================
 
 let VERSIONS = [
   '26.3','26.2','26.1.2','26.1.1','26.1',
@@ -7378,9 +7339,6 @@ versionDropdown.addEventListener('click', (e) => e.stopPropagation());
 
 document.addEventListener('click', () => closeDropdown());
 
-// ============================================
-
-// ============================================
 const MODPACKS_KEY = 'magma_modpacks';
 
 function getModpacks() {
@@ -7481,9 +7439,6 @@ document.getElementById('newInstanceBtn')?.addEventListener('click', openModpack
 
 document.getElementById('createModpackBtn')?.addEventListener('click', openModpackModal);
 
-// ============================================
-
-// ============================================
 const instanceModsOverlay = document.getElementById('instanceModsOverlay');
 const instanceModsClose = document.getElementById('instanceModsClose');
 const instanceModsTitleEl = document.getElementById('instanceModsTitle');
@@ -7781,9 +7736,6 @@ instanceModsAddBtn?.addEventListener('click', async () => {
   modsSubviews.forEach(v => v.classList.toggle('is-active', v.dataset.subview === 'browse'));
 });
 
-// ============================================
-
-// ============================================
 const instancesSubtabs = document.querySelectorAll('.mods-subtab[data-instances-subtab]');
 const instancesSubviews = document.querySelectorAll('.mods-subview[data-instances-subview]');
 
@@ -7795,9 +7747,7 @@ instancesSubtabs.forEach(tab => {
     if (target === 'catalog') runInstancesCatalogSearch(1);
   });
 });
-// ============================================
 
-// ============================================
 const homeSubtabs = document.querySelectorAll('.mods-subtab[data-home-subtab]');
 const homeSubviews = document.querySelectorAll('.mods-subview[data-home-subview]');
 
@@ -7811,9 +7761,6 @@ homeSubtabs.forEach(tab => {
   });
 });
 
-// ============================================
-
-// ============================================
 const INSTANCES_CATALOG_CLASS_ID = 4471;
 let instancesCatalogSource = localStorage.getItem('magma_instances_catalog_source') || 'modrinth';
 if (instancesCatalogSource !== 'modrinth' && instancesCatalogSource !== 'curseforge') instancesCatalogSource = 'modrinth';
@@ -8346,17 +8293,11 @@ function launchModpack(pack) {
   playBtn.click();
 }
 
-// ============================================
-
-// ============================================
 const modList = document.getElementById('modList');
 const modSearch = document.getElementById('modSearch');
 
-// ============================================
-
 //
 
-// ============================================
 const MODS_CATEGORIES = [
   { id: 'mod',          i18nKey: 'mods.category.mods',          projectType: 'mod',          dirName: 'mods',          curseforgeClassId: 6,    modrinthSupported: true },
   { id: 'resourcepack', i18nKey: 'mods.category.resourcepacks', projectType: 'resourcepack', dirName: 'resourcepacks', curseforgeClassId: 12,   modrinthSupported: true },
@@ -8593,9 +8534,6 @@ function effectiveModsTargetVersion() {
   return modsTargetVersion;
 }
 
-// ============================================
-
-// ============================================
 const MODS_VIEW_STATE_KEY = 'magma_mods_view_state';
 
 function saveModsViewState() {
@@ -8655,9 +8593,6 @@ function syncModsTargetVersionLabel() {
     : modsTargetVersion;
 }
 
-// ============================================
-
-// ============================================
 const modsCategoryTabsEl = document.getElementById('modsCategoryTabs');
 const modsBrowseSubviewEl = document.querySelector('.mods-subview[data-subview="browse"]');
 const modsSubtabsEl = document.querySelector('.mods-subtabs');
@@ -8874,7 +8809,6 @@ document.getElementById('installUpdateBtn')?.addEventListener('click', async (e)
   }
 });
 
-
 const UPDATE_ATTEMPT_KEY = 'magma_update_attempt';
 
 async function autoUpdateOnBoot() {
@@ -9047,7 +8981,6 @@ async function autoUpdateOnBootLegacy() {
   return true;
 }
 
-
 window.__updateProgress = function (data) {
   const btn = document.getElementById('installUpdateBtn');
   const track = document.getElementById('updateProgressTrack');
@@ -9081,7 +9014,6 @@ window.__updateDone = function (data) {
     }
   }
 };
-
 
 function openMergedInstancesView() {
   if (!getMergeModsInstancesPref()) return;
@@ -9508,9 +9440,6 @@ if (cardIconImg) {
   });
 }
 
-// ============================================
-
-// ============================================
 const modDetailsOverlay = document.getElementById('modDetailsOverlay');
 const modDetailsClose = document.getElementById('modDetailsClose');
 const modDetailsIcon = document.getElementById('modDetailsIcon');
@@ -9656,9 +9585,6 @@ async function openModDetails(hit, onInstall, alreadyInstalled) {
   }
 }
 
-// ============================================
-
-// ============================================
 const INSTALLED_MODS_KEY = 'magma_installed_mods';
 
 function installedModsStorageKey(loader, version, instanceName) {
@@ -10200,9 +10126,6 @@ modFilterSourceCurseForge?.addEventListener('change', () => {
   runModSearch(1);
 });
 
-// ============================================
-
-// ============================================
 const modsSubtabs = document.querySelectorAll('.mods-subtab[data-subtab]');
 const modsSubviews = document.querySelectorAll('.mods-subview[data-subview]');
 
@@ -10216,9 +10139,6 @@ modsSubtabs.forEach(tab => {
   });
 });
 
-// ============================================
-
-// ============================================
 const installedModListEl = document.getElementById('installedModList');
 const installedModsScopeFilterEl = document.getElementById('installedModsScopeFilter');
 
@@ -10301,9 +10221,6 @@ function stripMcColorCodes(str) {
   return (str || '').replace(/[§?][0-9a-fk-or]/gi, '').replace(/\s+/g, ' ').trim();
 }
 
-// ============================================
-
-// ============================================
 const MAP_META_KEY = 'magma_map_meta';
 function getMapMetaMap() {
   try { return JSON.parse(localStorage.getItem(MAP_META_KEY) || '{}'); } catch { return {}; }
@@ -10372,9 +10289,6 @@ async function fetchModTitleAndIcon(uid) {
   return null;
 }
 
-// ============================================
-
-// ============================================
 const MOD_GUESS_CACHE_KEY = 'magma_mod_guess_cache';
 const modGuessCache = new Map();
 try {
@@ -10539,9 +10453,6 @@ async function loadInstalledMods() {
   }
 }
 
-// ============================================
-
-// ============================================
 async function loadInstalledMapFolders() {
   if (typeof window.listMapFolders !== 'function') {
     installedModListEl.innerHTML = `<div class="mod-list-hint">${t('mods.devModeHint')}</div>`;
@@ -10739,9 +10650,6 @@ if (cardIconImg) {
   });
 }
 
-// ============================================
-
-// ============================================
 const modpackOverlay = document.getElementById('modpackOverlay');
 const modpackModalClose = document.getElementById('modpackModalClose');
 const modpackNameInput = document.getElementById('modpackNameInput');
@@ -10923,9 +10831,6 @@ modpackSubmit?.addEventListener('click', async () => {
   }
 });
 
-// ============================================
-
-// ============================================
 const ramSlider = document.getElementById('ramSlider');
 const ramValue = document.getElementById('ramValue');
 const javaPathInputEl = document.getElementById('javaPathInput');
@@ -10969,9 +10874,6 @@ function updateRamValue() {
   ramValue.textContent = `${val} ${t('ram.unit')}`;
 }
 
-// ============================================
-
-// ============================================
 let resolutionMode = 'default';
 const RESOLUTION_LABEL_KEYS = { default: 'settings.resolution.default', custom: 'settings.resolution.custom' };
 
@@ -11032,9 +10934,6 @@ fullscreenToggleEl?.addEventListener('change', () => { updateFullscreenDependent
 resolutionWidthInputEl?.addEventListener('change', saveLauncherSettings);
 resolutionHeightInputEl?.addEventListener('change', saveLauncherSettings);
 
-// ============================================
-
-// ============================================
 function syncJvmModeButtons() {
   if (!jvmModeOptionsEl) return;
   const current = (jvmArgsInputEl?.value || '').trim();
@@ -11062,9 +10961,6 @@ jvmAdvancedToggleEl?.addEventListener('click', () => {
   jvmAdvancedToggleEl.classList.toggle('is-active', willShow);
 });
 
-// ============================================
-
-// ============================================
 const JVM_PRESET_G1GC =
   '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 ' +
   '-XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:G1NewSizePercent=30 ' +
@@ -11075,9 +10971,6 @@ const JVM_PRESET_G1GC =
 
 jvmArgsInputEl?.addEventListener('change', () => { syncJvmModeButtons(); saveLauncherSettings(); });
 
-// ============================================
-
-// ============================================
 document.getElementById('javaAutoDetectBtn')?.addEventListener('click', async (e) => {
   const btn = e.currentTarget;
   if (typeof window.autoDetectJava !== 'function') {
@@ -11122,9 +11015,6 @@ document.getElementById('javaBrowseBtn')?.addEventListener('click', async (e) =>
   }
 });
 
-// ============================================
-
-// ============================================
 const GAME_DIR_MODE_KEY = 'magma_game_dir_mode';
 let gameDirMode = localStorage.getItem(GAME_DIR_MODE_KEY) || 'magma';
 
@@ -11235,9 +11125,6 @@ document.getElementById('gameDirMoveBtn')?.addEventListener('click', async (e) =
   }
 });
 
-// ============================================
-
-// ============================================
 const SETTINGS_KEY = 'magma_launcher_settings';
 
 async function initializeDefaultGameDir() {
@@ -11254,8 +11141,6 @@ async function initializeDefaultGameDir() {
     if (!gameDirInputEl.value.trim()) { gameDirInputEl.value = path; saveLauncherSettings(); }
   } catch (err) { console.error('[MagmaLauncher] Default game directory:', err); }
 }
-
-
 
 function saveLauncherSettings() {
   const settings = {
@@ -11358,9 +11243,6 @@ versionRefreshBtnEl?.addEventListener('click', async () => {
   }
 });
 
-// ============================================
-
-// ============================================
 const authOverlay = document.getElementById('authOverlay');
 const accountTrigger = document.getElementById('accountTrigger');
 const accountName = document.getElementById('accountName');
@@ -11368,9 +11250,6 @@ const authModalClose = document.getElementById('authModalClose');
 
 let isLoggedIn = false;
 
-// ============================================
-
-// ============================================
 const ACCOUNTS_KEY = 'magma_accounts';
 const ACTIVE_ACCOUNT_KEY = 'magma_active_account_id';
 
@@ -11423,9 +11302,6 @@ function currentAccountType() {
   return acc ? acc.type : 'guest';
 }
 
-// ============================================
-
-// ============================================
 function elyBySkinUrl(nickname, cacheBust = false) {
   const nick = encodeURIComponent((nickname || '').trim());
   const base = `https://skinsystem.ely.by/skins/${nick}.png`;
@@ -12115,9 +11991,6 @@ document.getElementById('guestSubmit')?.addEventListener('click', () => {
   finishLogin(nickname);
 });
 
-// ============================================
-
-// ============================================
 function isValidMinecraftNick(nick) {
   return /^[A-Za-z0-9_]{3,16}$/.test(nick);
 }
@@ -12242,9 +12115,6 @@ document.getElementById('magmaLoginSubmit')?.addEventListener('click', async (e)
   }
 });
 
-// ============================================
-
-// ============================================
 let profileRepairUserId = null;
 
 async function runGoogleAuth() {
@@ -12316,9 +12186,8 @@ async function handleGoogleAuthClick(button) {
 document.getElementById('googleAuthSubmit')?.addEventListener('click', (e) => handleGoogleAuthClick(e.currentTarget));
 document.getElementById('googleRegisterSubmit')?.addEventListener('click', (e) => handleGoogleAuthClick(e.currentTarget));
 
-// ============================================
 // Регистрация Magma по коду из письма
-// ============================================
+
 let regEmail = '';
 let regUserId = null;
 let regResendTimer = null;
@@ -12855,7 +12724,6 @@ async function openLinkInBrowser(url) {
   if (nativeWindowOpen) nativeWindowOpen(url, '_blank', 'noopener,noreferrer');
 }
 
-
 window.open = function (url) {
   const href = typeof url === 'string' ? url : '';
   if (/^https?:\/\//i.test(href)) {
@@ -12881,9 +12749,6 @@ document.addEventListener('click', (e) => {
   e.preventDefault();
 }, { capture: true });
 
-// ============================================
-
-// ============================================
 function findScrollableAncestor(el) {
   let node = el;
   while (node && node !== document.body) {
@@ -13222,9 +13087,6 @@ document.addEventListener('contextmenu', (e) => {
 
 }, { capture: true });
 
-// ============================================
-
-// ============================================
 function arrayBufferToBase64(buffer) {
   let binary = '';
   const bytes = new Uint8Array(buffer);
