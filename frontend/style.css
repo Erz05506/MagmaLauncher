@@ -3274,4 +3274,8 @@ html[data-theme="halloween"] body {
   object-fit: contain;
   object-position: center;
 }
-.news-card-img:last-child { margin-bottom: -14px; } /* карточка-баннер без текста */
+.news-card-img:last-child { margin-bottom: -14px; } 
+.auth-pane[data-pane="magma"] > .auth-desc,
+.auth-pane[data-pane="magma"] > .auth-submit-ms { display: none; }
+.auth-tab[data-tab="magma"] .auth-tab-badge { display: none; }
+#magmaRegisterResend { margin-top: 10px; }

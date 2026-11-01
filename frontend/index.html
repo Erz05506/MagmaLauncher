@@ -934,7 +934,114 @@
         </div>
 
         <!-- MAGMA ACCOUNT: SIGN IN -->
-        <div class="auth-pane" data-pane="magma">
+<div class="auth-pane" data-pane="magma">
+
+  <div class="auth-form" id="magmaLoginForpm" style="display:flex;">
+    <label class="auth-field-label" data-i18n="auth.magma.emailLabel">Почта или ник</label>
+    <input type="text" class="auth-input" id="magmaLoginEmail" autocomplete="username">
+
+    <label class="auth-field-label" data-i18n="auth.magma.passwordLabel">Пароль</label>
+    <div class="auth-input-wrap">
+      <input type="password" class="auth-input" id="magmaLoginPassword" autocomplete="current-password">
+      <button type="button" class="auth-eye-toggle" data-target="magmaLoginPassword" tabindex="-1">
+        <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
+      </button>
+    </div>
+
+    <div class="auth-error" id="magmaLoginError"></div>
+    <button class="auth-submit" id="magmaLoginSubmit" data-i18n="auth.magma.signIn">Войти</button>
+
+    <div class="auth-divider"><span data-i18n="auth.google.or">или</span></div>
+    <button class="auth-submit auth-submit-google" id="googleAuthSubmit" data-context="login">
+      <svg viewBox="0 0 24 24" class="google-icon-btn"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 6-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.4 14.4a7.2 7.2 0 0 1 0-4.8V6.5H1.4a12 12 0 0 0 0 11l4-3.1z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.5l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"/></svg>
+      <span data-i18n="auth.google.button">Войти через Google</span>
+    </button>
+
+    <p class="auth-switch"><span data-i18n="auth.magma.noAccount">Нет аккаунта?</span><a href="#" id="showMagmaRegister" data-i18n="auth.magma.createLink">Создать</a></p>
+  </div>
+  <div class="auth-form" id="magmaRegisterForm" style="display:none;">
+    <button type="button" class="auth-back" id="magmaRegisterBack"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="auth-form" id="magmaRegStep1">
+      <p class="auth-desc" data-i18n="auth.magma.emailStepDesc">Введите почту — мы отправим на неё 6-значный код подтверждения.</p>
+      <label class="auth-field-label" data-i18n="auth.magma.registerEmail">Почта</label>
+      <input type="email" class="auth-input" id="magmaRegEmail" placeholder="you@example.com" autocomplete="email">
+      <button class="auth-submit" id="magmaRegisterSendCode" data-i18n="auth.magma.sendCode">Получить код</button>
+
+      <div class="auth-divider"><span data-i18n="auth.google.or">или</span></div>
+      <button class="auth-submit auth-submit-google" id="googleRegisterSubmit" data-context="register">
+        <svg viewBox="0 0 24 24" class="google-icon-btn"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 6-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.4 14.4a7.2 7.2 0 0 1 0-4.8V6.5H1.4a12 12 0 0 0 0 11l4-3.1z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.5l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"/></svg>
+        <span data-i18n="auth.google.registerButton">Зарегистрироваться через Google</span>
+      </button>
+    </div>
+    <div class="auth-form" id="magmaRegStep2" style="display:none;">
+      <p class="auth-desc" id="magmaRegCodeDesc"></p>
+      <label class="auth-field-label" data-i18n="auth.magma.codeLabel">Код из письма</label>
+      <input type="text" class="auth-input auth-code-input" id="magmaRegCode" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="000000">
+      <button class="auth-submit" id="magmaRegisterVerify" data-i18n="auth.magma.verifyCode">Подтвердить</button>
+      <button type="button" class="ghost-btn" id="magmaRegisterResend" style="width:100%;margin-top:10px;"></button>
+      <p class="auth-switch"><a href="#" id="magmaRegisterChangeEmail" data-i18n="auth.magma.changeEmail">Изменить почту</a></p>
+    </div>
+    <!-- шаг 3: ник + пароль -->
+    <div class="auth-form" id="magmaRegStep3" style="display:none;">
+      <p class="auth-desc" data-i18n="auth.magma.finishStepDesc">Почта подтверждена! Придумайте никнейм и пароль.</p>
+
+      <label class="auth-field-label" data-i18n="auth.magma.registerNick">Никнейм (логин)</label>
+      <input type="text" class="auth-input" id="magmaRegNick" maxlength="16" autocomplete="off">
+      <span class="auth-field-hint" data-i18n="auth.magma.nickRules">3–16 символов: латинские буквы, цифры и _</span>
+
+      <label class="auth-field-label" data-i18n="auth.magma.registerPassword">Пароль</label>
+      <div class="auth-input-wrap">
+        <input type="password" class="auth-input" id="magmaRegPassword" autocomplete="new-password">
+        <button type="button" class="auth-eye-toggle" data-target="magmaRegPassword" tabindex="-1">
+          <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
+        </button>
+      </div>
+
+      <label class="auth-field-label" data-i18n="auth.magma.registerConfirm">Повторите пароль</label>
+      <div class="auth-input-wrap">
+        <input type="password" class="auth-input" id="magmaRegPasswordConfirm" autocomplete="new-password">
+        <button type="button" class="auth-eye-toggle" data-target="magmaRegPasswordConfirm" tabindex="-1">
+          <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
+        </button>
+      </div>
+
+      <button class="auth-submit" id="magmaRegisterFinish" data-i18n="auth.magma.createBtn">Создать аккаунт</button>
+    </div>
+
+    <div class="auth-error" id="magmaRegisterError"></div>
+  </div>
+  <div class="auth-form" id="magmaGoogleSetupForm" style="display:none;">
+    <button type="button" class="auth-back" id="magmaGoogleSetupBack"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <p class="auth-desc" id="magmaGoogleSetupDesc"></p>
+
+    <label class="auth-field-label" data-i18n="auth.magma.registerNick">Никнейм (логин)</label>
+    <input type="text" class="auth-input" id="magmaGoogleNick" maxlength="16" autocomplete="off">
+    <span class="auth-field-hint" data-i18n="auth.magma.nickRules">3–16 символов: латинские буквы, цифры и _</span>
+
+    <label class="auth-field-label" data-i18n="auth.magma.registerPassword">Пароль</label>
+    <div class="auth-input-wrap">
+      <input type="password" class="auth-input" id="magmaGoogleSetupPassword" autocomplete="new-password">
+      <button type="button" class="auth-eye-toggle" data-target="magmaGoogleSetupPassword" tabindex="-1">
+        <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
+      </button>
+    </div>
+
+    <label class="auth-field-label" data-i18n="auth.magma.registerConfirm">Повторите пароль</label>
+    <div class="auth-input-wrap">
+      <input type="password" class="auth-input" id="magmaGoogleSetupConfirm" autocomplete="new-password">
+      <button type="button" class="auth-eye-toggle" data-target="magmaGoogleSetupConfirm" tabindex="-1">
+        <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
+      </button>
+    </div>
+
+    <div class="auth-error" id="magmaGoogleSetupError"></div>
+    <button class="auth-submit" id="magmaGoogleSetupSubmit" data-i18n="auth.google.finishButton">Завершить регистрацию</button>
+  </div>
   <p class="auth-desc" data-i18n="auth.magma.comingSoonDesc">
     Вход через Magma Аккаунт временно отключён для альфа-версии — доступен только гостевой вход. Скоро вернём.
   </p>

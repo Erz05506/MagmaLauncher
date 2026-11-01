@@ -12316,7 +12316,234 @@ async function handleGoogleAuthClick(button) {
 document.getElementById('googleAuthSubmit')?.addEventListener('click', (e) => handleGoogleAuthClick(e.currentTarget));
 document.getElementById('googleRegisterSubmit')?.addEventListener('click', (e) => handleGoogleAuthClick(e.currentTarget));
 
+// ============================================
+// Регистрация Magma по коду из письма
+// ============================================
+let regEmail = '';
+let regUserId = null;
+let regResendTimer = null;
+
+function showRegStep(n) {
+  [1, 2, 3].forEach(i => {
+    const el = document.getElementById('magmaRegStep' + i);
+    if (el) el.style.display = i === n ? 'flex' : 'none';
+  });
+  hideError(magmaRegisterError);
+}
+
+function resetRegisterFlow() {
+  clearInterval(regResendTimer);
+  regEmail = '';
+  regUserId = null;
+  ['magmaRegEmail', 'magmaRegCode', 'magmaRegNick', 'magmaRegPassword', 'magmaRegPasswordConfirm']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  showRegStep(1);
+}
+
+function startResendCooldown(seconds) {
+  const btn = document.getElementById('magmaRegisterResend');
+  if (!btn) return;
+  clearInterval(regResendTimer);
+  let left = seconds;
+  const tick = () => {
+    if (left > 0) {
+      btn.disabled = true;
+      btn.textContent = t('auth.magma.resendIn').replace('{s}', left);
+      left--;
+    } else {
+      clearInterval(regResendTimer);
+      btn.disabled = false;
+      btn.textContent = t('auth.magma.resend');
+    }
+  };
+  tick();
+  regResendTimer = setInterval(tick, 1000);
+}
+
+async function sendRegCode(email) {
+  const { data: taken } = await supabaseClient.rpc('email_registered', { check_email: email });
+  if (taken) return t('auth.magma.emailTaken');
+
+  const { error } = await supabaseClient.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: true },
+  });
+  if (error) {
+    console.error('[MagmaLauncher] Ошибка отправки кода:', error);
+    const limited = error.status === 429 || /rate|seconds|too many/i.test(error.message || '');
+    return limited ? t('auth.magma.tooManyRequests') : t('auth.magma.sendFailed');
+  }
+  return null;
+}
+
+document.getElementById('showMagmaRegister')?.addEventListener('click', resetRegisterFlow);
+
+document.getElementById('magmaRegisterSendCode')?.addEventListener('click', async (e) => {
+  const button = e.currentTarget;
+  const email = document.getElementById('magmaRegEmail').value.trim();
+  hideError(magmaRegisterError);
+
+  if (!email) { showError(magmaRegisterError, t('auth.magma.fillAll')); return; }
+  if (!isValidEmail(email)) { showError(magmaRegisterError, t('auth.magma.invalidEmail')); return; }
+
+  setButtonLoading(button, t('auth.magma.sending'));
+  try {
+    const err = await sendRegCode(email);
+    if (err) { showError(magmaRegisterError, err); return; }
+
+    regEmail = email;
+    document.getElementById('magmaRegCodeDesc').textContent = t('auth.magma.codeSent').replace('{email}', email);
+    document.getElementById('magmaRegCode').value = '';
+    showRegStep(2);
+    startResendCooldown(60);
+    document.getElementById('magmaRegCode').focus();
+  } catch (err) {
+    console.error('[MagmaLauncher] Ошибка отправки кода:', err);
+    showError(magmaRegisterError, t('auth.magma.sendFailed'));
+  } finally {
+    restoreButton(button);
+  }
+});
+
+document.getElementById('magmaRegisterResend')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  hideError(magmaRegisterError);
+  btn.disabled = true;
+  try {
+    const err = await sendRegCode(regEmail);
+    if (err) { showError(magmaRegisterError, err); btn.disabled = false; return; }
+    startResendCooldown(60);
+  } catch (err) {
+    console.error('[MagmaLauncher] Ошибка повторной отправки:', err);
+    showError(magmaRegisterError, t('auth.magma.sendFailed'));
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('magmaRegisterChangeEmail')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  clearInterval(regResendTimer);
+  showRegStep(1);
+});
+
+document.getElementById('magmaRegisterVerify')?.addEventListener('click', async (e) => {
+  const button = e.currentTarget;
+  const token = document.getElementById('magmaRegCode').value.trim();
+  hideError(magmaRegisterError);
+
+  if (!/^\d{6}$/.test(token)) { showError(magmaRegisterError, t('auth.magma.codeInvalid')); return; }
+
+  setButtonLoading(button, t('auth.magma.verifying'));
+  try {
+    const { data, error } = await supabaseClient.auth.verifyOtp({ email: regEmail, token, type: 'email' });
+    if (error || !data || !data.user) {
+      showError(magmaRegisterError, t('auth.magma.codeInvalid'));
+      return;
+    }
+    regUserId = data.user.id;
+    clearInterval(regResendTimer);
+    showRegStep(3);
+    document.getElementById('magmaRegNick').focus();
+  } catch (err) {
+    console.error('[MagmaLauncher] Ошибка проверки кода:', err);
+    showError(magmaRegisterError, t('auth.magma.genericError'));
+  } finally {
+    restoreButton(button);
+  }
+});
+
+async function completeMagmaProfile(userId, email, nick, password, confirm, errorEl, button) {
+  hideError(errorEl);
+
+  if (!nick || !password || !confirm) { showError(errorEl, t('auth.magma.fillAll')); return false; }
+  if (!isValidMinecraftNick(nick)) { showError(errorEl, t('auth.magma.invalidNick')); return false; }
+  if (!isValidPassword(password)) { showError(errorEl, t('auth.magma.weakPassword')); return false; }
+  if (password !== confirm) { showError(errorEl, t('auth.magma.passwordMismatch')); return false; }
+
+  setButtonLoading(button, t('auth.google.creatingAccount'));
+  try {
+    const { error: profileError } = await supabaseClient
+      .from('profiles')
+      .upsert({ id: userId, nick }, { onConflict: 'id' });
+
+    if (profileError) {
+      if (profileError.code === '23505') showError(errorEl, t('auth.magma.nickTaken'));
+      else {
+        console.error('[MagmaLauncher] Ошибка создания профиля:', profileError);
+        showError(errorEl, t('auth.magma.genericError'));
+      }
+      return false;
+    }
+
+    const { error: pwError } = await supabaseClient.auth.updateUser({ password });
+    if (pwError && pwError.code !== 'same_password') {
+      console.error('[MagmaLauncher] Ошибка установки пароля:', pwError);
+      showError(errorEl, t('auth.magma.genericError'));
+      return false;
+    }
+
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    const session = sessionData && sessionData.session;
+    upsertActiveAccount({
+      id: userId, type: 'magma', nickname: nick,
+      identifier: email || (session && session.user.email) || '',
+      accessToken: session && session.access_token,
+      refreshToken: session && session.refresh_token,
+    });
+    finishLogin(nick);
+    return true;
+  } catch (err) {
+    console.error('[MagmaLauncher] Ошибка завершения регистрации:', err);
+    showError(errorEl, t('auth.magma.genericError'));
+    return false;
+  } finally {
+    restoreButton(button);
+  }
+}
+
+document.getElementById('magmaRegisterFinish')?.addEventListener('click', async (e) => {
+  if (!regUserId) { showRegStep(1); return; }
+  const ok = await completeMagmaProfile(
+    regUserId, regEmail,
+    document.getElementById('magmaRegNick').value.trim(),
+    document.getElementById('magmaRegPassword').value,
+    document.getElementById('magmaRegPasswordConfirm').value,
+    magmaRegisterError, e.currentTarget
+  );
+  if (ok) resetRegisterFlow();
+});
+
 document.getElementById('magmaGoogleSetupSubmit')?.addEventListener('click', async (e) => {
+  if (!profileRepairUserId) return;
+  const ok = await completeMagmaProfile(
+    profileRepairUserId, '',
+    document.getElementById('magmaGoogleNick').value.trim(),
+    document.getElementById('magmaGoogleSetupPassword').value,
+    document.getElementById('magmaGoogleSetupConfirm').value,
+    magmaGoogleSetupError, e.currentTarget
+  );
+  if (ok) {
+    profileRepairUserId = null;
+    ['magmaGoogleNick', 'magmaGoogleSetupPassword', 'magmaGoogleSetupConfirm']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  }
+});
+
+chainEnterKeys([document.getElementById('magmaRegEmail'), document.getElementById('magmaRegisterSendCode')]);
+chainEnterKeys([document.getElementById('magmaRegCode'), document.getElementById('magmaRegisterVerify')]);
+chainEnterKeys([
+  document.getElementById('magmaRegNick'),
+  document.getElementById('magmaRegPassword'),
+  document.getElementById('magmaRegPasswordConfirm'),
+  document.getElementById('magmaRegisterFinish'),
+]);
+chainEnterKeys([
+  document.getElementById('magmaGoogleSetupPassword'),
+  document.getElementById('magmaGoogleSetupConfirm'),
+  document.getElementById('magmaGoogleSetupSubmit'),
+]);
+
+document.getElementById('magmaGoogleSetupSubmitLegacy')?.addEventListener('click', async (e) => {
   hideError(magmaGoogleSetupError);
 
   if (!profileRepairUserId) return;
@@ -12428,9 +12655,6 @@ document.getElementById('msSubmit')?.addEventListener('click', async (e) => {
   }
 });
 
-// ============================================
-
-// ============================================
 function chainEnterKeys(elements) {
   for (let i = 0; i < elements.length - 1; i++) {
     const el = elements[i];
@@ -12465,9 +12689,6 @@ chainEnterKeys([
   document.getElementById('magmaGoogleSetupSubmit'),
 ]);
 
-// ============================================
-
-// ============================================
 const bootSplash = document.getElementById('bootSplash');
 const bootBarFill = document.getElementById('bootBarFill');
 
@@ -12605,9 +12826,6 @@ startVersionAutoRefresh();
   if (!restored) openAuthModal();
 }
 
-// ============================================
-
-// ============================================
 document.addEventListener('keydown', async (e) => {
   if (e.key !== 'F11') return;
   e.preventDefault();
@@ -12624,9 +12842,6 @@ document.addEventListener('keydown', async (e) => {
   }
 });
 
-// ============================================
-
-// ============================================
 const nativeWindowOpen = window.open ? window.open.bind(window) : null;
 const nativeOpenExternalUrl = typeof window.openExternalUrl === 'function' ? window.openExternalUrl : null;
 
@@ -12640,7 +12855,6 @@ async function openLinkInBrowser(url) {
   if (nativeWindowOpen) nativeWindowOpen(url, '_blank', 'noopener,noreferrer');
 }
 
-// ============================================
 
 window.open = function (url) {
   const href = typeof url === 'string' ? url : '';
@@ -13684,6 +13898,49 @@ Object.keys(I18N_UPDATES_SETTINGS_PATCH).forEach(lang => {
   Object.assign(I18N[lang], I18N_UPDATES_SETTINGS_PATCH[lang]);
 });
 I18N['es-ES'] = I18N.es;
+
+const I18N_MAGMA_CODE_PATCH = {
+  ru: {
+    'auth.magma.emailStepDesc': 'Введите почту — мы отправим на неё 6-значный код подтверждения.',
+    'auth.magma.sendCode': 'Получить код',
+    'auth.magma.sending': 'Отправляем...',
+    'auth.magma.codeSent': 'Мы отправили 6-значный код на {email}. Проверьте также папку «Спам».',
+    'auth.magma.codeLabel': 'Код из письма',
+    'auth.magma.verifyCode': 'Подтвердить',
+    'auth.magma.verifying': 'Проверяем...',
+    'auth.magma.resend': 'Отправить код ещё раз',
+    'auth.magma.resendIn': 'Отправить ещё раз через {s} с',
+    'auth.magma.changeEmail': 'Изменить почту',
+    'auth.magma.codeInvalid': 'Неверный или просроченный код',
+    'auth.magma.sendFailed': 'Не удалось отправить письмо. Проверьте почту и попробуйте ещё раз.',
+    'auth.magma.tooManyRequests': 'Слишком много попыток. Подождите немного и повторите.',
+    'auth.magma.finishStepDesc': 'Почта подтверждена! Придумайте никнейм и пароль.',
+  },
+  en: {
+    'auth.magma.emailStepDesc': "Enter your email — we'll send a 6-digit confirmation code.",
+    'auth.magma.sendCode': 'Get code',
+    'auth.magma.sending': 'Sending...',
+    'auth.magma.codeSent': 'We sent a 6-digit code to {email}. Check your spam folder too.',
+    'auth.magma.codeLabel': 'Code from the email',
+    'auth.magma.verifyCode': 'Confirm',
+    'auth.magma.verifying': 'Checking...',
+    'auth.magma.resend': 'Resend code',
+    'auth.magma.resendIn': 'Resend in {s}s',
+    'auth.magma.changeEmail': 'Change email',
+    'auth.magma.codeInvalid': 'Invalid or expired code',
+    'auth.magma.sendFailed': "Couldn't send the email. Check the address and try again.",
+    'auth.magma.tooManyRequests': 'Too many attempts. Wait a bit and try again.',
+    'auth.magma.finishStepDesc': 'Email confirmed! Pick a nickname and a password.',
+  },
+};
+Object.keys(I18N_MAGMA_CODE_PATCH).forEach(lang => Object.assign(I18N[lang], I18N_MAGMA_CODE_PATCH[lang]));
+
+// Текст для Google-формы: теперь это «ник + пароль», а не «пароль верный»
+Object.keys(I18N).forEach(lang => {
+  I18N[lang]['auth.google.repairDesc'] = lang === 'ru'
+    ? 'Придумайте никнейм и пароль, чтобы завершить регистрацию.'
+    : 'Pick a nickname and a password to finish signing up.';
+});
 
 applyActiveTheme();
 restoreLastSelection();
