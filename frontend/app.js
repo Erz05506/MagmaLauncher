@@ -12010,11 +12010,109 @@ const magmaRegisterError = document.getElementById('magmaRegisterError');
 const magmaGoogleSetupError = document.getElementById('magmaGoogleSetupError');
 const magmaGoogleSetupDesc = document.getElementById('magmaGoogleSetupDesc');
 
+const magmaForgotPasswordForm = document.getElementById('magmaForgotPasswordForm');
+const magmaResetPasswordForm = document.getElementById('magmaResetPasswordForm');
+
 function showMagmaStep(step) {
   if (magmaLoginForm) magmaLoginForm.style.display = step === 'login' ? 'flex' : 'none';
   if (magmaRegisterForm) magmaRegisterForm.style.display = step === 'register' ? 'flex' : 'none';
   if (magmaGoogleSetupForm) magmaGoogleSetupForm.style.display = step === 'google-setup' ? 'flex' : 'none';
+  if (magmaForgotPasswordForm) magmaForgotPasswordForm.style.display = step === 'forgot-password' ? 'flex' : 'none';
+  if (magmaResetPasswordForm) magmaResetPasswordForm.style.display = step === 'reset-password' ? 'flex' : 'none';
 }
+
+async function requestMagmaPasswordReset() {
+  const email = document.getElementById('magmaForgotPasswordEmail').value.trim();
+  const errorBox = document.getElementById('magmaForgotPasswordError');
+  hideError(errorBox);
+  if (!isValidEmail(email)) {
+    showError(errorBox, t('auth.magma.invalidEmail'));
+    return;
+  }
+  const button = document.getElementById('magmaForgotPasswordSubmit');
+  setButtonLoading(button, t('auth.magma.resetSending'));
+  try {
+    const { error } = await withTimeout(supabaseClient.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://magmalauncher.space/pages/launcher-reset.html'
+    }));
+    if (error) throw error;
+    errorBox.textContent = t('auth.magma.resetSent');
+    errorBox.classList.add('is-visible');
+    errorBox.classList.remove('is-error');
+    errorBox.classList.add('is-success');
+  } catch (error) {
+    showError(errorBox, error.message || t('auth.magma.resetFailed'));
+  } finally {
+    restoreButton(button);
+  }
+}
+
+async function handleMagmaRecoveryUrl(rawUrl) {
+  try {
+    const recoveryUrl = new URL(rawUrl);
+    const params = new URLSearchParams(recoveryUrl.hash.replace(/^#/, ''));
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    if (!accessToken || !refreshToken || params.get('type') !== 'recovery') {
+      throw new Error(t('auth.magma.resetInvalid'));
+    }
+    const { error } = await supabaseClient.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken
+    });
+    if (error) throw error;
+    document.getElementById('magmaResetPassword').value = '';
+    document.getElementById('magmaResetPasswordConfirm').value = '';
+    hideError(document.getElementById('magmaResetPasswordError'));
+    showMagmaStep('reset-password');
+    document.getElementById('magmaResetPassword').focus();
+  } catch (error) {
+    showMagmaStep('forgot-password');
+    showError(document.getElementById('magmaForgotPasswordError'), error.message || t('auth.magma.resetInvalid'));
+  }
+}
+
+window.addEventListener('magma-auth-url', event => {
+  if (event.detail) handleMagmaRecoveryUrl(event.detail);
+});
+if (window.magmaStartupAuthUrl) handleMagmaRecoveryUrl(window.magmaStartupAuthUrl);
+
+document.getElementById('showMagmaForgotPassword')?.addEventListener('click', event => {
+  event.preventDefault();
+  hideError(magmaLoginError);
+  document.getElementById('magmaForgotPasswordEmail').value =
+    document.getElementById('magmaLoginEmail').value.includes('@')
+      ? document.getElementById('magmaLoginEmail').value.trim() : '';
+  showMagmaStep('forgot-password');
+});
+
+document.getElementById('magmaForgotPasswordBack')?.addEventListener('click', () => showMagmaStep('login'));
+document.getElementById('magmaForgotPasswordSubmit')?.addEventListener('click', requestMagmaPasswordReset);
+document.getElementById('magmaResetPasswordBack')?.addEventListener('click', () => showMagmaStep('login'));
+document.getElementById('magmaResetPasswordSubmit')?.addEventListener('click', async event => {
+  const password = document.getElementById('magmaResetPassword').value;
+  const confirmation = document.getElementById('magmaResetPasswordConfirm').value;
+  const errorBox = document.getElementById('magmaResetPasswordError');
+  hideError(errorBox);
+  if (password.length < 6) return showError(errorBox, t('auth.magma.passwordTooShort'));
+  if (password !== confirmation) return showError(errorBox, t('auth.magma.passwordMismatch'));
+  const button = event.currentTarget;
+  setButtonLoading(button, t('auth.magma.resetSaving'));
+  try {
+    const { error } = await withTimeout(supabaseClient.auth.updateUser({ password }));
+    if (error) throw error;
+    errorBox.textContent = t('auth.magma.resetSuccess');
+    errorBox.classList.add('is-visible', 'is-success');
+    document.getElementById('magmaResetPassword').value = '';
+    document.getElementById('magmaResetPasswordConfirm').value = '';
+    await supabaseClient.auth.signOut({ scope: 'local' });
+    setTimeout(() => showMagmaStep('login'), 1800);
+  } catch (error) {
+    showError(errorBox, error.message || t('auth.magma.resetFailed'));
+  } finally {
+    restoreButton(button);
+  }
+});
 
 document.getElementById('showMagmaRegister')?.addEventListener('click', (e) => {
   e.preventDefault();
