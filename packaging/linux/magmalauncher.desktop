@@ -1,8 +1,8 @@
+MimeType=x-scheme-handler/magma;
 [Desktop Entry]
 Type=Application
 Name=MagmaLauncher
 Comment=Minecraft launcher
-Exec=magmalauncher
+Exec=magmalauncher %U
 Icon=magmalauncher
 Terminal=false
-Categories=Game;\nMimeType=x-scheme-handler/magma;
