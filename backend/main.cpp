@@ -1010,7 +1010,16 @@ if (name == "installLauncherUpdate") {
                         showErrorBox(error, "MagmaLauncher — ошибка входа через Google");
                     }
                     std::string payload = result.dump();
-                    PostUi([callback, payload]() { callback->Success(payload); });
+                    PostUi([callback, payload]() {
+#ifdef _WIN32
+                        HWND hwnd = g_authBrowser ? g_authBrowser->GetHost()->GetWindowHandle() : nullptr;
+                        if (hwnd && IsWindow(hwnd)) {
+                            ShowWindow(hwnd, SW_RESTORE);
+                            SetForegroundWindow(hwnd);
+                        }
+#endif
+                        callback->Success(payload);
+                    });
                 }).detach();
                 return true;
             }
