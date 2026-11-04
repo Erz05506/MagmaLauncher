@@ -959,6 +959,25 @@
     </button>
 
     <p class="auth-switch"><span data-i18n="auth.magma.noAccount">Нет аккаунта?</span><a href="#" id="showMagmaRegister" data-i18n="auth.magma.createLink">Создать</a></p>
+    <p class="auth-switch"><a href="#" id="showMagmaForgotPassword">Забыли пароль?</a></p>
+  </div>
+  <div class="auth-form" id="magmaForgotPasswordForm" style="display:none;">
+    <button type="button" class="auth-back" id="magmaForgotPasswordBack"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <p class="auth-desc">Укажите почту, привязанную к Magma Account. Мы отправим ссылку для восстановления пароля.</p>
+    <label class="auth-field-label">Email</label>
+    <input type="email" class="auth-input" id="magmaForgotPasswordEmail" autocomplete="email" placeholder="you@example.com">
+    <div class="auth-error" id="magmaForgotPasswordError"></div>
+    <button class="auth-submit" id="magmaForgotPasswordSubmit">Отправить ссылку</button>
+  </div>
+  <div class="auth-form" id="magmaResetPasswordForm" style="display:none;">
+    <button type="button" class="auth-back" id="magmaResetPasswordBack"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <p class="auth-desc">Придумайте новый пароль для Magma Account.</p>
+    <label class="auth-field-label">Новый пароль</label>
+    <input type="password" class="auth-input" id="magmaResetPassword" autocomplete="new-password" minlength="6">
+    <label class="auth-field-label">Повторите пароль</label>
+    <input type="password" class="auth-input" id="magmaResetPasswordConfirm" autocomplete="new-password" minlength="6">
+    <div class="auth-error" id="magmaResetPasswordError"></div>
+    <button class="auth-submit" id="magmaResetPasswordSubmit">Сохранить пароль</button>
   </div>
   <div class="auth-form" id="magmaRegisterForm" style="display:none;">
     <button type="button" class="auth-back" id="magmaRegisterBack"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
