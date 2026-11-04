@@ -1,5 +1,7 @@
 
+// ============================================
 // MagmaLauncher — frontend logic
+// ============================================
 
 const SUPABASE_URL = 'https://bjgpqlegoptegcbogncq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqZ3BxbGVnb3B0ZWdjYm9nbmNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzOTY4ODEsImV4cCI6MjA5OTk3Mjg4MX0.3iMFvghcz-IaXuLqk5WLRnou_4bpwFFmGrWSNSmHMS0';
@@ -75,6 +77,9 @@ function getGameDir() {
   return sanitizeGameDirPath(gameDirInputEl ? gameDirInputEl.value : '');
 }
 
+// ============================================
+
+// ============================================
 const VIEW_SCROLL_KEY = 'magma_view_scroll';
 let viewScrollState = {};
 try { viewScrollState = JSON.parse(sessionStorage.getItem(VIEW_SCROLL_KEY) || '{}'); } catch { viewScrollState = {}; }
@@ -92,7 +97,9 @@ function restoreViewScroll(view) {
   contentEl.scrollTop = savedTop;
   syncSmoothScrollTarget(contentEl, savedTop);
 }
+// ============================================
 
+// ============================================
 const jsTooltipEl = document.createElement('div');
 jsTooltipEl.className = 'js-tooltip';
 document.body.appendChild(jsTooltipEl);
@@ -718,6 +725,9 @@ function setLaunchProgress(visible, fraction, label, isError, opts = {}) {
   }
 }
 
+// ============================================
+
+// ============================================
 const errorDetailsOverlay = document.getElementById('errorDetailsOverlay');
 const errorDetailsBody = document.getElementById('errorDetailsBody');
 const errorDetailsClose = document.getElementById('errorDetailsClose');
@@ -730,6 +740,9 @@ function showErrorDetailsModal(fullText) {
 errorDetailsClose?.addEventListener('click', () => errorDetailsOverlay.classList.remove('is-open'));
 errorDetailsOverlay?.addEventListener('click', (e) => { if (e.target === errorDetailsOverlay) errorDetailsOverlay.classList.remove('is-open'); });
 
+// ============================================
+
+// ============================================
 let isLaunchPaused = false;
 let lastProgressLabelText = '';
 
@@ -932,8 +945,9 @@ playBtn.addEventListener('click', async () => {
   }
 });
 
+// ============================================
 // Localization (RU / EN)
-
+// ============================================
 const I18N = {
   ru: {
     'nav.home': 'Главная', 'nav.instances': 'Сборки', 'nav.mods': 'Моды', 'nav.settings': 'Настройки',
@@ -4442,6 +4456,12 @@ Object.keys(I18N_SUPPLEMENT).forEach(lang => {
 });
 I18N['es-ES'] = I18N.es;
 
+// ============================================
+
+// ============================================
+// ============================================
+
+// ============================================
 const I18N_SUPPLEMENT_2 = {
   ru: {
     'settings.launcherWindow.fullscreen.label': 'Полноэкранный режим лаунчера',
@@ -5656,8 +5676,10 @@ const UPDATE_2024_RANGE = {
   ko: '2024년 10월–12월', hi: 'अक्टूबर–दिसंबर 2024', id: 'Oktober–Desember 2024',
 };
 
+// ============================================
 // Minecraft release history
 
+// ============================================
 const UPDATES_DATA = [
   { version: '1.0', month: 11, year: 2011,
     title: { ru:'Релиз', en:'Release', uk:'Реліз', fr:'Sortie', de:'Release', es:'Lanzamiento', it:'Rilascio', pt:'Lançamento', ja:'リリース', ko:'릴리스', hi:'रिलीज़', id:'Rilis' },
@@ -6388,7 +6410,7 @@ Object.keys(I18N_REOPEN_PATCH).forEach(lang => {
   Object.assign(I18N[lang], I18N_REOPEN_PATCH[lang]);
 });
 I18N['es-ES'] = I18N.es;
-\n
+
 function renderUpdatesTimeline() {
   const container = document.getElementById('homeUpdatesTimeline');
   if (!container) return;
@@ -6534,8 +6556,9 @@ langSelectList.querySelectorAll('.custom-select-item').forEach(item => {
 
 document.addEventListener('click', () => langSelectWrap.classList.remove('is-open'));
 
+// ============================================
 // Settings sub-tabs: Account / Launcher / Game
-
+// ============================================
 const settingsSubtabs = document.querySelectorAll('.mods-subtab[data-settings-subtab]');
 const settingsSubviews = document.querySelectorAll('.mods-subview[data-settings-subview]');
 
@@ -6580,8 +6603,9 @@ launcherCategoryTabs.forEach(tab => {
   tab.addEventListener('click', () => switchLauncherCategory(tab.dataset.launcherCategory));
 });
 
+// ============================================
 // Skin provider selection
-
+// ============================================
 const SKIN_SYSTEM_KEY = 'magma_skin_system';
 function getSkinSystemPref() { return localStorage.getItem(SKIN_SYSTEM_KEY) || 'elyby'; }
 
@@ -6598,8 +6622,9 @@ document.querySelectorAll('.skin-system-option').forEach(btn => {
   });
 });
 
+// ============================================
 // Change skin modal
-
+// ============================================
 const skinChangeInfoOverlay = document.getElementById('skinChangeInfoOverlay');
 const skinChangeInfoClose = document.getElementById('skinChangeInfoClose');
 const skinChangeDontShowAgain = document.getElementById('skinChangeDontShowAgain');
@@ -6621,6 +6646,9 @@ skinChangeGoBtn?.addEventListener('click', () => {
   openLinkInBrowser('https://ely.by/');
 });
 
+// ============================================
+
+// ============================================
 const CUSTOM_SKIN_LOADER_SLUG = 'customskinloader';
 const SKIN_LOADER_ENABLED_LOADERS = ['fabric', 'forge', 'neoforge', 'quilt'];
 
@@ -6662,7 +6690,9 @@ async function ensureCustomSkinLoaderInstalled(loader, version, modsDir, instanc
   }
 }
 
+// ============================================
 // Minecraft versions and loaders
+// ============================================
 
 let VERSIONS = [
   '26.3','26.2','26.1.2','26.1.1','26.1',
@@ -7371,6 +7401,9 @@ versionDropdown.addEventListener('click', (e) => e.stopPropagation());
 
 document.addEventListener('click', () => closeDropdown());
 
+// ============================================
+
+// ============================================
 const MODPACKS_KEY = 'magma_modpacks';
 
 function getModpacks() {
@@ -7471,6 +7504,9 @@ document.getElementById('newInstanceBtn')?.addEventListener('click', openModpack
 
 document.getElementById('createModpackBtn')?.addEventListener('click', openModpackModal);
 
+// ============================================
+
+// ============================================
 const instanceModsOverlay = document.getElementById('instanceModsOverlay');
 const instanceModsClose = document.getElementById('instanceModsClose');
 const instanceModsTitleEl = document.getElementById('instanceModsTitle');
@@ -7768,6 +7804,9 @@ instanceModsAddBtn?.addEventListener('click', async () => {
   modsSubviews.forEach(v => v.classList.toggle('is-active', v.dataset.subview === 'browse'));
 });
 
+// ============================================
+
+// ============================================
 const instancesSubtabs = document.querySelectorAll('.mods-subtab[data-instances-subtab]');
 const instancesSubviews = document.querySelectorAll('.mods-subview[data-instances-subview]');
 
@@ -7779,7 +7818,9 @@ instancesSubtabs.forEach(tab => {
     if (target === 'catalog') runInstancesCatalogSearch(1);
   });
 });
+// ============================================
 
+// ============================================
 const homeSubtabs = document.querySelectorAll('.mods-subtab[data-home-subtab]');
 const homeSubviews = document.querySelectorAll('.mods-subview[data-home-subview]');
 
@@ -7793,6 +7834,9 @@ homeSubtabs.forEach(tab => {
   });
 });
 
+// ============================================
+
+// ============================================
 const INSTANCES_CATALOG_CLASS_ID = 4471;
 let instancesCatalogSource = localStorage.getItem('magma_instances_catalog_source') || 'modrinth';
 if (instancesCatalogSource !== 'modrinth' && instancesCatalogSource !== 'curseforge') instancesCatalogSource = 'modrinth';
@@ -8325,11 +8369,17 @@ function launchModpack(pack) {
   playBtn.click();
 }
 
+// ============================================
+
+// ============================================
 const modList = document.getElementById('modList');
 const modSearch = document.getElementById('modSearch');
 
+// ============================================
+
 //
 
+// ============================================
 const MODS_CATEGORIES = [
   { id: 'mod',          i18nKey: 'mods.category.mods',          projectType: 'mod',          dirName: 'mods',          curseforgeClassId: 6,    modrinthSupported: true },
   { id: 'resourcepack', i18nKey: 'mods.category.resourcepacks', projectType: 'resourcepack', dirName: 'resourcepacks', curseforgeClassId: 12,   modrinthSupported: true },
@@ -8566,6 +8616,9 @@ function effectiveModsTargetVersion() {
   return modsTargetVersion;
 }
 
+// ============================================
+
+// ============================================
 const MODS_VIEW_STATE_KEY = 'magma_mods_view_state';
 
 function saveModsViewState() {
@@ -8625,6 +8678,9 @@ function syncModsTargetVersionLabel() {
     : modsTargetVersion;
 }
 
+// ============================================
+
+// ============================================
 const modsCategoryTabsEl = document.getElementById('modsCategoryTabs');
 const modsBrowseSubviewEl = document.querySelector('.mods-subview[data-subview="browse"]');
 const modsSubtabsEl = document.querySelector('.mods-subtabs');
@@ -8841,6 +8897,7 @@ document.getElementById('installUpdateBtn')?.addEventListener('click', async (e)
   }
 });
 
+
 const UPDATE_ATTEMPT_KEY = 'magma_update_attempt';
 
 async function autoUpdateOnBoot() {
@@ -9013,6 +9070,7 @@ async function autoUpdateOnBootLegacy() {
   return true;
 }
 
+
 window.__updateProgress = function (data) {
   const btn = document.getElementById('installUpdateBtn');
   const track = document.getElementById('updateProgressTrack');
@@ -9046,6 +9104,7 @@ window.__updateDone = function (data) {
     }
   }
 };
+
 
 function openMergedInstancesView() {
   if (!getMergeModsInstancesPref()) return;
@@ -9472,6 +9531,9 @@ if (cardIconImg) {
   });
 }
 
+// ============================================
+
+// ============================================
 const modDetailsOverlay = document.getElementById('modDetailsOverlay');
 const modDetailsClose = document.getElementById('modDetailsClose');
 const modDetailsIcon = document.getElementById('modDetailsIcon');
@@ -9617,6 +9679,9 @@ async function openModDetails(hit, onInstall, alreadyInstalled) {
   }
 }
 
+// ============================================
+
+// ============================================
 const INSTALLED_MODS_KEY = 'magma_installed_mods';
 
 function installedModsStorageKey(loader, version, instanceName) {
@@ -10158,6 +10223,9 @@ modFilterSourceCurseForge?.addEventListener('change', () => {
   runModSearch(1);
 });
 
+// ============================================
+
+// ============================================
 const modsSubtabs = document.querySelectorAll('.mods-subtab[data-subtab]');
 const modsSubviews = document.querySelectorAll('.mods-subview[data-subview]');
 
@@ -10171,6 +10239,9 @@ modsSubtabs.forEach(tab => {
   });
 });
 
+// ============================================
+
+// ============================================
 const installedModListEl = document.getElementById('installedModList');
 const installedModsScopeFilterEl = document.getElementById('installedModsScopeFilter');
 
@@ -10253,6 +10324,9 @@ function stripMcColorCodes(str) {
   return (str || '').replace(/[§?][0-9a-fk-or]/gi, '').replace(/\s+/g, ' ').trim();
 }
 
+// ============================================
+
+// ============================================
 const MAP_META_KEY = 'magma_map_meta';
 function getMapMetaMap() {
   try { return JSON.parse(localStorage.getItem(MAP_META_KEY) || '{}'); } catch { return {}; }
@@ -10321,6 +10395,9 @@ async function fetchModTitleAndIcon(uid) {
   return null;
 }
 
+// ============================================
+
+// ============================================
 const MOD_GUESS_CACHE_KEY = 'magma_mod_guess_cache';
 const modGuessCache = new Map();
 try {
@@ -10485,6 +10562,9 @@ async function loadInstalledMods() {
   }
 }
 
+// ============================================
+
+// ============================================
 async function loadInstalledMapFolders() {
   if (typeof window.listMapFolders !== 'function') {
     installedModListEl.innerHTML = `<div class="mod-list-hint">${t('mods.devModeHint')}</div>`;
@@ -10682,6 +10762,9 @@ if (cardIconImg) {
   });
 }
 
+// ============================================
+
+// ============================================
 const modpackOverlay = document.getElementById('modpackOverlay');
 const modpackModalClose = document.getElementById('modpackModalClose');
 const modpackNameInput = document.getElementById('modpackNameInput');
@@ -10966,6 +11049,9 @@ fullscreenToggleEl?.addEventListener('change', () => { updateFullscreenDependent
 resolutionWidthInputEl?.addEventListener('change', saveLauncherSettings);
 resolutionHeightInputEl?.addEventListener('change', saveLauncherSettings);
 
+// ============================================
+
+// ============================================
 function syncJvmModeButtons() {
   if (!jvmModeOptionsEl) return;
   const current = (jvmArgsInputEl?.value || '').trim();
@@ -10993,6 +11079,9 @@ jvmAdvancedToggleEl?.addEventListener('click', () => {
   jvmAdvancedToggleEl.classList.toggle('is-active', willShow);
 });
 
+// ============================================
+
+// ============================================
 const JVM_PRESET_G1GC =
   '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 ' +
   '-XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:G1NewSizePercent=30 ' +
@@ -11003,6 +11092,9 @@ const JVM_PRESET_G1GC =
 
 jvmArgsInputEl?.addEventListener('change', () => { syncJvmModeButtons(); saveLauncherSettings(); });
 
+// ============================================
+
+// ============================================
 document.getElementById('javaAutoDetectBtn')?.addEventListener('click', async (e) => {
   const btn = e.currentTarget;
   if (typeof window.autoDetectJava !== 'function') {
@@ -11047,6 +11139,9 @@ document.getElementById('javaBrowseBtn')?.addEventListener('click', async (e) =>
   }
 });
 
+// ============================================
+
+// ============================================
 const GAME_DIR_MODE_KEY = 'magma_game_dir_mode';
 let gameDirMode = localStorage.getItem(GAME_DIR_MODE_KEY) || 'magma';
 
@@ -11157,6 +11252,9 @@ document.getElementById('gameDirMoveBtn')?.addEventListener('click', async (e) =
   }
 });
 
+// ============================================
+
+// ============================================
 const SETTINGS_KEY = 'magma_launcher_settings';
 
 async function initializeDefaultGameDir() {
@@ -11173,6 +11271,8 @@ async function initializeDefaultGameDir() {
     if (!gameDirInputEl.value.trim()) { gameDirInputEl.value = path; saveLauncherSettings(); }
   } catch (err) { console.error('[MagmaLauncher] Default game directory:', err); }
 }
+
+
 
 function saveLauncherSettings() {
   const settings = {
@@ -11334,6 +11434,9 @@ function currentAccountType() {
   return acc ? acc.type : 'guest';
 }
 
+// ============================================
+
+// ============================================
 function elyBySkinUrl(nickname, cacheBust = false) {
   const nick = encodeURIComponent((nickname || '').trim());
   const base = `https://skinsystem.ely.by/skins/${nick}.png`;
@@ -12024,6 +12127,9 @@ document.getElementById('guestSubmit')?.addEventListener('click', () => {
   finishLogin(nickname);
 });
 
+// ============================================
+
+// ============================================
 function isValidMinecraftNick(nick) {
   return /^[A-Za-z0-9_]{3,16}$/.test(nick);
 }
@@ -12321,8 +12427,9 @@ async function handleGoogleAuthClick(button) {
 document.getElementById('googleAuthSubmit')?.addEventListener('click', (e) => handleGoogleAuthClick(e.currentTarget));
 document.getElementById('googleRegisterSubmit')?.addEventListener('click', (e) => handleGoogleAuthClick(e.currentTarget));
 
+// ============================================
 // Регистрация Magma по коду из письма
-
+// ============================================
 let regEmail = '';
 let regUserId = null;
 let regResendTimer = null;
@@ -12859,6 +12966,7 @@ async function openLinkInBrowser(url) {
   if (nativeWindowOpen) nativeWindowOpen(url, '_blank', 'noopener,noreferrer');
 }
 
+
 window.open = function (url) {
   const href = typeof url === 'string' ? url : '';
   if (/^https?:\/\//i.test(href)) {
@@ -12884,6 +12992,9 @@ document.addEventListener('click', (e) => {
   e.preventDefault();
 }, { capture: true });
 
+// ============================================
+
+// ============================================
 function findScrollableAncestor(el) {
   let node = el;
   while (node && node !== document.body) {
@@ -13222,6 +13333,9 @@ document.addEventListener('contextmenu', (e) => {
 
 }, { capture: true });
 
+// ============================================
+
+// ============================================
 function arrayBufferToBase64(buffer) {
   let binary = '';
   const bytes = new Uint8Array(buffer);
@@ -13932,12 +14046,185 @@ const I18N_MAGMA_CODE_PATCH = {
 };
 Object.keys(I18N_MAGMA_CODE_PATCH).forEach(lang => Object.assign(I18N[lang], I18N_MAGMA_CODE_PATCH[lang]));
 
-// Текст для Google-формы: теперь это «ник + пароль», а не «пароль верный»
-Object.keys(I18N).forEach(lang => {
-  I18N[lang]['auth.google.repairDesc'] = lang === 'ru'
-    ? 'Придумайте никнейм и пароль, чтобы завершить регистрацию.'
-    : 'Pick a nickname and a password to finish signing up.';
+const I18N_MAGMA_CODE_PATCH_2 = {
+  uk: {
+    'auth.magma.emailStepDesc': 'Введіть пошту — ми надішлемо на неї 6-значний код підтвердження.',
+    'auth.magma.sendCode': 'Отримати код',
+    'auth.magma.sending': 'Надсилаємо...',
+    'auth.magma.codeSent': 'Ми надіслали 6-значний код на {email}. Перевірте також папку «Спам».',
+    'auth.magma.codeLabel': 'Код з листа',
+    'auth.magma.verifyCode': 'Підтвердити',
+    'auth.magma.verifying': 'Перевіряємо...',
+    'auth.magma.resend': 'Надіслати код ще раз',
+    'auth.magma.resendIn': 'Надіслати ще раз через {s} с',
+    'auth.magma.changeEmail': 'Змінити пошту',
+    'auth.magma.codeInvalid': 'Невірний або прострочений код',
+    'auth.magma.sendFailed': 'Не вдалося надіслати лист. Перевірте пошту та спробуйте ще раз.',
+    'auth.magma.tooManyRequests': 'Забагато спроб. Зачекайте трохи й повторіть.',
+    'auth.magma.finishStepDesc': 'Пошту підтверджено! Придумайте нікнейм і пароль.',
+    'auth.google.repairDesc': 'Придумайте нікнейм і пароль, щоб завершити реєстрацію.',
+  },
+  fr: {
+    'auth.magma.emailStepDesc': 'Saisissez votre email — nous y enverrons un code de confirmation à 6 chiffres.',
+    'auth.magma.sendCode': 'Recevoir le code',
+    'auth.magma.sending': 'Envoi...',
+    'auth.magma.codeSent': 'Nous avons envoyé un code à 6 chiffres à {email}. Vérifiez aussi vos spams.',
+    'auth.magma.codeLabel': "Code reçu par email",
+    'auth.magma.verifyCode': 'Confirmer',
+    'auth.magma.verifying': 'Vérification...',
+    'auth.magma.resend': 'Renvoyer le code',
+    'auth.magma.resendIn': 'Renvoyer dans {s} s',
+    'auth.magma.changeEmail': "Changer d'email",
+    'auth.magma.codeInvalid': 'Code invalide ou expiré',
+    'auth.magma.sendFailed': "Impossible d'envoyer l'email. Vérifiez l'adresse et réessayez.",
+    'auth.magma.tooManyRequests': 'Trop de tentatives. Patientez un peu et réessayez.',
+    'auth.magma.finishStepDesc': 'Email confirmé ! Choisissez un pseudo et un mot de passe.',
+    'auth.google.repairDesc': 'Choisissez un pseudo et un mot de passe pour terminer l’inscription.',
+  },
+  de: {
+    'auth.magma.emailStepDesc': 'Gib deine E-Mail ein — wir senden dir einen 6-stelligen Bestätigungscode.',
+    'auth.magma.sendCode': 'Code erhalten',
+    'auth.magma.sending': 'Wird gesendet...',
+    'auth.magma.codeSent': 'Wir haben einen 6-stelligen Code an {email} gesendet. Schau auch im Spam-Ordner nach.',
+    'auth.magma.codeLabel': 'Code aus der E-Mail',
+    'auth.magma.verifyCode': 'Bestätigen',
+    'auth.magma.verifying': 'Wird geprüft...',
+    'auth.magma.resend': 'Code erneut senden',
+    'auth.magma.resendIn': 'Erneut senden in {s} s',
+    'auth.magma.changeEmail': 'E-Mail ändern',
+    'auth.magma.codeInvalid': 'Ungültiger oder abgelaufener Code',
+    'auth.magma.sendFailed': 'E-Mail konnte nicht gesendet werden. Prüfe die Adresse und versuche es erneut.',
+    'auth.magma.tooManyRequests': 'Zu viele Versuche. Warte einen Moment und versuche es erneut.',
+    'auth.magma.finishStepDesc': 'E-Mail bestätigt! Wähle einen Nickname und ein Passwort.',
+    'auth.google.repairDesc': 'Wähle einen Nickname und ein Passwort, um die Registrierung abzuschließen.',
+  },
+  es: {
+    'auth.magma.emailStepDesc': 'Introduce tu correo — te enviaremos un código de confirmación de 6 dígitos.',
+    'auth.magma.sendCode': 'Obtener código',
+    'auth.magma.sending': 'Enviando...',
+    'auth.magma.codeSent': 'Hemos enviado un código de 6 dígitos a {email}. Revisa también la carpeta de spam.',
+    'auth.magma.codeLabel': 'Código del correo',
+    'auth.magma.verifyCode': 'Confirmar',
+    'auth.magma.verifying': 'Comprobando...',
+    'auth.magma.resend': 'Reenviar código',
+    'auth.magma.resendIn': 'Reenviar en {s} s',
+    'auth.magma.changeEmail': 'Cambiar correo',
+    'auth.magma.codeInvalid': 'Código incorrecto o caducado',
+    'auth.magma.sendFailed': 'No se pudo enviar el correo. Revisa la dirección e inténtalo de nuevo.',
+    'auth.magma.tooManyRequests': 'Demasiados intentos. Espera un poco e inténtalo de nuevo.',
+    'auth.magma.finishStepDesc': '¡Correo confirmado! Elige un apodo y una contraseña.',
+    'auth.google.repairDesc': 'Elige un apodo y una contraseña para terminar el registro.',
+  },
+  it: {
+    'auth.magma.emailStepDesc': 'Inserisci la tua email — ti invieremo un codice di conferma a 6 cifre.',
+    'auth.magma.sendCode': 'Ricevi il codice',
+    'auth.magma.sending': 'Invio in corso...',
+    'auth.magma.codeSent': 'Abbiamo inviato un codice a 6 cifre a {email}. Controlla anche la cartella spam.',
+    'auth.magma.codeLabel': "Codice dell'email",
+    'auth.magma.verifyCode': 'Conferma',
+    'auth.magma.verifying': 'Verifica in corso...',
+    'auth.magma.resend': 'Invia di nuovo il codice',
+    'auth.magma.resendIn': 'Invia di nuovo tra {s} s',
+    'auth.magma.changeEmail': 'Cambia email',
+    'auth.magma.codeInvalid': 'Codice errato o scaduto',
+    'auth.magma.sendFailed': "Impossibile inviare l'email. Controlla l'indirizzo e riprova.",
+    'auth.magma.tooManyRequests': 'Troppi tentativi. Attendi un po’ e riprova.',
+    'auth.magma.finishStepDesc': 'Email confermata! Scegli un nickname e una password.',
+    'auth.google.repairDesc': 'Scegli un nickname e una password per completare la registrazione.',
+  },
+  pt: {
+    'auth.magma.emailStepDesc': 'Digite seu email — enviaremos um código de confirmação de 6 dígitos.',
+    'auth.magma.sendCode': 'Receber código',
+    'auth.magma.sending': 'Enviando...',
+    'auth.magma.codeSent': 'Enviamos um código de 6 dígitos para {email}. Verifique também a pasta de spam.',
+    'auth.magma.codeLabel': 'Código do email',
+    'auth.magma.verifyCode': 'Confirmar',
+    'auth.magma.verifying': 'Verificando...',
+    'auth.magma.resend': 'Reenviar código',
+    'auth.magma.resendIn': 'Reenviar em {s} s',
+    'auth.magma.changeEmail': 'Alterar email',
+    'auth.magma.codeInvalid': 'Código inválido ou expirado',
+    'auth.magma.sendFailed': 'Não foi possível enviar o email. Verifique o endereço e tente novamente.',
+    'auth.magma.tooManyRequests': 'Muitas tentativas. Aguarde um pouco e tente novamente.',
+    'auth.magma.finishStepDesc': 'Email confirmado! Escolha um nickname e uma senha.',
+    'auth.google.repairDesc': 'Escolha um nickname e uma senha para concluir o cadastro.',
+  },
+  ja: {
+    'auth.magma.emailStepDesc': 'メールアドレスを入力してください。6桁の確認コードを送信します。',
+    'auth.magma.sendCode': 'コードを取得',
+    'auth.magma.sending': '送信中...',
+    'auth.magma.codeSent': '{email} に6桁のコードを送信しました。迷惑メールフォルダもご確認ください。',
+    'auth.magma.codeLabel': 'メールに記載のコード',
+    'auth.magma.verifyCode': '確認',
+    'auth.magma.verifying': '確認中...',
+    'auth.magma.resend': 'コードを再送信',
+    'auth.magma.resendIn': '{s}秒後に再送信できます',
+    'auth.magma.changeEmail': 'メールアドレスを変更',
+    'auth.magma.codeInvalid': 'コードが正しくないか、期限切れです',
+    'auth.magma.sendFailed': 'メールを送信できませんでした。アドレスを確認してもう一度お試しください。',
+    'auth.magma.tooManyRequests': '試行回数が多すぎます。しばらく待ってからもう一度お試しください。',
+    'auth.magma.finishStepDesc': 'メールアドレスを確認しました。ニックネームとパスワードを設定してください。',
+    'auth.google.repairDesc': '登録を完了するため、ニックネームとパスワードを設定してください。',
+  },
+  ko: {
+    'auth.magma.emailStepDesc': '이메일을 입력하세요. 6자리 인증 코드를 보내드립니다.',
+    'auth.magma.sendCode': '코드 받기',
+    'auth.magma.sending': '전송 중...',
+    'auth.magma.codeSent': '{email}(으)로 6자리 코드를 보냈습니다. 스팸 폴더도 확인해 주세요.',
+    'auth.magma.codeLabel': '메일로 받은 코드',
+    'auth.magma.verifyCode': '확인',
+    'auth.magma.verifying': '확인 중...',
+    'auth.magma.resend': '코드 다시 보내기',
+    'auth.magma.resendIn': '{s}초 후 다시 보내기',
+    'auth.magma.changeEmail': '이메일 변경',
+    'auth.magma.codeInvalid': '코드가 올바르지 않거나 만료되었습니다',
+    'auth.magma.sendFailed': '메일을 보낼 수 없습니다. 주소를 확인하고 다시 시도해 주세요.',
+    'auth.magma.tooManyRequests': '시도 횟수가 너무 많습니다. 잠시 후 다시 시도해 주세요.',
+    'auth.magma.finishStepDesc': '이메일이 확인되었습니다! 닉네임과 비밀번호를 정해 주세요.',
+    'auth.google.repairDesc': '가입을 완료하려면 닉네임과 비밀번호를 정해 주세요.',
+  },
+  hi: {
+    'auth.magma.emailStepDesc': 'अपना ईमेल दर्ज करें — हम उस पर 6 अंकों का पुष्टि कोड भेजेंगे।',
+    'auth.magma.sendCode': 'कोड प्राप्त करें',
+    'auth.magma.sending': 'भेजा जा रहा है...',
+    'auth.magma.codeSent': 'हमने {email} पर 6 अंकों का कोड भेजा है। स्पैम फ़ोल्डर भी देखें।',
+    'auth.magma.codeLabel': 'ईमेल से मिला कोड',
+    'auth.magma.verifyCode': 'पुष्टि करें',
+    'auth.magma.verifying': 'जांच हो रही है...',
+    'auth.magma.resend': 'कोड दोबारा भेजें',
+    'auth.magma.resendIn': '{s} सेकंड में दोबारा भेजें',
+    'auth.magma.changeEmail': 'ईमेल बदलें',
+    'auth.magma.codeInvalid': 'कोड गलत है या समाप्त हो चुका है',
+    'auth.magma.sendFailed': 'ईमेल नहीं भेजा जा सका। पता जांचें और फिर कोशिश करें।',
+    'auth.magma.tooManyRequests': 'बहुत ज़्यादा प्रयास। थोड़ा रुककर फिर कोशिश करें।',
+    'auth.magma.finishStepDesc': 'ईमेल की पुष्टि हो गई! निकनेम और पासवर्ड चुनें।',
+    'auth.google.repairDesc': 'रजिस्ट्रेशन पूरा करने के लिए निकनेम और पासवर्ड चुनें।',
+  },
+  id: {
+    'auth.magma.emailStepDesc': 'Masukkan email Anda — kami akan mengirim kode konfirmasi 6 digit.',
+    'auth.magma.sendCode': 'Dapatkan kode',
+    'auth.magma.sending': 'Mengirim...',
+    'auth.magma.codeSent': 'Kami mengirim kode 6 digit ke {email}. Periksa juga folder spam.',
+    'auth.magma.codeLabel': 'Kode dari email',
+    'auth.magma.verifyCode': 'Konfirmasi',
+    'auth.magma.verifying': 'Memeriksa...',
+    'auth.magma.resend': 'Kirim ulang kode',
+    'auth.magma.resendIn': 'Kirim ulang dalam {s} dtk',
+    'auth.magma.changeEmail': 'Ganti email',
+    'auth.magma.codeInvalid': 'Kode salah atau kedaluwarsa',
+    'auth.magma.sendFailed': 'Gagal mengirim email. Periksa alamat dan coba lagi.',
+    'auth.magma.tooManyRequests': 'Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.',
+    'auth.magma.finishStepDesc': 'Email terkonfirmasi! Pilih nickname dan kata sandi.',
+    'auth.google.repairDesc': 'Pilih nickname dan kata sandi untuk menyelesaikan pendaftaran.',
+  },
+  ru: { 'auth.google.repairDesc': 'Придумайте никнейм и пароль, чтобы завершить регистрацию.' },
+  en: { 'auth.google.repairDesc': 'Pick a nickname and a password to finish signing up.' },
+};
+Object.keys(I18N_MAGMA_CODE_PATCH_2).forEach(lang => {
+  if (!I18N[lang]) I18N[lang] = {};
+  Object.assign(I18N[lang], I18N_MAGMA_CODE_PATCH_2[lang]);
 });
+I18N['es-ES'] = I18N.es;
 
 applyActiveTheme();
 restoreLastSelection();
