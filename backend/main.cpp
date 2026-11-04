@@ -2227,7 +2227,7 @@ int main(int argc, char* argv[]) {
     CefSettings settings;
     settings.no_sandbox = true;
     settings.background_color = CefColorSetARGB(255, 10, 10, 12);
-    std::string cachePath = (platform::userDataDir() / "cef_cache").string();
+    std::string cachePath = (platform::userDataDir() / (g_startupAuthUrl.empty() ? "cef_cache" : "cef_cache_recovery")).string();
     CefString(&settings.cache_path).FromString(cachePath);
 
     if (!CefInitialize(main_args, settings, app.get(), nullptr)) {
@@ -2301,14 +2301,14 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int) {
     const char* localAppDataEnv = std::getenv("LOCALAPPDATA");
 const char* appDataEnv = std::getenv("APPDATA");
 
-if (appDataEnv) {
+if (appDataEnv && g_startupAuthUrl.empty()) {
     std::error_code oldEc;
     std::filesystem::remove_all(std::string(appDataEnv) + "\\MagmaLauncher\\cef_cache", oldEc);
 }
 
 const char* cacheBase = localAppDataEnv ? localAppDataEnv : appDataEnv;
 if (cacheBase) {
-    std::string cachePath = std::string(cacheBase) + "\\MagmaLauncher\\cef_cache";
+    std::string cachePath = std::string(cacheBase) + (g_startupAuthUrl.empty() ? "\\MagmaLauncher\\cef_cache" : "\\MagmaLauncher\\cef_cache_recovery");
     std::error_code ec;
     std::filesystem::create_directories(cachePath, ec);
     CefString(&settings.cache_path).FromString(cachePath);
