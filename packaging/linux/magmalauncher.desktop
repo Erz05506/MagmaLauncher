@@ -5,4 +5,4 @@ Comment=Minecraft launcher
 Exec=magmalauncher
 Icon=magmalauncher
 Terminal=false
-Categories=Game;
+Categories=Game;\nMimeType=x-scheme-handler/magma;
