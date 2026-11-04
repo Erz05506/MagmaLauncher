@@ -1091,6 +1091,8 @@ body.has-modal-open .play-btn .crack {
 
 .modal-panel {
   position: relative;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
   width: 400px;
   max-width: calc(100vw - 40px);
   background: var(--bg-panel-2);
