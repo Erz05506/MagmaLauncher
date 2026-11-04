@@ -12079,6 +12079,10 @@ async function requestMagmaPasswordReset() {
 }
 
 async function handleMagmaRecoveryUrl(rawUrl) {
+  authTabs.forEach(tab => tab.classList.toggle('is-active', tab.dataset.tab === 'magma'));
+  authPanes.forEach(pane => pane.classList.toggle('is-active', pane.dataset.pane === 'magma'));
+  updateModalCloseVisibility();
+  openAuthModal();
   try {
     const recoveryUrl = new URL(rawUrl);
     const params = new URLSearchParams(recoveryUrl.hash.replace(/^#/, ''));
