@@ -3157,6 +3157,9 @@ function translateBackendError(raw) {
 // Spanish (Spain) reuses the Latin American strings.
 
 I18N['es-ES'] = I18N.es;
+const I18N_MAGMA_REGISTER_LAYOUT_PATCH = {"ru":{"auth.magma.registerStepDesc":"Сначала заполните профиль: никнейм, пароль и почту. Затем мы отправим код подтверждения."},"en":{"auth.magma.registerStepDesc":"Enter your nickname, password and email first. We'll then send you a verification code."},"uk":{"auth.magma.registerStepDesc":"Спочатку заповніть профіль: нікнейм, пароль і пошту. Потім ми надішлемо код підтвердження."},"fr":{"auth.magma.registerStepDesc":"Renseignez d’abord votre pseudo, votre mot de passe et votre e-mail. Nous vous enverrons ensuite un code de vérification."},"de":{"auth.magma.registerStepDesc":"Gib zuerst Nickname, Passwort und E-Mail ein. Anschließend senden wir dir einen Bestätigungscode."},"es":{"auth.magma.registerStepDesc":"Primero introduce tu apodo, contraseña y correo. Después te enviaremos un código de verificación."},"it":{"auth.magma.registerStepDesc":"Inserisci prima nickname, password ed email. Ti invieremo quindi un codice di verifica."},"pt":{"auth.magma.registerStepDesc":"Primeiro informe seu apelido, senha e e-mail. Em seguida, enviaremos um código de confirmação."},"ja":{"auth.magma.registerStepDesc":"最初にニックネーム、パスワード、メールアドレスを入力してください。その後、確認コードを送信します。"},"ko":{"auth.magma.registerStepDesc":"먼저 닉네임, 비밀번호 및 이메일을 입력하세요. 그러면 인증 코드를 보내드립니다."},"hi":{"auth.magma.registerStepDesc":"पहले अपना निकनेम, पासवर्ड और ईमेल दर्ज करें। फिर हम आपको सत्यापन कोड भेजेंगे।"},"id":{"auth.magma.registerStepDesc":"Masukkan nama panggilan, kata sandi, dan email terlebih dahulu. Setelah itu kami akan mengirim kode verifikasi."}};
+Object.keys(I18N_MAGMA_REGISTER_LAYOUT_PATCH).forEach(lang => Object.assign(I18N[lang], I18N_MAGMA_REGISTER_LAYOUT_PATCH[lang]));
+
 
 // Additional localization entries.
 
