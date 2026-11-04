@@ -2251,8 +2251,11 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int) {
         argvPointers.reserve(startupArgc);
         for (int i = 0; i < startupArgc; ++i) {
             int len = WideCharToMultiByte(CP_UTF8, 0, startupArgv[i], -1, nullptr, 0, nullptr, nullptr);
-            std::string value(len > 0 ? len - 1 : 0, '\\0');
-            if (len > 1) WideCharToMultiByte(CP_UTF8, 0, startupArgv[i], -1, value.data(), len, nullptr, nullptr);
+            std::string value(len > 0 ? len : 0, '\0');
+            if (len > 1) {
+                WideCharToMultiByte(CP_UTF8, 0, startupArgv[i], -1, value.data(), len, nullptr, nullptr);
+                value.resize(static_cast<size_t>(len - 1));
+            }
             utf8Args.push_back(std::move(value));
         }
         for (auto& value : utf8Args) argvPointers.push_back(value.data());
