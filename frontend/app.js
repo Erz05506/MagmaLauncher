@@ -11951,12 +11951,13 @@ function showError(el, message) {
   if (!el) return;
   el.style.color = '';
   el.textContent = message;
+  el.classList.remove('is-success');
   el.classList.add('is-visible');
 }
 function hideError(el) {
   if (!el) return;
   el.textContent = '';
-  el.classList.remove('is-visible');
+  el.classList.remove('is-visible', 'is-success');
 }
 
 function setButtonLoading(button, loadingText) {
