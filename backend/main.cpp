@@ -54,6 +54,21 @@
 
 using json = nlohmann::json;
 using Callback = CefMessageRouterBrowserSide::Callback;
+static std::string g_startupAuthUrl;
+
+static void captureMagmaAuthUrl(int argc, char* argv[]) {
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i] ? argv[i] : "";
+        if (arg.rfind("magma://", 0) == 0) {
+            g_startupAuthUrl = std::move(arg);
+            return;
+        }
+        if (arg.rfind("--magma-auth-url=", 0) == 0) {
+            g_startupAuthUrl = arg.substr(17);
+            return;
+        }
+    }
+}
 
 #ifndef _WIN32
 using HWND = cef_window_handle_t;
@@ -2157,6 +2172,7 @@ private:
         
         std::ostringstream js;
         js << "(function(){";
+        js << "window.magmaStartupAuthUrl=" << json(g_startupAuthUrl).dump() << ";";
         for (const char* n : names) {
             js << "window['" << n << "'] = function(){"
                << "var callArgs = Array.prototype.slice.call(arguments);"
@@ -2196,6 +2212,7 @@ int main(int argc, char* argv[]) {
     platform::macInitApplication();
 #endif
 
+    captureMagmaAuthUrl(argc, argv);
     curl_global_init(CURL_GLOBAL_DEFAULT);
 
     CefSettings settings;
@@ -2223,6 +2240,24 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int) {
     int exit_code = CefExecuteProcess(main_args, app.get(), nullptr);
     if (exit_code >= 0) {
         return exit_code;
+    }
+
+    int startupArgc = 0;
+    LPWSTR* startupArgv = CommandLineToArgvW(GetCommandLineW(), &startupArgc);
+    if (startupArgv) {
+        std::vector<std::string> utf8Args;
+        std::vector<char*> argvPointers;
+        utf8Args.reserve(startupArgc);
+        argvPointers.reserve(startupArgc);
+        for (int i = 0; i < startupArgc; ++i) {
+            int len = WideCharToMultiByte(CP_UTF8, 0, startupArgv[i], -1, nullptr, 0, nullptr, nullptr);
+            std::string value(len > 0 ? len - 1 : 0, '\\0');
+            if (len > 1) WideCharToMultiByte(CP_UTF8, 0, startupArgv[i], -1, value.data(), len, nullptr, nullptr);
+            utf8Args.push_back(std::move(value));
+        }
+        for (auto& value : utf8Args) argvPointers.push_back(value.data());
+        captureMagmaAuthUrl(startupArgc, argvPointers.data());
+        LocalFree(startupArgv);
     }
 
     waitForPreviousInstanceIfUpdated();
