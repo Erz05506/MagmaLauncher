@@ -12444,6 +12444,7 @@ function showRegStep(n, keepError = false) {
     const el = document.getElementById('magmaRegStep' + i);
     if (el) el.style.display = i === n ? 'flex' : 'none';
   });
+  document.querySelector('.modal-panel')?.classList.toggle('is-register-details', n === 1);
   if (!keepError) hideError(magmaRegisterError);
 }
 
