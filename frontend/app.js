@@ -12062,7 +12062,7 @@ function showError(el, message) {
 function hideError(el) {
   if (!el) return;
   el.textContent = '';
-  el.classList.remove('is-visible', 'is-success');
+  el.classList.remove('is-visible', 'is-success', 'is-error');
 }
 
 function setButtonLoading(button, loadingText) {
@@ -12172,7 +12172,7 @@ async function requestMagmaPasswordReset() {
   setButtonLoading(button, t('auth.magma.resetSending'));
   try {
     const { error } = await withTimeout(supabaseClient.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://magmalauncher.space/pages/launcher-reset.html'
+      redirectTo: 'https://magmalauncher.space/pages/reset-password.html'
     }));
     if (error) throw error;
     errorBox.textContent = t('auth.magma.resetSent');
@@ -12223,6 +12223,8 @@ if (window.magmaStartupAuthUrl) handleMagmaRecoveryUrl(window.magmaStartupAuthUr
 document.getElementById('showMagmaForgotPassword')?.addEventListener('click', event => {
   event.preventDefault();
   hideError(magmaLoginError);
+  hideError(document.getElementById('magmaForgotPasswordError'));
+  restoreButton(document.getElementById('magmaForgotPasswordSubmit'));
   document.getElementById('magmaForgotPasswordEmail').value =
     document.getElementById('magmaLoginEmail').value.includes('@')
       ? document.getElementById('magmaLoginEmail').value.trim() : '';
@@ -14223,6 +14225,195 @@ const I18N_MAGMA_CODE_PATCH_2 = {
 Object.keys(I18N_MAGMA_CODE_PATCH_2).forEach(lang => {
   if (!I18N[lang]) I18N[lang] = {};
   Object.assign(I18N[lang], I18N_MAGMA_CODE_PATCH_2[lang]);
+});
+I18N['es-ES'] = I18N.es;
+
+
+const I18N_PASSWORD_RESET_PATCH = {
+  uk: {
+    'auth.magma.resetSending': 'Надсилаємо посилання...',
+    'auth.magma.resetSaving': 'Зберігаємо пароль...',
+    'auth.magma.resetSent': 'Якщо обліковий запис із такою поштою існує, посилання для скидання надіслано.',
+    'auth.magma.resetFailed': 'Не вдалося відновити пароль. Спробуйте ще раз.',
+    'auth.magma.resetInvalid': 'Посилання недійсне або застаріле. Запросіть нове.',
+    'auth.magma.passwordTooShort': 'Пароль має містити щонайменше 6 символів.',
+    'auth.magma.passwordMismatch': 'Паролі не збігаються.',
+    'auth.magma.resetSuccess': 'Пароль змінено. Тепер можна увійти з новим паролем.',
+    'auth.magma.emailOnly': 'Пошта',
+    'auth.magma.forgotLink': 'Забули пароль?',
+    'auth.magma.forgotDesc': 'Вкажіть пошту, прив’язану до Magma Account. Ми надішлемо посилання для відновлення пароля.',
+    'auth.magma.sendResetLink': 'Надіслати посилання',
+    'auth.magma.resetDesc': 'Придумайте новий пароль для Magma Account.',
+    'auth.magma.newPassword': 'Новий пароль',
+    'auth.magma.confirmNewPassword': 'Повторіть пароль',
+    'auth.magma.saveNewPassword': 'Зберегти пароль',
+  },
+  fr: {
+    'auth.magma.resetSending': 'Envoi du lien...',
+    'auth.magma.resetSaving': 'Enregistrement du mot de passe...',
+    'auth.magma.resetSent': 'Si un compte associé à cette adresse existe, un lien de réinitialisation a été envoyé.',
+    'auth.magma.resetFailed': 'Impossible de réinitialiser le mot de passe. Réessayez.',
+    'auth.magma.resetInvalid': 'Ce lien est invalide ou a expiré. Demandez-en un nouveau.',
+    'auth.magma.passwordTooShort': 'Le mot de passe doit contenir au moins 6 caractères.',
+    'auth.magma.passwordMismatch': 'Les mots de passe ne correspondent pas.',
+    'auth.magma.resetSuccess': 'Mot de passe modifié. Vous pouvez maintenant vous connecter.',
+    'auth.magma.emailOnly': 'E-mail',
+    'auth.magma.forgotLink': 'Mot de passe oublié ?',
+    'auth.magma.forgotDesc': 'Saisissez l’adresse e-mail associée à votre Magma Account. Nous vous enverrons un lien de récupération.',
+    'auth.magma.sendResetLink': 'Envoyer le lien',
+    'auth.magma.resetDesc': 'Choisissez un nouveau mot de passe pour votre Magma Account.',
+    'auth.magma.newPassword': 'Nouveau mot de passe',
+    'auth.magma.confirmNewPassword': 'Confirmer le mot de passe',
+    'auth.magma.saveNewPassword': 'Enregistrer le mot de passe',
+  },
+  de: {
+    'auth.magma.resetSending': 'Wiederherstellungslink wird gesendet...',
+    'auth.magma.resetSaving': 'Passwort wird gespeichert...',
+    'auth.magma.resetSent': 'Falls ein Konto mit dieser E-Mail-Adresse existiert, wurde ein Link zum Zurücksetzen gesendet.',
+    'auth.magma.resetFailed': 'Das Passwort konnte nicht zurückgesetzt werden. Bitte erneut versuchen.',
+    'auth.magma.resetInvalid': 'Dieser Link ist ungültig oder abgelaufen. Fordere einen neuen an.',
+    'auth.magma.passwordTooShort': 'Das Passwort muss mindestens 6 Zeichen lang sein.',
+    'auth.magma.passwordMismatch': 'Die Passwörter stimmen nicht überein.',
+    'auth.magma.resetSuccess': 'Passwort geändert. Du kannst dich jetzt mit dem neuen Passwort anmelden.',
+    'auth.magma.emailOnly': 'E-Mail',
+    'auth.magma.forgotLink': 'Passwort vergessen?',
+    'auth.magma.forgotDesc': 'Gib die E-Mail-Adresse deines Magma Accounts ein. Wir senden dir einen Wiederherstellungslink.',
+    'auth.magma.sendResetLink': 'Link senden',
+    'auth.magma.resetDesc': 'Lege ein neues Passwort für deinen Magma Account fest.',
+    'auth.magma.newPassword': 'Neues Passwort',
+    'auth.magma.confirmNewPassword': 'Passwort bestätigen',
+    'auth.magma.saveNewPassword': 'Passwort speichern',
+  },
+  es: {
+    'auth.magma.resetSending': 'Enviando enlace...',
+    'auth.magma.resetSaving': 'Guardando contraseña...',
+    'auth.magma.resetSent': 'Si existe una cuenta con este correo, se ha enviado un enlace para restablecer la contraseña.',
+    'auth.magma.resetFailed': 'No se pudo restablecer la contraseña. Inténtalo de nuevo.',
+    'auth.magma.resetInvalid': 'Este enlace no es válido o ha caducado. Solicita uno nuevo.',
+    'auth.magma.passwordTooShort': 'La contraseña debe tener al menos 6 caracteres.',
+    'auth.magma.passwordMismatch': 'Las contraseñas no coinciden.',
+    'auth.magma.resetSuccess': 'Contraseña cambiada. Ya puedes iniciar sesión con la nueva contraseña.',
+    'auth.magma.emailOnly': 'Correo electrónico',
+    'auth.magma.forgotLink': '¿Olvidaste tu contraseña?',
+    'auth.magma.forgotDesc': 'Introduce el correo asociado a tu Magma Account. Te enviaremos un enlace de recuperación.',
+    'auth.magma.sendResetLink': 'Enviar enlace',
+    'auth.magma.resetDesc': 'Elige una nueva contraseña para tu Magma Account.',
+    'auth.magma.newPassword': 'Nueva contraseña',
+    'auth.magma.confirmNewPassword': 'Confirmar contraseña',
+    'auth.magma.saveNewPassword': 'Guardar contraseña',
+  },
+  it: {
+    'auth.magma.resetSending': 'Invio del link...',
+    'auth.magma.resetSaving': 'Salvataggio della password...',
+    'auth.magma.resetSent': 'Se esiste un account con questa email, è stato inviato un link per reimpostare la password.',
+    'auth.magma.resetFailed': 'Impossibile reimpostare la password. Riprova.',
+    'auth.magma.resetInvalid': 'Questo link non è valido o è scaduto. Richiedine uno nuovo.',
+    'auth.magma.passwordTooShort': 'La password deve contenere almeno 6 caratteri.',
+    'auth.magma.passwordMismatch': 'Le password non corrispondono.',
+    'auth.magma.resetSuccess': 'Password modificata. Ora puoi accedere con la nuova password.',
+    'auth.magma.emailOnly': 'Email',
+    'auth.magma.forgotLink': 'Password dimenticata?',
+    'auth.magma.forgotDesc': 'Inserisci l’email collegata al tuo Magma Account. Ti invieremo un link di recupero.',
+    'auth.magma.sendResetLink': 'Invia link',
+    'auth.magma.resetDesc': 'Scegli una nuova password per il tuo Magma Account.',
+    'auth.magma.newPassword': 'Nuova password',
+    'auth.magma.confirmNewPassword': 'Conferma password',
+    'auth.magma.saveNewPassword': 'Salva password',
+  },
+  pt: {
+    'auth.magma.resetSending': 'Enviando link...',
+    'auth.magma.resetSaving': 'Salvando senha...',
+    'auth.magma.resetSent': 'Se existir uma conta com este e-mail, um link para redefinir a senha foi enviado.',
+    'auth.magma.resetFailed': 'Não foi possível redefinir a senha. Tente novamente.',
+    'auth.magma.resetInvalid': 'Este link é inválido ou expirou. Solicite um novo.',
+    'auth.magma.passwordTooShort': 'A senha deve ter pelo menos 6 caracteres.',
+    'auth.magma.passwordMismatch': 'As senhas não coincidem.',
+    'auth.magma.resetSuccess': 'Senha alterada. Agora você pode entrar com a nova senha.',
+    'auth.magma.emailOnly': 'E-mail',
+    'auth.magma.forgotLink': 'Esqueceu a senha?',
+    'auth.magma.forgotDesc': 'Digite o e-mail vinculado à sua Magma Account. Enviaremos um link de recuperação.',
+    'auth.magma.sendResetLink': 'Enviar link',
+    'auth.magma.resetDesc': 'Escolha uma nova senha para sua Magma Account.',
+    'auth.magma.newPassword': 'Nova senha',
+    'auth.magma.confirmNewPassword': 'Confirmar senha',
+    'auth.magma.saveNewPassword': 'Salvar senha',
+  },
+  ja: {
+    'auth.magma.resetSending': '再設定リンクを送信中...',
+    'auth.magma.resetSaving': 'パスワードを保存中...',
+    'auth.magma.resetSent': 'このメールアドレスのアカウントが存在する場合、パスワード再設定リンクを送信しました。',
+    'auth.magma.resetFailed': 'パスワードを再設定できませんでした。もう一度お試しください。',
+    'auth.magma.resetInvalid': 'このリンクは無効か、有効期限が切れています。新しいリンクをリクエストしてください。',
+    'auth.magma.passwordTooShort': 'パスワードは6文字以上にしてください。',
+    'auth.magma.passwordMismatch': 'パスワードが一致しません。',
+    'auth.magma.resetSuccess': 'パスワードを変更しました。新しいパスワードでログインできます。',
+    'auth.magma.emailOnly': 'メールアドレス',
+    'auth.magma.forgotLink': 'パスワードをお忘れですか？',
+    'auth.magma.forgotDesc': 'Magma Accountに登録したメールアドレスを入力してください。再設定リンクを送信します。',
+    'auth.magma.sendResetLink': 'リンクを送信',
+    'auth.magma.resetDesc': 'Magma Accountの新しいパスワードを設定してください。',
+    'auth.magma.newPassword': '新しいパスワード',
+    'auth.magma.confirmNewPassword': 'パスワードを確認',
+    'auth.magma.saveNewPassword': 'パスワードを保存',
+  },
+  ko: {
+    'auth.magma.resetSending': '재설정 링크 보내는 중...',
+    'auth.magma.resetSaving': '비밀번호 저장 중...',
+    'auth.magma.resetSent': '이 이메일의 계정이 존재하면 비밀번호 재설정 링크를 보냈습니다.',
+    'auth.magma.resetFailed': '비밀번호를 재설정하지 못했습니다. 다시 시도해 주세요.',
+    'auth.magma.resetInvalid': '링크가 유효하지 않거나 만료되었습니다. 새 링크를 요청하세요.',
+    'auth.magma.passwordTooShort': '비밀번호는 6자 이상이어야 합니다.',
+    'auth.magma.passwordMismatch': '비밀번호가 일치하지 않습니다.',
+    'auth.magma.resetSuccess': '비밀번호가 변경되었습니다. 새 비밀번호로 로그인할 수 있습니다.',
+    'auth.magma.emailOnly': '이메일',
+    'auth.magma.forgotLink': '비밀번호를 잊으셨나요?',
+    'auth.magma.forgotDesc': 'Magma Account에 연결된 이메일을 입력하면 재설정 링크를 보내드립니다.',
+    'auth.magma.sendResetLink': '링크 보내기',
+    'auth.magma.resetDesc': 'Magma Account의 새 비밀번호를 설정하세요.',
+    'auth.magma.newPassword': '새 비밀번호',
+    'auth.magma.confirmNewPassword': '비밀번호 확인',
+    'auth.magma.saveNewPassword': '비밀번호 저장',
+  },
+  hi: {
+    'auth.magma.resetSending': 'रीसेट लिंक भेजा जा रहा है...',
+    'auth.magma.resetSaving': 'पासवर्ड सहेजा जा रहा है...',
+    'auth.magma.resetSent': 'यदि इस ईमेल से कोई खाता मौजूद है, तो पासवर्ड रीसेट लिंक भेज दिया गया है।',
+    'auth.magma.resetFailed': 'पासवर्ड रीसेट नहीं हो सका। कृपया फिर कोशिश करें।',
+    'auth.magma.resetInvalid': 'यह लिंक अमान्य है या समाप्त हो गया है। नया लिंक मांगें।',
+    'auth.magma.passwordTooShort': 'पासवर्ड कम से कम 6 अक्षरों का होना चाहिए।',
+    'auth.magma.passwordMismatch': 'पासवर्ड मेल नहीं खाते।',
+    'auth.magma.resetSuccess': 'पासवर्ड बदल दिया गया है। अब आप नए पासवर्ड से साइन इन कर सकते हैं।',
+    'auth.magma.emailOnly': 'ईमेल',
+    'auth.magma.forgotLink': 'पासवर्ड भूल गए?',
+    'auth.magma.forgotDesc': 'अपने Magma Account से जुड़ा ईमेल दर्ज करें। हम आपको रिकवरी लिंक भेजेंगे।',
+    'auth.magma.sendResetLink': 'लिंक भेजें',
+    'auth.magma.resetDesc': 'अपने Magma Account के लिए नया पासवर्ड चुनें।',
+    'auth.magma.newPassword': 'नया पासवर्ड',
+    'auth.magma.confirmNewPassword': 'पासवर्ड की पुष्टि करें',
+    'auth.magma.saveNewPassword': 'पासवर्ड सहेजें',
+  },
+  id: {
+    'auth.magma.resetSending': 'Mengirim tautan reset...',
+    'auth.magma.resetSaving': 'Menyimpan kata sandi...',
+    'auth.magma.resetSent': 'Jika akun dengan email ini ada, tautan reset kata sandi telah dikirim.',
+    'auth.magma.resetFailed': 'Tidak dapat mengatur ulang kata sandi. Silakan coba lagi.',
+    'auth.magma.resetInvalid': 'Tautan ini tidak valid atau sudah kedaluwarsa. Minta tautan baru.',
+    'auth.magma.passwordTooShort': 'Kata sandi harus terdiri dari minimal 6 karakter.',
+    'auth.magma.passwordMismatch': 'Kata sandi tidak cocok.',
+    'auth.magma.resetSuccess': 'Kata sandi berhasil diubah. Anda sekarang dapat masuk dengan kata sandi baru.',
+    'auth.magma.emailOnly': 'Email',
+    'auth.magma.forgotLink': 'Lupa kata sandi?',
+    'auth.magma.forgotDesc': 'Masukkan email yang terhubung ke Magma Account. Kami akan mengirim tautan pemulihan.',
+    'auth.magma.sendResetLink': 'Kirim tautan',
+    'auth.magma.resetDesc': 'Pilih kata sandi baru untuk Magma Account Anda.',
+    'auth.magma.newPassword': 'Kata sandi baru',
+    'auth.magma.confirmNewPassword': 'Konfirmasi kata sandi',
+    'auth.magma.saveNewPassword': 'Simpan kata sandi',
+  },
+};
+Object.keys(I18N_PASSWORD_RESET_PATCH).forEach(lang => {
+  if (!I18N[lang]) I18N[lang] = {};
+  Object.assign(I18N[lang], I18N_PASSWORD_RESET_PATCH[lang]);
 });
 I18N['es-ES'] = I18N.es;
 
