@@ -12439,12 +12439,12 @@ let regEmail = '';
 let regUserId = null;
 let regResendTimer = null;
 
-function showRegStep(n) {
-  [1, 2, 3].forEach(i => {
+function showRegStep(n, keepError = false) {
+  [1, 2].forEach(i => {
     const el = document.getElementById('magmaRegStep' + i);
     if (el) el.style.display = i === n ? 'flex' : 'none';
   });
-  hideError(magmaRegisterError);
+  if (!keepError) hideError(magmaRegisterError);
 }
 
 function resetRegisterFlow() {
@@ -12479,11 +12479,7 @@ function startResendCooldown(seconds) {
 async function sendRegCode(email) {
   const { data: taken } = await supabaseClient.rpc('email_registered', { check_email: email });
   if (taken) return t('auth.magma.emailTaken');
-
-  const { error } = await supabaseClient.auth.signInWithOtp({
-    email,
-    options: { shouldCreateUser: true },
-  });
+  const { error } = await supabaseClient.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
   if (error) {
     console.error('[MagmaLauncher] Ошибка отправки кода:', error);
     const limited = error.status === 429 || /rate|seconds|too many/i.test(error.message || '');
@@ -12497,16 +12493,27 @@ document.getElementById('showMagmaRegister')?.addEventListener('click', resetReg
 document.getElementById('magmaRegisterSendCode')?.addEventListener('click', async (e) => {
   const button = e.currentTarget;
   const email = document.getElementById('magmaRegEmail').value.trim();
+  const nick = document.getElementById('magmaRegNick').value.trim();
+  const password = document.getElementById('magmaRegPassword').value;
+  const confirm = document.getElementById('magmaRegPasswordConfirm').value;
   hideError(magmaRegisterError);
 
-  if (!email) { showError(magmaRegisterError, t('auth.magma.fillAll')); return; }
+  if (!nick || !password || !confirm || !email) { showError(magmaRegisterError, t('auth.magma.fillAll')); return; }
+  if (!isValidMinecraftNick(nick)) { showError(magmaRegisterError, t('auth.magma.invalidNick')); return; }
+  if (!isValidPassword(password)) { showError(magmaRegisterError, t('auth.magma.weakPassword')); return; }
+  if (password !== confirm) { showError(magmaRegisterError, t('auth.magma.passwordMismatch')); return; }
   if (!isValidEmail(email)) { showError(magmaRegisterError, t('auth.magma.invalidEmail')); return; }
+
+  if (regUserId) {
+    const ok = await completeMagmaProfile(regUserId, regEmail, nick, password, confirm, magmaRegisterError, button);
+    if (ok) resetRegisterFlow();
+    return;
+  }
 
   setButtonLoading(button, t('auth.magma.sending'));
   try {
     const err = await sendRegCode(email);
     if (err) { showError(magmaRegisterError, err); return; }
-
     regEmail = email;
     document.getElementById('magmaRegCodeDesc').textContent = t('auth.magma.codeSent').replace('{email}', email);
     document.getElementById('magmaRegCode').value = '';
@@ -12546,8 +12553,7 @@ document.getElementById('magmaRegisterVerify')?.addEventListener('click', async 
   const button = e.currentTarget;
   const token = document.getElementById('magmaRegCode').value.trim();
   hideError(magmaRegisterError);
-
-  if (!/^\d{6}$/.test(token)) { showError(magmaRegisterError, t('auth.magma.codeInvalid')); return; }
+  if (!/^\\d{6}$/.test(token)) { showError(magmaRegisterError, t('auth.magma.codeInvalid')); return; }
 
   setButtonLoading(button, t('auth.magma.verifying'));
   try {
@@ -12558,8 +12564,18 @@ document.getElementById('magmaRegisterVerify')?.addEventListener('click', async 
     }
     regUserId = data.user.id;
     clearInterval(regResendTimer);
-    showRegStep(3);
-    document.getElementById('magmaRegNick').focus();
+    const ok = await completeMagmaProfile(
+      regUserId, regEmail,
+      document.getElementById('magmaRegNick').value.trim(),
+      document.getElementById('magmaRegPassword').value,
+      document.getElementById('magmaRegPasswordConfirm').value,
+      magmaRegisterError, button
+    );
+    if (ok) resetRegisterFlow();
+    else {
+      showRegStep(1, true);
+      document.getElementById('magmaRegNick').focus();
+    }
   } catch (err) {
     console.error('[MagmaLauncher] Ошибка проверки кода:', err);
     showError(magmaRegisterError, t('auth.magma.genericError'));
@@ -12617,18 +12633,6 @@ async function completeMagmaProfile(userId, email, nick, password, confirm, erro
   }
 }
 
-document.getElementById('magmaRegisterFinish')?.addEventListener('click', async (e) => {
-  if (!regUserId) { showRegStep(1); return; }
-  const ok = await completeMagmaProfile(
-    regUserId, regEmail,
-    document.getElementById('magmaRegNick').value.trim(),
-    document.getElementById('magmaRegPassword').value,
-    document.getElementById('magmaRegPasswordConfirm').value,
-    magmaRegisterError, e.currentTarget
-  );
-  if (ok) resetRegisterFlow();
-});
-
 document.getElementById('magmaGoogleSetupSubmit')?.addEventListener('click', async (e) => {
   if (!profileRepairUserId) return;
   const ok = await completeMagmaProfile(
@@ -12645,14 +12649,14 @@ document.getElementById('magmaGoogleSetupSubmit')?.addEventListener('click', asy
   }
 });
 
-chainEnterKeys([document.getElementById('magmaRegEmail'), document.getElementById('magmaRegisterSendCode')]);
-chainEnterKeys([document.getElementById('magmaRegCode'), document.getElementById('magmaRegisterVerify')]);
 chainEnterKeys([
   document.getElementById('magmaRegNick'),
   document.getElementById('magmaRegPassword'),
   document.getElementById('magmaRegPasswordConfirm'),
-  document.getElementById('magmaRegisterFinish'),
+  document.getElementById('magmaRegEmail'),
+  document.getElementById('magmaRegisterSendCode'),
 ]);
+chainEnterKeys([document.getElementById('magmaRegCode'), document.getElementById('magmaRegisterVerify')]);
 chainEnterKeys([
   document.getElementById('magmaGoogleSetupPassword'),
   document.getElementById('magmaGoogleSetupConfirm'),
