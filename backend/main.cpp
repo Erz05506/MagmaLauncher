@@ -70,6 +70,27 @@ static void captureMagmaAuthUrl(int argc, char* argv[]) {
     }
 }
 
+#ifdef _WIN32
+static CefRefPtr<CefBrowser> g_authBrowser;
+static WNDPROC g_originalMagmaWndProc = nullptr;
+
+static LRESULT CALLBACK MagmaAuthWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    if (message == WM_COPYDATA) {
+        const COPYDATASTRUCT* data = reinterpret_cast<const COPYDATASTRUCT*>(lParam);
+        if (data && data->dwData == 0x4D41474D && data->lpData && data->cbData > 1 && g_authBrowser) {
+            std::string url(static_cast<const char*>(data->lpData),
+                            strnlen(static_cast<const char*>(data->lpData), data->cbData));
+            std::string js = "window.dispatchEvent(new CustomEvent('magma-auth-url',{detail:" + json(url).dump() + "}));";
+            g_authBrowser->GetMainFrame()->ExecuteJavaScript(js, g_authBrowser->GetMainFrame()->GetURL(), 0);
+            return TRUE;
+        }
+    }
+    return g_originalMagmaWndProc
+        ? CallWindowProc(g_originalMagmaWndProc, hwnd, message, wParam, lParam)
+        : DefWindowProc(hwnd, message, wParam, lParam);
+}
+#endif
+
 #ifndef _WIN32
 using HWND = cef_window_handle_t;
 #define SW_SHOWNORMAL 1
@@ -1862,6 +1883,11 @@ public:
 
     HWND hwnd = browser->GetHost()->GetWindowHandle();
     if (hwnd) {
+        g_authBrowser = browser;
+        if (!g_originalMagmaWndProc) {
+            g_originalMagmaWndProc = reinterpret_cast<WNDPROC>(
+                SetWindowLongPtr(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(MagmaAuthWndProc)));
+        }
         applyWindowIcon(hwnd);
         HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
         MONITORINFO mi{ sizeof(MONITORINFO) };
@@ -2278,12 +2304,26 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int) {
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
         HWND existing = FindWindowA(nullptr, "MagmaLauncher");
         if (existing) {
-            if (IsIconic(existing)) ShowWindow(existing, SW_RESTORE);
-            SetForegroundWindow(existing);
-        }
-        if (g_startupAuthUrl.empty()) {
-            if (singleInstanceMutex) CloseHandle(singleInstanceMutex);
-            return 0;
+            if (!g_startupAuthUrl.empty()) {
+                COPYDATASTRUCT data{};
+                data.dwData = 0x4D41474D;
+                data.cbData = static_cast<DWORD>(g_startupAuthUrl.size() + 1);
+                data.lpData = const_cast<char*>(g_startupAuthUrl.c_str());
+                DWORD_PTR result = 0;
+                SendMessageTimeoutA(existing, WM_COPYDATA, 0, reinterpret_cast<LPARAM>(&data),
+                                    SMTO_ABORTIFHUNG, 2500, &result);
+                if (result) {
+                    if (IsIconic(existing)) ShowWindow(existing, SW_RESTORE);
+                    SetForegroundWindow(existing);
+                    if (singleInstanceMutex) CloseHandle(singleInstanceMutex);
+                    return 0;
+                }
+            } else {
+                if (IsIconic(existing)) ShowWindow(existing, SW_RESTORE);
+                SetForegroundWindow(existing);
+                if (singleInstanceMutex) CloseHandle(singleInstanceMutex);
+                return 0;
+            }
         }
         if (singleInstanceMutex) {
             CloseHandle(singleInstanceMutex);
