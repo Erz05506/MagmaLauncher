@@ -12161,6 +12161,8 @@ function showMagmaStep(step) {
   if (magmaGoogleSetupForm) magmaGoogleSetupForm.style.display = step === 'google-setup' ? 'flex' : 'none';
   if (magmaForgotPasswordForm) magmaForgotPasswordForm.style.display = step === 'forgot-password' ? 'flex' : 'none';
   if (magmaResetPasswordForm) magmaResetPasswordForm.style.display = step === 'reset-password' ? 'flex' : 'none';
+  if (step === 'register') showRegStep(1);
+  else document.querySelector('.modal-panel')?.classList.remove('is-register-details');
 }
 
 async function requestMagmaPasswordReset() {
