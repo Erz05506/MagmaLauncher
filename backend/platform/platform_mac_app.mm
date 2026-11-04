@@ -41,8 +41,6 @@
 
 @end
 
-namespace platform {
-
 static std::function<void(const std::string&)> g_macUrlHandler;
 static std::string g_pendingMacUrl;
 
@@ -60,6 +58,8 @@ static std::string g_pendingMacUrl;
   }
 }
 @end
+
+namespace platform {
 
 void setMacUrlHandler(std::function<void(const std::string&)> handler) {
   g_macUrlHandler = std::move(handler);
