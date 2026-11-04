@@ -489,7 +489,7 @@ Section "MagmaLauncher" SecMain
     WriteRegStr HKCU "Software\Classes\magma" "" "URL:Magma Launcher Protocol"
     WriteRegStr HKCU "Software\Classes\magma" "URL Protocol" ""
     WriteRegStr HKCU "Software\Classes\magma\DefaultIcon" "" "$INSTDIR\MagmaLauncher.exe,0"
-    WriteRegStr HKCU "Software\Classes\magma\shell\open\command" "" '"$INSTDIR\MagmaLauncher.exe" "%1"'
+    WriteRegStr HKCU "Software\Classes\magma\shell\open\command" "" "$\"$INSTDIR\MagmaLauncher.exe$\" $\"%1$\""
 
     WriteRegStr HKCU "Software\MagmaLauncher" "InstallDir" "$INSTDIR"
     WriteRegStr HKCU "Software\MagmaLauncher" "GameDir" "$GameDirPath"
