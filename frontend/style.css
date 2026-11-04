@@ -3279,3 +3279,15 @@ html[data-theme="halloween"] body {
 .auth-pane[data-pane="magma"] > .auth-submit-ms { display: none; }
 .auth-tab[data-tab="magma"] .auth-tab-badge { display: none; }
 #magmaRegisterResend { margin-top: 10px; }
+
+.auth-error.is-success {
+  display: block;
+  color: #79d99b;
+  background: rgba(70, 190, 110, .08);
+  border: 1px solid rgba(70, 190, 110, .18);
+}
+#showMagmaForgotPassword {
+  color: var(--magma-glow);
+  text-decoration: none;
+}
+#showMagmaForgotPassword:hover { text-decoration: underline; }
