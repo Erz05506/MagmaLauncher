@@ -3316,3 +3316,21 @@ html[data-theme="halloween"] body {
   text-decoration: none;
 }
 #showMagmaForgotPassword:hover { text-decoration: underline; }
+
+.modal-panel.is-register-details {
+  width: 640px;
+  max-width: calc(100vw - 32px);
+  max-height: none;
+  overflow: visible;
+}
+@media (max-width: 680px) {
+  .modal-panel.is-register-details {
+    width: calc(100vw - 24px);
+    max-width: none;
+    padding: 18px;
+  }
+  #magmaRegStep1 .register-fields-grid {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
