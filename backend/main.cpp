@@ -78,9 +78,9 @@ static LRESULT CALLBACK MagmaAuthWndProc(HWND hwnd, UINT message, WPARAM wParam,
     if (message == WM_COPYDATA) {
         const COPYDATASTRUCT* data = reinterpret_cast<const COPYDATASTRUCT*>(lParam);
         if (data && data->dwData == 0x4D41474D && data->lpData && data->cbData > 1 && g_authBrowser) {
-            std::string url(static_cast<const char*>(data->lpData),
-                            strnlen(static_cast<const char*>(data->lpData), data->cbData));
-            std::string js = "window.dispatchEvent(new CustomEvent('magma-auth-url',{detail:" + json(url).dump() + "}));";
+            std::string url(static_cast<const char*>(data->lpData));
+            std::string encodedUrl = json(url).dump();
+            std::string js = "window.magmaStartupAuthUrl=" + encodedUrl + ";window.dispatchEvent(new CustomEvent('magma-auth-url',{detail:" + encodedUrl + "}));";
             g_authBrowser->GetMainFrame()->ExecuteJavaScript(js, g_authBrowser->GetMainFrame()->GetURL(), 0);
             return TRUE;
         }
@@ -1870,7 +1870,8 @@ public:
         platform::setMacUrlHandler([browserRef](const std::string& url) {
             g_startupAuthUrl = url;
             if (!browserRef || !browserRef->GetMainFrame()) return;
-            std::string js = "window.dispatchEvent(new CustomEvent('magma-auth-url',{detail:" + json(url).dump() + "}));";
+            std::string encodedUrl = json(url).dump();
+            std::string js = "window.magmaStartupAuthUrl=" + encodedUrl + ";window.dispatchEvent(new CustomEvent('magma-auth-url',{detail:" + encodedUrl + "}));";
             browserRef->GetMainFrame()->ExecuteJavaScript(js, browserRef->GetMainFrame()->GetURL(), 0);
         });
 #endif
