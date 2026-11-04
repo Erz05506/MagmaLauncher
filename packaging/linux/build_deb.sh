@@ -77,6 +77,7 @@ Exec=/usr/bin/magmalauncher %U
 Icon=magmalauncher
 Terminal=false
 Categories=Game;
+MimeType=x-scheme-handler/magma;
 StartupNotify=true
 StartupWMClass=MagmaLauncher
 EOF
