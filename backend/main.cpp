@@ -2269,8 +2269,14 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int) {
             if (IsIconic(existing)) ShowWindow(existing, SW_RESTORE);
             SetForegroundWindow(existing);
         }
-        if (singleInstanceMutex) CloseHandle(singleInstanceMutex);
-        return 0;
+        if (g_startupAuthUrl.empty()) {
+            if (singleInstanceMutex) CloseHandle(singleInstanceMutex);
+            return 0;
+        }
+        if (singleInstanceMutex) {
+            CloseHandle(singleInstanceMutex);
+            singleInstanceMutex = nullptr;
+        }
     }
 
     SetCurrentProcessExplicitAppUserModelID(L"MagmaLauncher.Launcher");
