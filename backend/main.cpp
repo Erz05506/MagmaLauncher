@@ -1844,6 +1844,15 @@ public:
     void OnAfterCreated(CefRefPtr<CefBrowser> browser) override {
         CEF_REQUIRE_UI_THREAD();
         browser_list_.push_back(browser);
+#ifdef __APPLE__
+        CefRefPtr<CefBrowser> browserRef = browser;
+        platform::setMacUrlHandler([browserRef](const std::string& url) {
+            g_startupAuthUrl = url;
+            if (!browserRef || !browserRef->GetMainFrame()) return;
+            std::string js = "window.dispatchEvent(new CustomEvent('magma-auth-url',{detail:" + json(url).dump() + "}));";
+            browserRef->GetMainFrame()->ExecuteJavaScript(js, browserRef->GetMainFrame()->GetURL(), 0);
+        });
+#endif
     }
 #else
     void OnAfterCreated(CefRefPtr<CefBrowser> browser) override {
