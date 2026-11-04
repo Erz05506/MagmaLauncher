@@ -1104,6 +1104,30 @@ body.has-modal-open .play-btn .crack {
   opacity: 0;
   transition: transform .25s cubic-bezier(.2,.8,.2,1), opacity .2s ease;
 }
+.modal-panel.is-register-details {
+  width: 560px;
+  max-width: calc(100vw - 32px);
+  max-height: none;
+  overflow: visible;
+}
+# magmaRegStep1 { }
+#magmaRegStep1 .register-intro { margin-bottom: 8px; }
+#magmaRegStep1 .register-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+}
+#magmaRegStep1 .register-field { min-width: 0; }
+#magmaRegStep1 .register-field .auth-field-label {
+  display: block;
+  margin-top: 8px;
+}
+#magmaRegStep1 .register-wide { grid-column: 1 / -1; }
+#magmaRegStep1 .auth-submit { margin-top: 12px; }
+@media (max-width: 620px) {
+  .modal-panel.is-register-details { width: calc(100vw - 24px); padding: 18px; }
+  #magmaRegStep1 .register-fields-grid { grid-template-columns: 1fr; gap: 2px; }
+}
 .modal-overlay.is-open .modal-panel {
   transform: translateY(0) scale(1);
   opacity: 1;
