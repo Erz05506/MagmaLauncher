@@ -12554,7 +12554,7 @@ document.getElementById('magmaRegisterVerify')?.addEventListener('click', async 
   const button = e.currentTarget;
   const token = document.getElementById('magmaRegCode').value.trim();
   hideError(magmaRegisterError);
-  if (!/^\\d{6}$/.test(token)) { showError(magmaRegisterError, t('auth.magma.codeInvalid')); return; }
+  if (!/^\d{6}$/.test(token)) { showError(magmaRegisterError, t('auth.magma.codeInvalid')); return; }
 
   setButtonLoading(button, t('auth.magma.verifying'));
   try {
