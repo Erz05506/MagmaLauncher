@@ -77,7 +77,7 @@ static WNDPROC g_originalMagmaWndProc = nullptr;
 static LRESULT CALLBACK MagmaAuthWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
     if (message == WM_COPYDATA) {
         const COPYDATASTRUCT* data = reinterpret_cast<const COPYDATASTRUCT*>(lParam);
-        if (data && data->dwData == 0x4D41474D && data->lpData && data->cbData > 1 && g_authBrowser) {
+        if (data && data->dwData == 0x4D41474D && data->lpData && data->cbData > 1 && g_authBrowser && g_authBrowser->GetMainFrame()) {
             std::string url(static_cast<const char*>(data->lpData));
             std::string encodedUrl = json(url).dump();
             std::string js = "window.magmaStartupAuthUrl=" + encodedUrl + ";window.dispatchEvent(new CustomEvent('magma-auth-url',{detail:" + encodedUrl + "}));";
@@ -1957,6 +1957,9 @@ public:
 
     void OnBeforeClose(CefRefPtr<CefBrowser> browser) override {
         CEF_REQUIRE_UI_THREAD();
+#ifdef _WIN32
+        if (g_authBrowser && g_authBrowser->IsSame(browser)) g_authBrowser = nullptr;
+#endif
         message_router_->OnBeforeClose(browser);
         for (auto it = browser_list_.begin(); it != browser_list_.end(); ++it) {
             if ((*it)->IsSame(browser)) {
