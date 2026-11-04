@@ -1110,7 +1110,6 @@ body.has-modal-open .play-btn .crack {
   max-height: none;
   overflow: visible;
 }
-# magmaRegStep1 { }
 #magmaRegStep1 .register-intro { margin-bottom: 8px; }
 #magmaRegStep1 .register-fields-grid {
   display: grid;
