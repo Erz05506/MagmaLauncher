@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+#include <functional>
 #include <cstdint>
 
 namespace platform {
@@ -80,6 +81,7 @@ inline std::string lastNonEmptyLine(const std::string& text) {
 
 #if defined(__APPLE__)
 void macInitApplication();
+void setMacUrlHandler(std::function<void(const std::string&)> handler);
 #endif
 
 #if defined(__linux__)
