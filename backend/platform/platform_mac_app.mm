@@ -1,4 +1,6 @@
 #import <Cocoa/Cocoa.h>
+#include <functional>
+#include <string>
 
 #include "include/cef_app.h"
 #include "include/cef_application_mac.h"
@@ -41,8 +43,37 @@
 
 namespace platform {
 
+static std::function<void(const std::string&)> g_macUrlHandler;
+static std::string g_pendingMacUrl;
+
+@interface MagmaApplicationDelegate : NSObject <NSApplicationDelegate>
+@end
+
+@implementation MagmaApplicationDelegate
+- (void)application:(NSApplication*)application openURLs:(NSArray<NSURL*>*)urls {
+  for (NSURL* url in urls) {
+    const char* value = [[url absoluteString] UTF8String];
+    if (!value) continue;
+    std::string urlString(value);
+    if (g_macUrlHandler) g_macUrlHandler(urlString);
+    else g_pendingMacUrl = std::move(urlString);
+  }
+}
+@end
+
+void setMacUrlHandler(std::function<void(const std::string&)> handler) {
+  g_macUrlHandler = std::move(handler);
+  if (g_macUrlHandler && !g_pendingMacUrl.empty()) {
+    std::string pending = std::move(g_pendingMacUrl);
+    g_pendingMacUrl.clear();
+    g_macUrlHandler(pending);
+  }
+}
+
 void macInitApplication() {
   [MagmaApplication sharedApplication];
+  static MagmaApplicationDelegate* appDelegate = [[MagmaApplicationDelegate alloc] init];
+  [NSApp setDelegate:appDelegate];
 
   NSMenu* menuBar = [[NSMenu alloc] init];
 
