@@ -981,31 +981,41 @@
   <div class="auth-form" id="magmaRegisterForm" style="display:none;">
     <button type="button" class="auth-back" id="magmaRegisterBack"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
     <div class="auth-form" id="magmaRegStep1">
-      <p class="auth-desc" data-i18n="auth.magma.registerStepDesc">Enter your nickname, password and email first. We'll then send you a verification code.</p>
-      <label class="auth-field-label" data-i18n="auth.magma.registerNick">Nickname (username)</label>
-      <input type="text" class="auth-input" id="magmaRegNick" maxlength="16" autocomplete="off">
-      <span class="auth-field-hint" data-i18n="auth.magma.nickRules">3–16 characters: Latin letters, numbers and _</span>
-      <label class="auth-field-label" data-i18n="auth.magma.registerPassword">Password</label>
-      <div class="auth-input-wrap">
-        <input type="password" class="auth-input" id="magmaRegPassword" autocomplete="new-password">
-        <button type="button" class="auth-eye-toggle" data-target="magmaRegPassword" tabindex="-1">
-          <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
-          <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
-        </button>
+      <p class="auth-desc register-intro" data-i18n="auth.magma.registerStepDesc">Enter your nickname, password and email first. We'll then send you a verification code.</p>
+      <div class="register-fields-grid">
+        <div class="register-field">
+          <label class="auth-field-label" data-i18n="auth.magma.registerNick">Nickname (username)</label>
+          <input type="text" class="auth-input" id="magmaRegNick" maxlength="16" autocomplete="off">
+          <span class="auth-field-hint" data-i18n="auth.magma.nickRules">3–16 characters: Latin letters, numbers and _</span>
+        </div>
+        <div class="register-field">
+          <label class="auth-field-label" data-i18n="auth.magma.registerPassword">Password</label>
+          <div class="auth-input-wrap">
+            <input type="password" class="auth-input" id="magmaRegPassword" autocomplete="new-password">
+            <button type="button" class="auth-eye-toggle" data-target="magmaRegPassword" tabindex="-1">
+              <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="register-field">
+          <label class="auth-field-label" data-i18n="auth.magma.registerConfirm">Confirm password</label>
+          <div class="auth-input-wrap">
+            <input type="password" class="auth-input" id="magmaRegPasswordConfirm" autocomplete="new-password">
+            <button type="button" class="auth-eye-toggle" data-target="magmaRegPasswordConfirm" tabindex="-1">
+              <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="register-field">
+          <label class="auth-field-label" data-i18n="auth.magma.registerEmail">Email</label>
+          <input type="email" class="auth-input" id="magmaRegEmail" placeholder="you@example.com" autocomplete="email">
+        </div>
       </div>
-      <label class="auth-field-label" data-i18n="auth.magma.registerConfirm">Confirm password</label>
-      <div class="auth-input-wrap">
-        <input type="password" class="auth-input" id="magmaRegPasswordConfirm" autocomplete="new-password">
-        <button type="button" class="auth-eye-toggle" data-target="magmaRegPasswordConfirm" tabindex="-1">
-          <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
-          <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
-        </button>
-      </div>
-      <label class="auth-field-label" data-i18n="auth.magma.registerEmail">Email</label>
-      <input type="email" class="auth-input" id="magmaRegEmail" placeholder="you@example.com" autocomplete="email">
-      <button class="auth-submit" id="magmaRegisterSendCode" data-i18n="auth.magma.sendCode">Get code</button>
-      <div class="auth-divider"><span data-i18n="auth.google.or">or</span></div>
-      <button class="auth-submit auth-submit-google" id="googleRegisterSubmit" data-context="register">
+      <button class="auth-submit register-wide" id="magmaRegisterSendCode" data-i18n="auth.magma.sendCode">Get code</button>
+      <div class="auth-divider register-wide"><span data-i18n="auth.google.or">or</span></div>
+      <button class="auth-submit auth-submit-google register-wide" id="googleRegisterSubmit" data-context="register">
         <svg viewBox="0 0 24 24" class="google-icon-btn"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 6-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.4 14.4a7.2 7.2 0 0 1 0-4.8V6.5H1.4a12 12 0 0 0 0 11l4-3.1z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.5l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"/></svg>
         <span data-i18n="auth.google.registerButton">Register with Google</span>
       </button>
