@@ -486,6 +486,11 @@ Section "MagmaLauncher" SecMain
             "$INSTDIR\MagmaLauncher.exe" "" "$INSTDIR\magmalauncher.ico" 0 SW_SHOWNORMAL
     ${EndIf}
 
+    WriteRegStr HKCU "Software\Classes\magma" "" "URL:Magma Launcher Protocol"
+    WriteRegStr HKCU "Software\Classes\magma" "URL Protocol" ""
+    WriteRegStr HKCU "Software\Classes\magma\DefaultIcon" "" "$INSTDIR\MagmaLauncher.exe,0"
+    WriteRegStr HKCU "Software\Classes\magma\shell\open\command" "" '"$INSTDIR\MagmaLauncher.exe" "%1"'
+
     WriteRegStr HKCU "Software\MagmaLauncher" "InstallDir" "$INSTDIR"
     WriteRegStr HKCU "Software\MagmaLauncher" "GameDir" "$GameDirPath"
     WriteRegStr HKCU "Software\MagmaLauncher" "LangId" "$LANGUAGE"
@@ -581,5 +586,6 @@ Section "Uninstall"
     Delete "$DESKTOP\MagmaLauncher.lnk"
 
     DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MagmaLauncher"
+    DeleteRegKey HKCU "Software\Classes\magma"
     DeleteRegKey HKCU "Software\MagmaLauncher"
 SectionEnd
