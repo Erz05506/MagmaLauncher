@@ -92,7 +92,7 @@
 
   async function changeEmail() {
     const email = $('cloudNewEmail').value.trim().toLowerCase();
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) return message('cloudEmailMessage', 'Введите корректный адрес почты.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return message('cloudEmailMessage', 'Введите корректный адрес почты.');
     if (email === user.email?.toLowerCase()) return message('cloudEmailMessage', 'Это уже текущий адрес.');
     const button = $('cloudChangeEmail');
     button.disabled = true;
