@@ -313,6 +313,27 @@
                     </div>
 
                     
+                    <section class="account-cloud-settings" id="accountCloudSettings">
+                      <div class="account-cloud-heading"><span class="settings-label">Параметры аккаунта</span><span class="account-cloud-status" id="accountCloudStatus">Проверка аккаунта…</span></div>
+                      <div class="account-profile-actions">
+                        <div class="account-action-card">
+                          <div class="account-action-top"><div><strong>Никнейм</strong><span class="account-action-value" id="cloudNicknameCurrent">—</span></div><button class="ghost-btn account-action-button" id="accountNicknameToggle" type="button">Изменить</button></div>
+                          <div class="account-inline-editor" id="accountNicknameEditor" hidden><input class="account-cloud-input" id="cloudNickname" maxlength="16" autocomplete="nickname" placeholder="Новый никнейм"><div class="account-inline-actions"><button class="ghost-btn" id="cloudSaveNickname" type="button">Сохранить</button><button class="account-text-button" id="accountNicknameCancel" type="button">Отмена</button></div><p class="account-cloud-message" id="cloudNicknameMessage"></p></div>
+                        </div>
+                        <div class="account-action-card">
+                          <div class="account-action-top"><div><strong>Электронная почта</strong><span class="account-action-value" id="cloudCurrentEmail">—</span></div><button class="ghost-btn account-action-button" id="accountEmailToggle" type="button">Изменить</button></div>
+                          <div class="account-inline-editor" id="accountEmailEditor" hidden><input class="account-cloud-input" id="cloudNewEmail" type="email" autocomplete="email" placeholder="Новый адрес почты"><div class="account-inline-actions"><button class="ghost-btn" id="cloudChangeEmail" type="button">Отправить подтверждение</button><button class="account-text-button" id="accountEmailCancel" type="button">Отмена</button></div><p class="account-cloud-message" id="cloudEmailMessage"></p></div>
+                        </div>
+                      </div>
+                      <div class="account-skin-system-card">
+                        <div><strong>Система скинов</strong><span>Выберите источник скинов для Minecraft</span></div>
+                        <div class="skin-system-options account-skin-system-options" id="accountSkinSystemOptions">
+                          <button class="skin-system-option is-active" type="button" data-skin-system="magma"><span class="skin-system-logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c4.2 0 7-2.9 7-6.7 0-2.5-1.4-4.4-3.8-6.8-.1 2.1-1.1 3.1-2 3.7C13 8.3 11.2 4.8 7.7 2 8.1 6.6 5 8.9 5 14.2 5 18.7 7.8 22 12 22Z"/><path d="M12 22c-1.8-1.1-2.6-2.6-2.4-4.2.2-1.2.9-2.1 1.9-3.1.1 1.4.8 2.1 1.6 2.7.8 1.1.5 3.2-1.1 4.6Z"/></svg></span>Magma Skins</button>
+                          <button class="skin-system-option" type="button" data-skin-system="elyby"><span class="skin-system-elyby-badge">E</span>Ely.by</button>
+                        </div>
+                        <p class="account-cloud-message" id="cloudSkinMessage"></p>
+                      </div>
+                    </section>
 
                     <div class="settings-accounts-block">
                       <div class="settings-label" data-i18n="account.accountsListLabel">Аккаунты</div>
@@ -334,91 +355,7 @@
               </div>
 
 
-                <section class="account-cloud-settings" id="accountCloudSettings">
-                  <div class="account-cloud-heading">
-                    <div>
-                      <div class="settings-label">MAGMA ACCOUNT</div>
-                      <div class="settings-hint">Все изменения сохраняются в облаке и доступны на magmalauncher.space</div>
-                    </div>
-                    <span class="account-cloud-status" id="accountCloudStatus">Проверка аккаунта…</span>
-                  </div>
-                  <div class="account-cloud-grid">
-                    <section class="account-cloud-card">
-                      <h3>Профиль</h3>
-                      <label for="cloudNickname">Никнейм</label>
-                      <input class="account-cloud-input" id="cloudNickname" maxlength="16" autocomplete="nickname">
-                      <div class="account-cloud-actions"><button class="ghost-btn" id="cloudSaveNickname" type="button">Сохранить ник</button></div>
-                      <p class="account-cloud-message" id="cloudNicknameMessage"></p>
-                    </section>
-                    <section class="account-cloud-card">
-                      <h3>Безопасность</h3>
-                      <label for="cloudCurrentPassword">Текущий пароль</label>
-                      <input class="account-cloud-input" id="cloudCurrentPassword" type="password" autocomplete="current-password">
-                      <label for="cloudNewPassword">Новый пароль</label>
-                      <input class="account-cloud-input" id="cloudNewPassword" type="password" autocomplete="new-password">
-                      <label for="cloudConfirmPassword">Повторите новый пароль</label>
-                      <input class="account-cloud-input" id="cloudConfirmPassword" type="password" autocomplete="new-password">
-                      <button class="ghost-btn" id="cloudChangePassword" type="button">Изменить пароль</button>
-                      <p class="account-cloud-message" id="cloudPasswordMessage"></p>
-                    </section>
-                    <section class="account-cloud-card">
-                      <h3>Электронная почта</h3>
-                      <div class="account-cloud-current" id="cloudCurrentEmail">—</div>
-                      <label for="cloudNewEmail">Новый адрес почты</label>
-                      <input class="account-cloud-input" id="cloudNewEmail" type="email" autocomplete="email" placeholder="name@example.com">
-                      <button class="ghost-btn" id="cloudChangeEmail" type="button">Отправить подтверждение</button>
-                      <p class="account-cloud-message" id="cloudEmailMessage"></p>
-                    </section>
-                    <section class="account-cloud-card">
-                      <h3>Приватность и предпочтения</h3>
-                      <label class="account-cloud-toggle"><span><strong>Скрывать почту в профиле</strong><small>Не показывать адрес в обзоре аккаунта</small></span><input id="cloudHideEmail" type="checkbox"></label>
-                      <label class="account-cloud-toggle"><span><strong>Новости Magma</strong><small>Получать новости и обновления продукта</small></span><input id="cloudProductUpdates" type="checkbox"></label>
-                      <label for="cloudAccountLanguage">Язык аккаунта</label>
-                      <select class="account-cloud-input" id="cloudAccountLanguage">
-                        <option value="en">English</option><option value="ru">Русский</option><option value="uk">Українська</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="es">Español</option><option value="it">Italiano</option><option value="pt-BR">Português (Brasil)</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="hi">हिन्दी</option><option value="id">Bahasa Indonesia</option>
-                      </select>
-                      <p class="account-cloud-message" id="cloudPreferencesMessage"></p>
-                    </section>
-                    <section class="account-cloud-card">
-                      <h3>Система скинов</h3>
-                      <label for="cloudSkinProvider">Источник скинов</label>
-                      <select class="account-cloud-input" id="cloudSkinProvider">
-                        <option value="magma">Magma Skins</option>
-                        <option value="elyby">Ely.by</option>
-                      </select>
-                      <label for="cloudSkinModel">Модель игрока</label>
-                      <select class="account-cloud-input" id="cloudSkinModel">
-                        <option value="default">Classic (Steve)</option>
-                        <option value="slim">Slim (Alex)</option>
-                      </select>
-                      <label for="cloudSkinFile">Текстура скина (PNG, 64×64 или 64×32, до 2 МБ)</label>
-                      <input class="account-cloud-input" id="cloudSkinFile" type="file" accept="image/png">
-                      <label for="cloudCapeFile">Текстура плаща (PNG, 64×32, до 2 МБ)</label>
-                      <input class="account-cloud-input" id="cloudCapeFile" type="file" accept="image/png">
-                      <div class="account-cloud-actions">
-                        <button class="ghost-btn" id="cloudRemoveSkin" type="button">Удалить скин</button>
-                        <button class="ghost-btn" id="cloudRemoveCape" type="button">Удалить плащ</button>
-                      </div>
-                      <p class="account-cloud-message" id="cloudSkinMessage"></p>
-                    </section>
-                    <section class="account-cloud-card">
-                      <h3>Активные сеансы</h3>
-                      <p class="settings-hint">Завершить все остальные сеансы Magma Account. Текущий лаунчер останется подключён.</p>
-                      <button class="ghost-btn" id="cloudSignOutOthers" type="button">Выйти на других устройствах</button>
-                      <p class="account-cloud-message" id="cloudSessionsMessage"></p>
-                    </section>
-                  </div>
-                  <section class="account-cloud-card account-cloud-danger">
-                    <h3>Управление аккаунтом</h3>
-                    <div class="account-cloud-actions">
-                      <button class="ghost-btn" id="cloudSignOut" type="button">Выйти из аккаунта</button>
-                      <button class="ghost-btn" id="cloudDeleteAccount" type="button">Удалить Magma Account</button>
-                    </div>
-                    <p class="account-cloud-message" id="cloudDangerMessage"></p>
-                  </section>
-                </section>
-
-              <div class="mods-subview" data-settings-subview="launcher">
+                              <div class="mods-subview" data-settings-subview="launcher">
                 <div class="settings-layout" style="align-items:flex-start;">
                   <nav class="settings-nav" id="launcherCategoryNav">
                     <button type="button" class="mods-subtab is-active" data-launcher-category="interface" data-i18n="settings.launcherCat.interface">Интерфейс</button>

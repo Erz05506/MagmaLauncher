@@ -6611,16 +6611,16 @@ launcherCategoryTabs.forEach(tab => {
 // Skin provider selection
 // ============================================
 const SKIN_SYSTEM_KEY = 'magma_skin_system';
-function getSkinSystemPref() { return localStorage.getItem(SKIN_SYSTEM_KEY) || 'elyby'; }
+function getSkinSystemPref() { return localStorage.getItem(SKIN_SYSTEM_KEY) || 'magma'; }
 
-document.querySelectorAll('.skin-system-option').forEach(btn => {
-  if (btn.classList.contains('is-active') === false && btn.dataset.skinSystem === getSkinSystemPref() && !btn.classList.contains('is-disabled')) {
-    document.querySelectorAll('.skin-system-option').forEach(b => b.classList.remove('is-active'));
+document.querySelectorAll('.skin-system-option[data-skin-system]').forEach(btn => {
+  if (btn.dataset.skinSystem === getSkinSystemPref() && !btn.classList.contains('is-disabled')) {
+    document.querySelectorAll('.skin-system-option[data-skin-system]').forEach(b => b.classList.remove('is-active'));
     btn.classList.add('is-active');
   }
   btn.addEventListener('click', () => {
     if (btn.classList.contains('is-disabled')) return;
-    document.querySelectorAll('.skin-system-option').forEach(b => b.classList.remove('is-active'));
+    document.querySelectorAll('.skin-system-option[data-skin-system]').forEach(b => b.classList.remove('is-active'));
     btn.classList.add('is-active');
     localStorage.setItem(SKIN_SYSTEM_KEY, btn.dataset.skinSystem);
   });
