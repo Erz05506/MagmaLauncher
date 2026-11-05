@@ -428,6 +428,9 @@ if(APPLE)
         )
     endif()
 
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/helper_plists")
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/helper_plists/PkgInfo" "APPL????")
+
     set(MAGMA_HELPER_PLIST_TEMPLATE [=[<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -441,7 +444,7 @@ if(APPLE)
   <key>CFBundleVersion</key><string>1</string>
   <key>LSFileQuarantineEnabled</key><true/>
   <key>LSMinimumSystemVersion</key><string>11.0</string>
-  <key>LSUIElement</key><string>1</string>
+  <key>LSUIElement</key><true/>
   <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
 </dict>
 </plist>
@@ -474,6 +477,10 @@ if(APPLE)
             COMMAND "${CMAKE_COMMAND}" -E copy
                 "${HELPER_PLIST}"
                 "${HELPER_APP}/Contents/Info.plist"
+
+            COMMAND "${CMAKE_COMMAND}" -E copy
+                "${CMAKE_CURRENT_BINARY_DIR}/helper_plists/PkgInfo"
+                "${HELPER_APP}/Contents/PkgInfo"
 
             VERBATIM
         )
