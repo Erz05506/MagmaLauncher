@@ -26,6 +26,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     fetch: fetchWithTimeout,
   },
 });
+window.supabaseClient = supabaseClient;
 
 function isTimeoutError(err) {
   return !!err && (err.name === 'AbortError' || /timed out|aborted/i.test(err.message || ''));
@@ -11556,16 +11557,38 @@ async function defaultSteveSkinBlobUrl() {
   }
 }
 
+let accountSkinViewerModel = 'default';
+let accountSkinViewerCapeBlobUrl = null;
+
 async function loadSkinBlobUrl(nickname) {
-  if (typeof window.fetchSkinBytes !== 'function') return elyByHeadUrl(nickname);
+  try {
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    const user = sessionData.session?.user;
+    if (user && user.user_metadata?.magma_preferences?.skin_provider !== 'elyby') {
+      const { data, error } = await supabaseClient.from('magma_skins').select('skin_path,cape_path,model').eq('user_id', user.id).maybeSingle();
+      if (error) throw error;
+      accountSkinViewerModel = data?.model === 'slim' ? 'slim' : 'default';
+      if (data?.skin_path) {
+        const { data: file } = supabaseClient.storage.from('magma-skins').getPublicUrl(data.skin_path);
+        const response = await fetch(file.publicUrl + '?v=' + Date.now());
+        if (response.ok) return URL.createObjectURL(await response.blob());
+      }
+      return await defaultSteveSkinBlobUrl();
+    }
+  } catch (err) {
+    console.warn('[MagmaLauncher] Не удалось загрузить Magma Skin:', err);
+    accountSkinViewerModel = 'default';
+    return await defaultSteveSkinBlobUrl();
+  }
+
+  accountSkinViewerModel = 'default';
+  if (typeof window.fetchSkinBytes !== 'function') return await defaultSteveSkinBlobUrl();
   try {
     const raw = await window.fetchSkinBytes({ url: elyBySkinUrl(nickname, true) });
     const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
-
     if (!result.success) return await defaultSteveSkinBlobUrl();
     const bytes = base64ToUint8Array(result.dataBase64);
-    const blob = new Blob([bytes], { type: 'image/png' });
-    return URL.createObjectURL(blob);
+    return URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
   } catch (err) {
     console.error('[MagmaLauncher] Не удалось загрузить байты скина:', err);
     return await defaultSteveSkinBlobUrl();
@@ -11626,7 +11649,7 @@ async function doRefreshAccountSkinViewer(nickname) {
   let loaded = false;
   for (let attempt = 0; attempt < 3 && !loaded; attempt++) {
     try {
-      await viewer.loadSkin(blobUrl);
+      await viewer.loadSkin(blobUrl, { model: accountSkinViewerModel });
       loaded = true;
     } catch (err) {
       console.error('[MagmaLauncher] Не удалось загрузить модель скина:', err);
@@ -11639,6 +11662,34 @@ async function doRefreshAccountSkinViewer(nickname) {
     releaseSkinBlobUrl(blobUrl);
     setSkinViewerHint('settings.account.viewerLoadError');
     return;
+  }
+
+  try {
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    const user = sessionData.session?.user;
+    if (user && user.user_metadata?.magma_preferences?.skin_provider !== 'elyby') {
+      const { data } = await supabaseClient.from('magma_skins').select('cape_path').eq('user_id', user.id).maybeSingle();
+      if (data?.cape_path) {
+        const { data: capeFile } = supabaseClient.storage.from('magma-skins').getPublicUrl(data.cape_path);
+        const capeResponse = await fetch(capeFile.publicUrl + '?v=' + Date.now());
+        if (capeResponse.ok) {
+          const capeBlobUrl = URL.createObjectURL(await capeResponse.blob());
+          await viewer.loadCape(capeBlobUrl);
+          releaseSkinBlobUrl(accountSkinViewerCapeBlobUrl);
+          accountSkinViewerCapeBlobUrl = capeBlobUrl;
+        }
+      } else {
+        await viewer.loadCape(null);
+        releaseSkinBlobUrl(accountSkinViewerCapeBlobUrl);
+        accountSkinViewerCapeBlobUrl = null;
+      }
+    } else {
+      await viewer.loadCape(null);
+      releaseSkinBlobUrl(accountSkinViewerCapeBlobUrl);
+      accountSkinViewerCapeBlobUrl = null;
+    }
+  } catch (err) {
+    console.warn('[MagmaLauncher] Не удалось обновить плащ в предпросмотре:', err);
   }
 
   releaseSkinBlobUrl(accountSkinViewerBlobUrl);
@@ -11755,6 +11806,12 @@ function isSkinViewerCanvasVisible() {
   const rect = canvas.getBoundingClientRect();
   return rect.width > 0 && rect.height > 0;
 }
+
+window.addEventListener('magma:account-settings-updated', () => {
+  accountSkinViewerLoadedAt = 0;
+  const nick = (accountName && accountName.textContent) || '';
+  if (nick) refreshAccountSkinViewer(nick);
+});
 
 function updateSettingsAccountTab() {
   const nameEl = document.getElementById('settingsAccountName');
@@ -13933,6 +13990,15 @@ async function endSessionAndPickNext(currentId) {
     openAuthModal();
   }
 }
+
+window.handleMagmaAccountDeleted = async function() {
+  const currentId = getActiveAccountId();
+  const list = getAccounts().filter(a => a.id !== currentId);
+  saveAccounts(list);
+  localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
+  localStorage.removeItem(GUEST_SESSION_KEY);
+  await endSessionAndPickNext(currentId);
+};
 
 const accountLogoutOverlay = document.getElementById('accountLogoutOverlay');
 const accountLogoutBtn = document.getElementById('accountLogoutBtn');
