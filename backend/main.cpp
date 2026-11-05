@@ -1401,7 +1401,9 @@ if (name == "installLauncherUpdate") {
                 launcher::g_paused = false;
                 launcher::g_cancelled = false;
 
-                if (launcher::g_gameProcessActive.load()) {
+                bool expected = false;
+                if (launcher::g_gameProcessActive.load() ||
+                    !launcher::g_launchInProgress.compare_exchange_strong(expected, true)) {
                     json result; result["started"] = false; result["error"] = "ERR_ALREADY_RUNNING";
                     callback->Success(result.dump());
                     return true;
@@ -1425,6 +1427,7 @@ if (name == "installLauncherUpdate") {
                         errorOut = "ERR_LAUNCH_THREAD||Неизвестная ошибка потока запуска";
                     }
 
+                    launcher::g_launchInProgress.store(false);
                     bool wasCancelled = (!ok && errorOut == "CANCELLED");
                     json done;
                     done["success"] = ok;
