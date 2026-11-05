@@ -2914,7 +2914,8 @@ body.has-modal-open .play-btn .crack {
 }
 [data-streamer-mode="1"] .account-name,
 [data-streamer-mode="1"] .account-settings-name,
-[data-streamer-mode="1"] .account-list-name {
+[data-streamer-mode="1"] .account-list-name,
+[data-streamer-mode="1"] #accountCloudSettings .account-action-value {
   filter: blur(6px);
   user-select: none;
 }
@@ -3429,3 +3430,15 @@ html[data-theme="halloween"] body {
 
 label:has(input[type="checkbox"]),label:has(input[type="radio"]),.modpack-mod-check,.mod-filter-source-row{cursor:pointer}
 label:has(input[type="checkbox"]) input,label:has(input[type="radio"]) input{cursor:pointer}
+
+.account-edit-modal .auth-form{gap:8px}
+.account-edit-modal .auth-error{min-height:0;margin:2px 0 0;font-size:11px;line-height:1.5}
+.account-skin-model-select{min-width:190px}
+.account-skin-model-select .custom-select-btn{width:100%;justify-content:space-between;font-family:var(--font-body)}
+.account-skin-model-select .custom-select-list{left:0;right:auto;min-width:100%;font-family:var(--font-body)}
+.account-skin-model-select .custom-select-item{font-family:var(--font-body);font-size:12.5px}
+.account-skin-manager-actions .account-danger-text{padding:7px 11px;font-size:11.5px;font-weight:600;color:#ff938b;border-color:color-mix(in srgb,#ff6258 24%,var(--border-subtle));background:color-mix(in srgb,#ff6258 7%,var(--bg-card));transition:background .15s ease,border-color .15s ease,color .15s ease,transform .15s ease}
+.account-skin-manager-actions .account-danger-text:hover{color:#fff;background:color-mix(in srgb,#ff6258 17%,var(--bg-card));border-color:#ff6258;transform:translateY(-1px)}
+.account-skin-file-hint{font-size:11px;line-height:1.5;color:var(--text-secondary)}
+.account-skin-model-row label{font-size:12px;color:var(--text-primary);font-weight:600}
+.account-action-value{font-size:12px;color:var(--text-secondary)}

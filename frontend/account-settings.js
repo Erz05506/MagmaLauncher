@@ -4,6 +4,7 @@
   let user = null;
   let preferenceSave = Promise.resolve();
   let skinRecord = { skin_path: null, cape_path: null, model: 'default' };
+  const messageTimers = new Map();
 
   function tr(key, fallback) {
     const value = window.t?.(key);
@@ -13,9 +14,18 @@
   function message(id, value, success = false) {
     const el = $(id);
     if (!el) return;
+    const previousTimer = messageTimers.get(id);
+    if (previousTimer) clearTimeout(previousTimer);
     el.textContent = value || '';
     el.classList.toggle('is-success', !!success);
     el.classList.toggle('is-error', !!value && !success);
+    if (value && success) {
+      messageTimers.set(id, setTimeout(() => {
+        el.textContent = '';
+        el.classList.remove('is-success', 'is-error');
+        messageTimers.delete(id);
+      }, 60000));
+    }
   }
 
   function setStatus(value, good = false) {
@@ -44,11 +54,25 @@
     return preferenceSave;
   }
 
+  function syncSkinModelSelect(model) {
+    const value = model === 'slim' ? 'slim' : 'default';
+    const label = $('accountSkinModelSelectLabel');
+    const key = value === 'slim' ? 'settings.account.slim' : 'settings.account.classic';
+    if (label) {
+      label.dataset.i18n = key;
+      label.textContent = tr(key, value === 'slim' ? 'Тонкая (Alex)' : 'Классическая (Steve)');
+    }
+    $('accountSkinModelSelectList')?.querySelectorAll('.custom-select-item').forEach(item => {
+      item.classList.toggle('is-selected', item.dataset.value === value);
+    });
+    skinRecord.model = value;
+  }
+
   async function loadSkinRecord() {
     const { data, error } = await client().from('magma_skins').select('skin_path,cape_path,model').eq('user_id', user.id).maybeSingle();
     if (error) throw error;
     skinRecord = data || { skin_path: null, cape_path: null, model: 'default' };
-    $('accountSkinModel').value = skinRecord.model === 'slim' ? 'slim' : 'default';
+    syncSkinModelSelect(skinRecord.model === 'slim' ? 'slim' : 'default');
   }
 
   function updateSkinControls(provider) {
@@ -70,7 +94,6 @@
     $('cloudCurrentEmail').textContent = user.email || '—';
     const provider = preferences().skin_provider === 'elyby' ? 'elyby' : 'magma';
     document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(button => button.classList.toggle('is-active', button.dataset.skinSystem === provider));
-    $('accountHideProfileEmail').checked = !!preferences().hide_profile_email;
     $('accountProductUpdates').checked = !!preferences().product_updates;
     updateSkinControls(provider);
     if (provider === 'magma') await loadSkinRecord();
@@ -106,7 +129,6 @@
       const accounts = (() => { try { return JSON.parse(localStorage.getItem('magma_accounts') || '[]'); } catch { return []; } })();
       const current = accounts.find(item => item.id === user.id);
       if (current) { current.nickname = nickname; localStorage.setItem('magma_accounts', JSON.stringify(accounts)); }
-      $('accountNicknameEditor').hidden = true;
       message('cloudNicknameMessage', tr('settings.account.nicknameSaved', 'Никнейм сохранён.'), true);
     } catch (error) { message('cloudNicknameMessage', error.message || tr('settings.account.nicknameFailed', 'Не удалось сохранить никнейм.')); }
     finally { button.disabled = false; }
@@ -125,12 +147,6 @@
       message('cloudEmailMessage', tr('settings.account.emailSent', 'Письмо подтверждения отправлено. Новый адрес вступит в силу после подтверждения.'), true);
     } catch (error) { message('cloudEmailMessage', error.message || tr('settings.account.emailFailed', 'Не удалось изменить почту.')); }
     finally { button.disabled = false; }
-  }
-
-  function toggleEditor(id) {
-    const editor = $(id);
-    editor.hidden = !editor.hidden;
-    if (!editor.hidden) editor.querySelector('input')?.focus();
   }
 
   function validatePng(file, kind) {
@@ -206,7 +222,7 @@
       user_id: user.id,
       skin_path: skinRecord.skin_path || null,
       cape_path: skinRecord.cape_path || null,
-      model: $('accountSkinModel').value === 'slim' ? 'slim' : 'default',
+      model: skinRecord.model === 'slim' ? 'slim' : 'default',
       updated_at: new Date().toISOString()
     };
     const { error } = await client().from('magma_skins').upsert(next, { onConflict: 'user_id' });
@@ -225,7 +241,6 @@
     message('cloudAccountPreferencesMessage', '');
     try {
       await savePreferences({
-        hide_profile_email: $('accountHideProfileEmail').checked,
         product_updates: $('accountProductUpdates').checked
       });
       message('cloudAccountPreferencesMessage', tr('settings.account.preferencesSaved', 'Настройки сохранены.'), true);
@@ -249,10 +264,20 @@
 
   async function bind() {
     if (!$('accountCloudSettings') || !client()) return;
-    $('accountNicknameToggle').addEventListener('click', () => toggleEditor('accountNicknameEditor'));
-    $('accountEmailToggle').addEventListener('click', () => toggleEditor('accountEmailEditor'));
-    $('accountNicknameCancel').addEventListener('click', () => { $('accountNicknameEditor').hidden = true; });
-    $('accountEmailCancel').addEventListener('click', () => { $('accountEmailEditor').hidden = true; });
+    const openModal = (id, inputId, messageId) => {
+      message(messageId, '');
+      $(inputId).value = '';
+      $(id).classList.add('is-open');
+      $(inputId).focus();
+    };
+    const closeModal = id => $(id).classList.remove('is-open');
+    $('accountNicknameToggle').addEventListener('click', () => openModal('accountNicknameOverlay', 'cloudNickname', 'cloudNicknameMessage'));
+    $('accountEmailToggle').addEventListener('click', () => openModal('accountEmailOverlay', 'cloudNewEmail', 'cloudEmailMessage'));
+    $('accountNicknameClose').addEventListener('click', () => closeModal('accountNicknameOverlay'));
+    $('accountEmailClose').addEventListener('click', () => closeModal('accountEmailOverlay'));
+    ['accountNicknameOverlay', 'accountEmailOverlay'].forEach(id => {
+      $(id).addEventListener('click', event => { if (event.target === $(id)) closeModal(id); });
+    });
     $('cloudSaveNickname').addEventListener('click', saveNickname);
     $('cloudChangeEmail').addEventListener('click', changeEmail);
     $('accountSavePreferences').addEventListener('click', saveAccountPreferences);
@@ -281,10 +306,19 @@
       try { await removeSkinTexture('cape'); }
       catch (error) { message('cloudSkinManagerMessage', error.message || tr('settings.account.textureFailed', 'Не удалось удалить плащ.')); }
     });
-    $('accountSkinModel').addEventListener('change', async () => {
-      try { await saveSkinModel(); }
-      catch (error) { message('cloudSkinManagerMessage', error.message || tr('settings.account.modelFailed', 'Не удалось сохранить модель игрока.')); }
+    $('accountSkinModelSelectBtn').addEventListener('click', event => {
+      event.stopPropagation();
+      $('accountSkinModelSelectWrap').classList.toggle('is-open');
     });
+    $('accountSkinModelSelectList').querySelectorAll('.custom-select-item').forEach(item => {
+      item.addEventListener('click', async () => {
+        syncSkinModelSelect(item.dataset.value);
+        $('accountSkinModelSelectWrap').classList.remove('is-open');
+        try { await saveSkinModel(); }
+        catch (error) { message('cloudSkinManagerMessage', error.message || tr('settings.account.modelFailed', 'Не удалось сохранить модель игрока.')); }
+      });
+    });
+    document.addEventListener('click', () => $('accountSkinModelSelectWrap')?.classList.remove('is-open'));
 
     document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(button => {
       button.addEventListener('click', async () => {

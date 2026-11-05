@@ -318,11 +318,9 @@
                       <div class="account-profile-actions">
                         <div class="account-action-card">
                           <div class="account-action-top"><div><strong data-i18n="settings.account.nickname">Никнейм</strong><span class="account-action-value" id="cloudNicknameCurrent">—</span></div><button class="ghost-btn account-action-button" id="accountNicknameToggle" type="button" data-i18n="settings.account.edit">Изменить</button></div>
-                          <div class="account-inline-editor" id="accountNicknameEditor" hidden><input class="account-cloud-input" id="cloudNickname" maxlength="16" autocomplete="nickname" data-i18n-placeholder="settings.account.newNickname" placeholder="Новый никнейм"><div class="account-inline-actions"><button class="ghost-btn" id="cloudSaveNickname" type="button" data-i18n="settings.account.save">Сохранить</button><button class="account-text-button" id="accountNicknameCancel" type="button" data-i18n="settings.account.cancel">Отмена</button></div><p class="account-cloud-message" id="cloudNicknameMessage"></p></div>
                         </div>
                         <div class="account-action-card">
                           <div class="account-action-top"><div><strong data-i18n="settings.account.email">Электронная почта</strong><span class="account-action-value" id="cloudCurrentEmail">—</span></div><button class="ghost-btn account-action-button" id="accountEmailToggle" type="button" data-i18n="settings.account.edit">Изменить</button></div>
-                          <div class="account-inline-editor" id="accountEmailEditor" hidden><input class="account-cloud-input" id="cloudNewEmail" type="email" autocomplete="email" data-i18n-placeholder="settings.account.newEmail" placeholder="Новый адрес почты"><div class="account-inline-actions"><button class="ghost-btn" id="cloudChangeEmail" type="button" data-i18n="settings.account.sendConfirmation">Отправить подтверждение</button><button class="account-text-button" id="accountEmailCancel" type="button" data-i18n="settings.account.cancel">Отмена</button></div><p class="account-cloud-message" id="cloudEmailMessage"></p></div>
                         </div>
                       </div>
                       <div class="account-skin-system-card">
@@ -337,23 +335,31 @@
                         <div class="account-skin-manager-grid">
                           <div class="account-action-card">
                             <strong data-i18n="settings.account.skin">Скин</strong>
-                            <div class="account-skin-manager-actions"><button class="ghost-btn" type="button" id="accountUploadSkin" data-i18n="settings.account.uploadSkin">Изменить скин</button><button class="account-danger-text" type="button" id="accountRemoveSkin" data-i18n="settings.account.removeSkin">Удалить</button></div>
+                            <div class="account-skin-manager-actions"><button class="ghost-btn" type="button" id="accountUploadSkin" data-i18n="settings.account.uploadSkin">Изменить скин</button><button class="ghost-btn account-danger-text" type="button" id="accountRemoveSkin" data-i18n="settings.account.removeSkin">Удалить</button></div>
                             <input type="file" id="accountSkinFile" accept="image/png" hidden>
                             <span class="account-skin-file-hint" data-i18n="settings.account.skinFormat">PNG · 64×64 или 64×32 · до 2 МБ</span>
                           </div>
                           <div class="account-action-card">
                             <strong data-i18n="settings.account.cape">Плащ</strong>
-                            <div class="account-skin-manager-actions"><button class="ghost-btn" type="button" id="accountUploadCape" data-i18n="settings.account.uploadCape">Изменить плащ</button><button class="account-danger-text" type="button" id="accountRemoveCape" data-i18n="settings.account.removeCape">Удалить</button></div>
+                            <div class="account-skin-manager-actions"><button class="ghost-btn" type="button" id="accountUploadCape" data-i18n="settings.account.uploadCape">Изменить плащ</button><button class="ghost-btn account-danger-text" type="button" id="accountRemoveCape" data-i18n="settings.account.removeCape">Удалить</button></div>
                             <input type="file" id="accountCapeFile" accept="image/png" hidden>
                             <span class="account-skin-file-hint" data-i18n="settings.account.capeFormat">PNG · 64×32 · до 2 МБ</span>
                           </div>
                         </div>
-                        <div class="account-skin-model-row"><label for="accountSkinModel" data-i18n="settings.account.playerModel">Модель игрока</label><select class="settings-select" id="accountSkinModel"><option value="default" data-i18n="settings.account.classic">Классическая (Steve)</option><option value="slim" data-i18n="settings.account.slim">Тонкая (Alex)</option></select></div>
+                        <div class="account-skin-model-row"><label for="accountSkinModel" data-i18n="settings.account.playerModel">Модель игрока</label><div class="custom-select account-skin-model-select" id="accountSkinModelSelectWrap">
+                          <button type="button" class="custom-select-btn" id="accountSkinModelSelectBtn">
+                            <span id="accountSkinModelSelectLabel" data-i18n="settings.account.classic">Классическая (Steve)</span>
+                            <svg viewBox="0 0 24 24" class="chev"><path d="m6 9 6 6 6-6"/></svg>
+                          </button>
+                          <div class="custom-select-list" id="accountSkinModelSelectList">
+                            <button type="button" class="custom-select-item is-selected" data-value="default" data-i18n="settings.account.classic">Классическая (Steve)</button>
+                            <button type="button" class="custom-select-item" data-value="slim" data-i18n="settings.account.slim">Тонкая (Alex)</button>
+                          </div>
+                        </div></div>
                         <p class="account-cloud-message" id="cloudSkinManagerMessage" role="status" aria-live="polite"></p>
                       </div>
                       <div class="account-preferences-card">
                         <div class="account-preferences-heading"><strong data-i18n="settings.account.privacy">Приватность и уведомления</strong></div>
-                        <label class="account-preference-row"><span><strong data-i18n="settings.account.hideEmail">Скрывать почту в профиле</strong><small data-i18n="settings.account.hideEmailHint">Адрес почты не будет отображаться в обзоре аккаунта на сайте</small></span><input type="checkbox" id="accountHideProfileEmail"></label>
                         <label class="account-preference-row"><span><strong data-i18n="settings.account.productUpdates">Новости и обновления продукта</strong><small data-i18n="settings.account.productUpdatesHint">Получать новости о продукте и обновлениях</small></span><input type="checkbox" id="accountProductUpdates"></label>
                         <div class="account-inline-actions"><button class="ghost-btn" id="accountSavePreferences" type="button" data-i18n="settings.account.savePreferences">Сохранить настройки</button></div>
                         <p class="account-cloud-message" id="cloudAccountPreferencesMessage" role="status" aria-live="polite"></p>
@@ -1249,6 +1255,36 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="accountNicknameOverlay">
+    <div class="modal-panel account-edit-modal">
+      <button type="button" class="modal-close" id="accountNicknameClose" aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+      <h3 class="modpack-title" data-i18n="settings.account.nickname">Никнейм</h3>
+      <p class="auth-desc" data-i18n="settings.account.newNickname">Новый никнейм</p>
+      <div class="auth-form">
+        <label class="auth-field-label" for="cloudNickname" data-i18n="settings.account.newNickname">Новый никнейм</label>
+        <input type="text" class="auth-input" id="cloudNickname" maxlength="16" autocomplete="nickname" data-i18n-placeholder="settings.account.newNickname" placeholder="Новый никнейм">
+        <div class="auth-error" id="cloudNicknameMessage" role="status" aria-live="polite"></div>
+        <button class="auth-submit" id="cloudSaveNickname" type="button" data-i18n="settings.account.save">Сохранить</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="accountEmailOverlay">
+    <div class="modal-panel account-edit-modal">
+      <button type="button" class="modal-close" id="accountEmailClose" aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+      <h3 class="modpack-title" data-i18n="settings.account.email">Электронная почта</h3>
+      <p class="auth-desc" data-i18n="settings.account.sendConfirmation">Отправить подтверждение</p>
+      <div class="auth-form">
+        <label class="auth-field-label" for="cloudNewEmail" data-i18n="settings.account.newEmail">Новый адрес почты</label>
+        <input type="email" class="auth-input" id="cloudNewEmail" autocomplete="email" data-i18n-placeholder="settings.account.newEmail" placeholder="Новый адрес почты">
+        <div class="auth-error" id="cloudEmailMessage" role="status" aria-live="polite"></div>
+        <button class="auth-submit" id="cloudChangeEmail" type="button" data-i18n="settings.account.sendConfirmation">Отправить подтверждение</button>
+      </div>
+    </div>
+  </div>
   <div class="modal-overlay" id="accountChangePasswordOverlay">
     <div class="modal-panel">
       <button type="button" class="modal-close" id="accountChangePasswordClose" aria-label="Закрыть">
