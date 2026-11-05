@@ -95,7 +95,6 @@
     $('cloudCurrentEmail').textContent = user.email || '—';
     const provider = preferences().skin_provider === 'elyby' ? 'elyby' : 'magma';
     document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(button => button.classList.toggle('is-active', button.dataset.skinSystem === provider));
-    $('accountProductUpdates').checked = !!preferences().product_updates;
     updateSkinControls(provider);
     if (provider === 'magma') await loadSkinRecord();
     try { localStorage.setItem('magma_skin_system', provider); } catch {}
@@ -236,20 +235,6 @@
     window.magmaRefreshAccountSkinViewer?.($('cloudNicknameCurrent').textContent);
   }
 
-  async function saveAccountPreferences() {
-    const button = $('accountSavePreferences');
-    button.disabled = true;
-    message('cloudAccountPreferencesMessage', '');
-    try {
-      await savePreferences({
-        product_updates: $('accountProductUpdates').checked
-      });
-      message('cloudAccountPreferencesMessage', tr('settings.account.preferencesSaved', 'Настройки сохранены.'), true);
-    } catch (error) {
-      message('cloudAccountPreferencesMessage', error.message || tr('settings.account.preferencesFailed', 'Не удалось сохранить настройки.'));
-    } finally { button.disabled = false; }
-  }
-
   async function signOutOtherSessions() {
     const button = $('accountSignOutOtherSessions');
     button.disabled = true;
@@ -281,7 +266,6 @@
     });
     $('cloudSaveNickname').addEventListener('click', saveNickname);
     $('cloudChangeEmail').addEventListener('click', changeEmail);
-    $('accountSavePreferences').addEventListener('click', saveAccountPreferences);
     $('accountSignOutOtherSessions').addEventListener('click', signOutOtherSessions);
     $('accountUploadSkin').addEventListener('click', () => $('accountSkinFile').click());
     $('accountUploadCape').addEventListener('click', () => $('accountCapeFile').click());
