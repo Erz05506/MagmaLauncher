@@ -7,6 +7,11 @@
 #include <shellapi.h>
 #else
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/select.h>
 #include <codecvt>
 #include <locale>
 #include "include/views/cef_browser_view.h"
@@ -374,7 +379,125 @@ static bool httpGetBinary(const std::string& url, std::string& out, std::string&
 }
 
 #ifndef _WIN32
-bool waitForGoogleAuthCode(std::string&, std::string& errorOut) { errorOut = "Google OAuth: только Windows"; return false; }
+bool waitForGoogleAuthCode(std::string& authCode, std::string& errorOut) {
+    CURL* curlTmp = curl_easy_init();
+    if (!curlTmp) { errorOut = "curl_easy_init failed"; return false; }
+
+    std::string redirectUri = "http://127.0.0.1:" + std::to_string(GOOGLE_REDIRECT_PORT) + "/callback";
+    std::string authUrl =
+        "https://accounts.google.com/o/oauth2/v2/auth"
+        "?client_id=" + urlEncode(curlTmp, GOOGLE_CLIENT_ID) +
+        "&redirect_uri=" + urlEncode(curlTmp, redirectUri) +
+        "&response_type=code"
+        "&scope=" + urlEncode(curlTmp, "openid email profile") +
+        "&access_type=online"
+        "&prompt=select_account";
+    curl_easy_cleanup(curlTmp);
+
+    int listenSocket = ::socket(AF_INET, SOCK_STREAM, 0);
+    if (listenSocket < 0) { errorOut = "socket() failed"; return false; }
+
+    int reuse = 1;
+    setsockopt(listenSocket, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(GOOGLE_REDIRECT_PORT);
+    inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
+
+    if (bind(listenSocket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
+        errorOut = "Не удалось открыть порт " + std::to_string(GOOGLE_REDIRECT_PORT) + " — возможно, он уже занят";
+        close(listenSocket);
+        return false;
+    }
+    if (listen(listenSocket, 1) < 0) {
+        errorOut = "listen() failed";
+        close(listenSocket);
+        return false;
+    }
+
+    if (!platform::openUrl(authUrl)) {
+        errorOut = "Не удалось открыть браузер для входа через Google";
+        close(listenSocket);
+        return false;
+    }
+
+    fd_set readSet;
+    FD_ZERO(&readSet);
+    FD_SET(listenSocket, &readSet);
+    timeval timeout{120, 0};
+    int ready = select(listenSocket + 1, &readSet, nullptr, nullptr, &timeout);
+    if (ready <= 0) {
+        errorOut = ready == 0
+            ? "Не получили ответ от браузера: время ожидания истекло"
+            : "Ошибка ожидания ответа от браузера";
+        close(listenSocket);
+        return false;
+    }
+
+    int clientSocket = accept(listenSocket, nullptr, nullptr);
+    close(listenSocket);
+    if (clientSocket < 0) { errorOut = "Не удалось принять ответ от браузера"; return false; }
+
+    char buffer[8192]{};
+    ssize_t received = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
+    std::string request = received > 0 ? std::string(buffer, static_cast<size_t>(received)) : std::string();
+
+    std::string html =
+        "<html><body style='font-family:sans-serif;text-align:center;margin-top:80px;'>"
+        "<h2>Вход выполнен</h2><p>Можно закрыть эту вкладку и вернуться в MagmaLauncher.</p>"
+        "</body></html>";
+    std::string response =
+        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: " +
+        std::to_string(html.size()) + "\r\nConnection: close\r\n\r\n" + html;
+    size_t sent = 0;
+    while (sent < response.size()) {
+        ssize_t count = send(clientSocket, response.data() + sent, response.size() - sent, 0);
+        if (count <= 0) break;
+        sent += static_cast<size_t>(count);
+    }
+    close(clientSocket);
+
+    size_t lineEnd = request.find("\r\n");
+    size_t firstSpace = request.find(' ');
+    size_t secondSpace = firstSpace == std::string::npos ? std::string::npos : request.find(' ', firstSpace + 1);
+    if (received <= 0 || firstSpace == std::string::npos || secondSpace == std::string::npos ||
+        (lineEnd != std::string::npos && secondSpace > lineEnd)) {
+        errorOut = "Не удалось разобрать ответ от Google";
+        return false;
+    }
+
+    std::string path = request.substr(firstSpace + 1, secondSpace - firstSpace - 1);
+    if (path.find("error=") != std::string::npos) {
+        errorOut = "Пользователь отменил вход через Google";
+        return false;
+    }
+
+    size_t codePos = path.find("code=");
+    if (codePos == std::string::npos) {
+        errorOut = "В ответе от Google нет параметра code";
+        return false;
+    }
+    size_t codeStart = codePos + 5;
+    size_t codeEnd = path.find('&', codeStart);
+    std::string rawCode = codeEnd == std::string::npos
+        ? path.substr(codeStart)
+        : path.substr(codeStart, codeEnd - codeStart);
+
+    CURL* curlDecode = curl_easy_init();
+    if (!curlDecode) { errorOut = "curl_easy_init failed"; return false; }
+    int decodedLength = 0;
+    char* decoded = curl_easy_unescape(curlDecode, rawCode.c_str(), static_cast<int>(rawCode.size()), &decodedLength);
+    if (!decoded) {
+        curl_easy_cleanup(curlDecode);
+        errorOut = "Не удалось декодировать код Google";
+        return false;
+    }
+    authCode.assign(decoded, static_cast<size_t>(decodedLength));
+    curl_free(decoded);
+    curl_easy_cleanup(curlDecode);
+    return !authCode.empty();
+}
 #else
 bool waitForGoogleAuthCode(std::string& authCode, std::string& errorOut) {
     CURL* curlTmp = curl_easy_init();
