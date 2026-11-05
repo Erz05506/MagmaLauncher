@@ -54,6 +54,7 @@ std::atomic<bool> g_paused{false};
 std::atomic<bool> g_cancelled{false};
 
 std::atomic<bool> g_gameProcessActive{false};
+std::atomic<bool> g_launchInProgress{false};
 std::atomic<unsigned long> g_gameProcessId{0};
 
 namespace {
@@ -3712,7 +3713,6 @@ bool extractZipFromRarArchiveImpl(const fs::path& rarPath, const fs::path& targe
 bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std::string& errorOut) {
 
     try {
-    g_cancelled.store(false);
     g_paused.store(false);
 
     if (g_gameProcessActive.load()) {
@@ -3965,10 +3965,19 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
                 onProgress("magma_skins", 1.0, "Не удалось создать папку CustomSkinLoader.");
             }
         } else {
+            if (g_cancelled.load() || skinLoaderError == "CANCELLED") {
+                errorOut = "CANCELLED";
+                return false;
+            }
             std::string detail = skinLoaderError.empty() ? skinLoaderEc.message() : skinLoaderError;
-            onProgress("magma_skins", 1.0,
-                "CustomSkinLoader не установлен: " + detail + ". Игра будет запущена без Magma Skins.");
+            errorOut = "Не удалось установить CustomSkinLoader: " + detail;
+            return false;
         }
+    }
+
+    if (g_cancelled.load()) {
+        errorOut = "CANCELLED";
+        return false;
     }
 
     int ramMb = req.ramMb;
