@@ -3394,38 +3394,3 @@ html[data-theme="halloween"] body {
 .account-skin-system-options .skin-system-logo svg{color:var(--magma-glow)}
 .account-cloud-settings button:disabled{opacity:.55;cursor:wait}
 @media(max-width:760px){.account-profile-actions{grid-template-columns:1fr}.account-skin-system-card{align-items:flex-start;flex-direction:column}.account-skin-system-options{justify-content:flex-start}}
-
-
-.account-skin-system-options .skin-system-logo img{width:16px;height:16px;object-fit:cover;border-radius:4px}
-.skin-system-logo .magma-diamond{fill:#ff7a1a}
-.skin-system-logo .magma-diamond-cut{fill:#ffb15c}
-.account-skin-manager,.account-preferences-card{margin-top:12px;padding:15px;border:1px solid var(--border-soft);border-radius:var(--radius-md);background:var(--bg-void)}
-.account-manager-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.account-manager-heading strong,.account-manager-heading span{display:block}
-.account-manager-heading strong,.account-preferences-heading strong{font-size:12px;color:var(--text-primary)}
-.account-manager-heading span,.account-skin-file-hint{margin-top:4px;font-size:10px;color:var(--text-muted);line-height:1.5}
-.account-skin-manager-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.account-skin-manager-grid .account-action-card>strong{font-size:12px;color:var(--text-primary)}
-.account-skin-manager-actions{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
-.account-skin-manager-actions .ghost-btn{padding:7px 10px;font-size:11px}
-.account-danger-text{padding:6px 3px;color:#ff938b;font-size:11px}
-.account-danger-text:hover{color:#ff6258}
-.account-skin-file-hint{display:block}
-.account-skin-model-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-soft)}
-.account-skin-model-row label{font-size:11px;color:var(--text-secondary)}
-.account-preferences-heading{margin-bottom:10px}
-.account-preference-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 0;border-top:1px solid var(--border-soft);cursor:pointer}
-.account-preference-row span{display:block;min-width:0}
-.account-preference-row strong,.account-preference-row small{display:block}
-.account-preference-row strong{font-size:11px;color:var(--text-primary)}
-.account-preference-row small{margin-top:3px;font-size:10px;line-height:1.45;color:var(--text-muted)}
-.account-preference-row input[type="checkbox"]{width:16px;height:16px;flex:0 0 auto;accent-color:var(--magma-1);cursor:pointer}
-.account-preferences-card .account-inline-actions{margin-top:8px}
-.account-preferences-card .account-inline-actions .ghost-btn{padding:7px 11px;font-size:11px}
-.account-cloud-settings label:has(input[type="checkbox"]),.account-cloud-settings input[type="checkbox"]{cursor:pointer}
-.account-cloud-settings input[type="file"]{cursor:pointer}
-@media(max-width:760px){.account-skin-manager-grid{grid-template-columns:1fr}.account-skin-model-row{align-items:flex-start;flex-direction:column}}
-
-
-label:has(input[type="checkbox"]),label:has(input[type="radio"]),.modpack-mod-check,.mod-filter-source-row{cursor:pointer}
-label:has(input[type="checkbox"]) input,label:has(input[type="radio"]) input{cursor:pointer}
