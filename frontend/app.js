@@ -11571,13 +11571,25 @@ async function fetchSkinAsset(url, timeoutMs = 12000) {
   }
 }
 
+async function waitForSkinRequest(request, timeoutMs = 12000) {
+  let timeoutId;
+  try {
+    return await Promise.race([
+      request,
+      new Promise((_, reject) => { timeoutId = setTimeout(() => reject(new Error('Skin request timed out')), timeoutMs); })
+    ]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 async function loadSkinBlobUrl(nickname, provider) {
   if (provider !== 'elyby') {
     try {
-      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const { data: sessionData } = await waitForSkinRequest(supabaseClient.auth.getSession());
       const user = sessionData.session?.user;
       if (user) {
-        const { data, error } = await supabaseClient.from('magma_skins').select('skin_path,model').eq('user_id', user.id).maybeSingle();
+        const { data, error } = await waitForSkinRequest(supabaseClient.from('magma_skins').select('skin_path,model').eq('user_id', user.id).maybeSingle());
         if (error) throw error;
         accountSkinViewerModel = data?.model === 'slim' ? 'slim' : 'default';
         if (data?.skin_path) {
@@ -11672,14 +11684,28 @@ async function doRefreshAccountSkinViewer(nickname) {
   }
 
   let loaded = false;
-  for (let attempt = 0; attempt < 3 && !loaded; attempt++) {
+  for (let attempt = 0; attempt < 2 && !loaded; attempt++) {
     try {
       await viewer.loadSkin(blobUrl, { model: accountSkinViewerModel });
       loaded = true;
     } catch (err) {
-      console.error('[MagmaLauncher] Не удалось загрузить модель скина:', err);
-      await new Promise(r => setTimeout(r, 300 * (attempt + 1)));
+      console.warn('[MagmaLauncher] Не удалось загрузить выбранный скин:', err);
+      await new Promise(r => setTimeout(r, 180 * (attempt + 1)));
       if (myRequestId !== accountSkinViewerRequestId) { releaseSkinBlobUrl(blobUrl); return; }
+    }
+  }
+
+  if (!loaded && blobUrl !== cachedDefaultSteveBlobUrl) {
+    try {
+      const fallbackUrl = await defaultSteveSkinBlobUrl();
+      if (myRequestId !== accountSkinViewerRequestId) { releaseSkinBlobUrl(blobUrl); return; }
+      await viewer.loadSkin(fallbackUrl, { model: 'default' });
+      releaseSkinBlobUrl(blobUrl);
+      blobUrl = fallbackUrl;
+      accountSkinViewerModel = 'default';
+      loaded = true;
+    } catch (err) {
+      console.error('[MagmaLauncher] Не удалось загрузить резервный скин:', err);
     }
   }
 
@@ -11690,11 +11716,12 @@ async function doRefreshAccountSkinViewer(nickname) {
   }
 
   try {
+    let capeLoaded = false;
     if (provider === 'magma') {
-      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const { data: sessionData } = await waitForSkinRequest(supabaseClient.auth.getSession());
       const user = sessionData.session?.user;
       if (user) {
-        const { data } = await supabaseClient.from('magma_skins').select('cape_path').eq('user_id', user.id).maybeSingle();
+        const { data } = await waitForSkinRequest(supabaseClient.from('magma_skins').select('cape_path').eq('user_id', user.id).maybeSingle());
         if (data?.cape_path) {
           const { data: capeFile } = supabaseClient.storage.from('magma-skins').getPublicUrl(data.cape_path);
           const capeResponse = await fetchSkinAsset(capeFile.publicUrl);
@@ -11703,11 +11730,16 @@ async function doRefreshAccountSkinViewer(nickname) {
             await viewer.loadCape(capeBlobUrl);
             releaseSkinBlobUrl(accountSkinViewerCapeBlobUrl);
             accountSkinViewerCapeBlobUrl = capeBlobUrl;
+            capeLoaded = true;
           }
         }
       }
     }
-    if (provider !== 'magma' || !accountSkinViewerCapeBlobUrl) await viewer.loadCape(null);
+    if (!capeLoaded) {
+      await viewer.loadCape(null);
+      releaseSkinBlobUrl(accountSkinViewerCapeBlobUrl);
+      accountSkinViewerCapeBlobUrl = null;
+    }
   } catch (err) {
     console.warn('[MagmaLauncher] Не удалось обновить плащ в предпросмотре:', err);
   }
