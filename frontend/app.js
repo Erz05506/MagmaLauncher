@@ -2797,6 +2797,9 @@ const I18N = {
 const ERROR_I18N = {
   ru: {
         ERR_NETWORK: 'Проблема с сетевым соединением',
+    ERR_DOWNLOAD_RESTART: 'Сервер не поддержал докачку файла',
+    ERR_EMPTY_DOWNLOAD: 'Сервер вернул пустой файл',
+    ERR_FILE_WRITE: 'Не удалось сохранить загруженный файл',
     ERR_UPDATE_LOOP: 'Обновление уже ставилось, но версия не выросла: у exe в архиве MAGMA_LAUNCHER_BUILD меньше, чем build в update.json. Пересоберите exe с нужным номером и обновите архив',
     ERR_UPDATE_APPLY: 'Не удалось применить обновление (изменения откатены). Подробности в %LOCALAPPDATA%\\MagmaLauncher\\update.log',
     ERR_HTTP_STATUS: 'Сервер ответил ошибкой',
@@ -2830,6 +2833,9 @@ const ERROR_I18N = {
   },
   en: {
     ERR_NETWORK: 'Network connection problem',
+    ERR_DOWNLOAD_RESTART: 'The server did not support resuming the download',
+    ERR_EMPTY_DOWNLOAD: 'The server returned an empty file',
+    ERR_FILE_WRITE: 'Could not save the downloaded file',
     ERR_HTTP_STATUS: 'The server responded with an error',
     ERR_JAVA_INDEX: 'Could not fetch the list of Java versions',
     ERR_JAVA_NO_BUILD: 'No auto-downloadable Java build exists for this version on Windows x64. Set the Java path manually in settings',
