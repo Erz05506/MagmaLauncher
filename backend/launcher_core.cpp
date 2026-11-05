@@ -3910,6 +3910,62 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         reconcileModsForVersion(instanceDir / "mods", req.version, req.loader);
     }
 
+    if (req.loader != "vanilla") {
+        onProgress("magma_skins", 0.0, "Подключаем Magma Skins...");
+
+        fs::path modsDir = instanceDir / "mods";
+        std::error_code skinLoaderEc;
+        fs::create_directories(modsDir, skinLoaderEc);
+
+        bool hasCustomSkinLoader = false;
+        if (!skinLoaderEc && fs::exists(modsDir, skinLoaderEc)) {
+            for (const auto& entry : fs::directory_iterator(modsDir, skinLoaderEc)) {
+                if (skinLoaderEc) break;
+                if (!entry.is_regular_file()) continue;
+
+                std::string filename = entry.path().filename().string();
+                std::transform(filename.begin(), filename.end(), filename.begin(),
+                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+                if (filename.rfind("customskinloader", 0) == 0 && entry.path().extension() == ".jar") {
+                    hasCustomSkinLoader = true;
+                    break;
+                }
+            }
+        }
+
+        std::string skinLoaderFile;
+        std::string skinLoaderError;
+        if (!skinLoaderEc && (hasCustomSkinLoader ||
+            installModToDirImpl("customskinloader", req.version, req.loader, modsDir, skinLoaderFile, skinLoaderError))) {
+            fs::path extraListDir = instanceDir / "CustomSkinLoader" / "ExtraList";
+            fs::create_directories(extraListDir, skinLoaderEc);
+
+            if (!skinLoaderEc) {
+                json source = {
+                    {"name", "Magma Skins"},
+                    {"type", "CustomSkinAPI"},
+                    {"root", "https://bjgpqlegoptegcbogncq.supabase.co/functions/v1/magma-skin-api/"}
+                };
+
+                std::ofstream config(extraListDir / "MagmaSkins.json", std::ios::binary | std::ios::trunc);
+                if (config) {
+                    config << source.dump(2);
+                    config.close();
+                    onProgress("magma_skins", 1.0, "Magma Skins подключён.");
+                } else {
+                    onProgress("magma_skins", 1.0, "Не удалось сохранить конфигурацию Magma Skins.");
+                }
+            } else {
+                onProgress("magma_skins", 1.0, "Не удалось создать папку CustomSkinLoader.");
+            }
+        } else {
+            std::string detail = skinLoaderError.empty() ? skinLoaderEc.message() : skinLoaderError;
+            onProgress("magma_skins", 1.0,
+                "CustomSkinLoader не установлен: " + detail + ". Игра будет запущена без Magma Skins.");
+        }
+    }
+
     int ramMb = req.ramMb;
     if (ramMb < 512) ramMb = 512;
     if (ramMb > 65536) ramMb = 65536;
