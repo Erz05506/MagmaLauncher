@@ -1382,6 +1382,9 @@ body.has-modal-open .play-btn .crack {
   position: relative;
 }
 .auth-input-wrap .auth-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
   padding-right: 42px;
 }
 .auth-eye-toggle {
@@ -3332,5 +3335,25 @@ html[data-theme="halloween"] body {
   #magmaRegStep1 .register-fields-grid {
     grid-template-columns: 1fr;
     gap: 2px;
+  }
+}
+.modal-panel.is-register-details {
+  width: 680px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 24px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.modal-panel.is-register-details::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+@media (max-width: 720px) {з
+  .modal-panel.is-register-details {
+    width: calc(100vw - 24px);
+    max-width: none;
   }
 }
