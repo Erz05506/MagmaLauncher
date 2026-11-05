@@ -395,6 +395,12 @@ bool httpDownloadFileOnce(const std::string& url, const fs::path& destPath, std:
     fs::path tmpPath = destPath;
     tmpPath += ".part";
 
+    if (resumeFrom <= 0) {
+        resumeFrom = 0;
+        fs::remove(tmpPath, ec);
+        ec.clear();
+    }
+
     {
         std::ios::openmode mode = std::ios::binary | (resumeFrom > 0 ? std::ios::app : std::ios::trunc);
         std::ofstream out(tmpPath, mode);
@@ -403,6 +409,8 @@ bool httpDownloadFileOnce(const std::string& url, const fs::path& destPath, std:
         CURL* curl = curl_easy_init();
         if (!curl) { errorOut = "curl_easy_init failed"; return false; }
 
+        char curlError[CURL_ERROR_SIZE] = {};
+        curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curlError);
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeToFile);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &out);
@@ -410,41 +418,55 @@ bool httpDownloadFileOnce(const std::string& url, const fs::path& destPath, std:
         curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, connectTimeoutSec);
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
         curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, abortIfCancelledCallback);
-
         curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-
         curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 200L);
         curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, lowSpeedTimeSec);
-        if (absoluteTimeoutSec > 0) {
-            curl_easy_setopt(curl, CURLOPT_TIMEOUT, absoluteTimeoutSec);
-        }
-
-        if (resumeFrom > 0) {
-            curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, resumeFrom);
-        }
+        if (absoluteTimeoutSec > 0) curl_easy_setopt(curl, CURLOPT_TIMEOUT, absoluteTimeoutSec);
+        if (resumeFrom > 0) curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, resumeFrom);
 
         CURLcode res = curl_easy_perform(curl);
         long httpCode = 0;
+        char* effectiveUrl = nullptr;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+        curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &effectiveUrl);
+        std::string finalUrl = effectiveUrl ? effectiveUrl : url;
+        std::string detail = curlError[0] ? curlError : curl_easy_strerror(res);
         curl_easy_cleanup(curl);
+        out.flush();
+        bool writeOk = out.good();
+        out.close();
 
-        if (res != CURLE_OK) { errorOut = std::string("ERR_NETWORK||") + curl_easy_strerror(res); return false; }
-
-        if (resumeFrom > 0 && httpCode == 200) {
-            out.close();
-            fs::remove(tmpPath, ec);
-            errorOut = "Сервер не поддержал докачку файла, начинаем заново";
+        if (!writeOk) {
+            errorOut = "ERR_FILE_WRITE||Не удалось записать загруженный файл: " + tmpPath.string();
             return false;
         }
 
-        if (resumeFrom > 0 && httpCode == 416) {
-            out.close();
-            fs::remove(tmpPath, ec);
-            errorOut = "Докачка не подошла (416), начинаем закачку заново";
+        if (res != CURLE_OK) {
+            if (res == CURLE_ABORTED_BY_CALLBACK && g_cancelled.load()) {
+                errorOut = "CANCELLED";
+                return false;
+            }
+            errorOut = "ERR_NETWORK||curl " + std::to_string(static_cast<int>(res)) +
+                       " (" + detail + ") [" + finalUrl + "]";
             return false;
         }
+
+        if (resumeFrom > 0 && (httpCode == 200 || httpCode == 416)) {
+            fs::remove(tmpPath, ec);
+            errorOut = "ERR_DOWNLOAD_RESTART||Сервер не поддержал докачку (HTTP " +
+                       std::to_string(httpCode) + "), повторяем загрузку с начала";
+            return false;
+        }
+
         if (httpCode < 200 || httpCode >= 300) {
-            errorOut = "ERR_HTTP_STATUS||HTTP " + std::to_string(httpCode) + " (" + url + ")";
+            errorOut = "ERR_HTTP_STATUS||HTTP " + std::to_string(httpCode) + " (" + finalUrl + ")";
+            return false;
+        }
+
+        std::error_code sizeEc;
+        auto downloadedSize = fs::file_size(tmpPath, sizeEc);
+        if (sizeEc || downloadedSize == 0) {
+            errorOut = "ERR_EMPTY_DOWNLOAD||Сервер вернул пустой файл (" + finalUrl + ")";
             return false;
         }
     }
@@ -465,8 +487,11 @@ bool httpDownloadFile(const std::string& url, const fs::path& destPath, std::str
         std::error_code sizeEc;
         curl_off_t resumeFrom = 0;
         if (fs::exists(tmpPath, sizeEc)) {
-            resumeFrom = (curl_off_t)fs::file_size(tmpPath, sizeEc);
-            if (sizeEc) resumeFrom = 0;
+            resumeFrom = static_cast<curl_off_t>(fs::file_size(tmpPath, sizeEc));
+            if (sizeEc || resumeFrom <= 0) {
+                resumeFrom = 0;
+                fs::remove(tmpPath, sizeEc);
+            }
         }
         return httpDownloadFileOnce(url, destPath, attemptError, resumeFrom, connectTimeoutSec, lowSpeedTimeSec, absoluteTimeoutSec);
     }, maxAttempts, errorOut, onRetry);
