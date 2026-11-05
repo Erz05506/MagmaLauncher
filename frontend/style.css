@@ -1117,6 +1117,11 @@ body.has-modal-open .play-btn .crack {
   gap: 8px 16px;
 }
 #magmaRegStep1 .register-field { min-width: 0; }
+#magmaRegStep1 .register-field .auth-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+}
 #magmaRegStep1 .register-field .auth-field-label {
   display: block;
   margin-top: 8px;
