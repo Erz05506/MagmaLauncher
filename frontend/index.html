@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>MagmaLauncher</title>
-<link rel="stylesheet" href="style.css?v=20261105-accountui1">
+<link rel="stylesheet" href="style.css?v=20261105-accountui2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <script>(function(){try{document.documentElement.setAttribute('data-theme',localStorage.getItem('magma_theme')||'magma');}catch(e){}})();</script>
 <style>html,body{background:#0a0a0c;}</style>
@@ -314,24 +314,58 @@
 
                     
                     <section class="account-cloud-settings" id="accountCloudSettings">
-                      <div class="account-cloud-heading"><span class="settings-label">Параметры аккаунта</span><span class="account-cloud-status" id="accountCloudStatus">Проверка аккаунта…</span></div>
+                      <div class="account-cloud-heading"><span class="settings-label" data-i18n="settings.account.parameters">Параметры аккаунта</span><span class="account-cloud-status" id="accountCloudStatus">Проверка аккаунта…</span></div>
                       <div class="account-profile-actions">
                         <div class="account-action-card">
-                          <div class="account-action-top"><div><strong>Никнейм</strong><span class="account-action-value" id="cloudNicknameCurrent">—</span></div><button class="ghost-btn account-action-button" id="accountNicknameToggle" type="button">Изменить</button></div>
-                          <div class="account-inline-editor" id="accountNicknameEditor" hidden><input class="account-cloud-input" id="cloudNickname" maxlength="16" autocomplete="nickname" placeholder="Новый никнейм"><div class="account-inline-actions"><button class="ghost-btn" id="cloudSaveNickname" type="button">Сохранить</button><button class="account-text-button" id="accountNicknameCancel" type="button">Отмена</button></div><p class="account-cloud-message" id="cloudNicknameMessage"></p></div>
+                          <div class="account-action-top"><div><strong data-i18n="settings.account.nickname">Никнейм</strong><span class="account-action-value" id="cloudNicknameCurrent">—</span></div><button class="ghost-btn account-action-button" id="accountNicknameToggle" type="button" data-i18n="settings.account.edit">Изменить</button></div>
+                          <div class="account-inline-editor" id="accountNicknameEditor" hidden><input class="account-cloud-input" id="cloudNickname" maxlength="16" autocomplete="nickname" data-i18n-placeholder="settings.account.newNickname" placeholder="Новый никнейм"><div class="account-inline-actions"><button class="ghost-btn" id="cloudSaveNickname" type="button" data-i18n="settings.account.save">Сохранить</button><button class="account-text-button" id="accountNicknameCancel" type="button" data-i18n="settings.account.cancel">Отмена</button></div><p class="account-cloud-message" id="cloudNicknameMessage"></p></div>
                         </div>
                         <div class="account-action-card">
-                          <div class="account-action-top"><div><strong>Электронная почта</strong><span class="account-action-value" id="cloudCurrentEmail">—</span></div><button class="ghost-btn account-action-button" id="accountEmailToggle" type="button">Изменить</button></div>
-                          <div class="account-inline-editor" id="accountEmailEditor" hidden><input class="account-cloud-input" id="cloudNewEmail" type="email" autocomplete="email" placeholder="Новый адрес почты"><div class="account-inline-actions"><button class="ghost-btn" id="cloudChangeEmail" type="button">Отправить подтверждение</button><button class="account-text-button" id="accountEmailCancel" type="button">Отмена</button></div><p class="account-cloud-message" id="cloudEmailMessage"></p></div>
+                          <div class="account-action-top"><div><strong data-i18n="settings.account.email">Электронная почта</strong><span class="account-action-value" id="cloudCurrentEmail">—</span></div><button class="ghost-btn account-action-button" id="accountEmailToggle" type="button" data-i18n="settings.account.edit">Изменить</button></div>
+                          <div class="account-inline-editor" id="accountEmailEditor" hidden><input class="account-cloud-input" id="cloudNewEmail" type="email" autocomplete="email" data-i18n-placeholder="settings.account.newEmail" placeholder="Новый адрес почты"><div class="account-inline-actions"><button class="ghost-btn" id="cloudChangeEmail" type="button" data-i18n="settings.account.sendConfirmation">Отправить подтверждение</button><button class="account-text-button" id="accountEmailCancel" type="button" data-i18n="settings.account.cancel">Отмена</button></div><p class="account-cloud-message" id="cloudEmailMessage"></p></div>
                         </div>
                       </div>
                       <div class="account-skin-system-card">
-                        <div><strong>Система скинов</strong><span>Выберите источник скинов для Minecraft</span></div>
+                        <div><strong data-i18n="settings.account.skinSystem">Система скинов</strong><span data-i18n="settings.account.skinSystemHint">Выберите источник скинов для Minecraft</span></div>
                         <div class="skin-system-options account-skin-system-options" id="accountSkinSystemOptions">
-                          <button class="skin-system-option is-active" type="button" data-skin-system="magma"><span class="skin-system-logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c4.2 0 7-2.9 7-6.7 0-2.5-1.4-4.4-3.8-6.8-.1 2.1-1.1 3.1-2 3.7C13 8.3 11.2 4.8 7.7 2 8.1 6.6 5 8.9 5 14.2 5 18.7 7.8 22 12 22Z"/><path d="M12 22c-1.8-1.1-2.6-2.6-2.4-4.2.2-1.2.9-2.1 1.9-3.1.1 1.4.8 2.1 1.6 2.7.8 1.1.5 3.2-1.1 4.6Z"/></svg></span>Magma Skins</button>
-                          <button class="skin-system-option" type="button" data-skin-system="elyby"><span class="skin-system-elyby-badge">E</span>Ely.by</button>
+                          <button class="skin-system-option is-active" type="button" data-skin-system="magma"><span class="skin-system-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="magma-diamond" d="M12 1.5 22.5 12 12 22.5 1.5 12Z"/><path class="magma-diamond-cut" d="M12 5.2 18.8 12 12 18.8 5.2 12Z"/></svg></span>Magma Skins</button>
+                          <button class="skin-system-option" type="button" data-skin-system="elyby"><span class="skin-system-logo"><img src="../assets/ely_by.jpg" alt="Ely.by"></span>Ely.by</button>
                         </div>
-                        <p class="account-cloud-message" id="cloudSkinMessage"></p>
+                      </div>
+                      <div class="account-skin-manager" id="accountSkinManager">
+                        <div class="account-manager-heading"><div><strong data-i18n="settings.account.skinManager">Скин и плащ</strong><span data-i18n="settings.account.skinManagerHint">Загрузите текстуры в свой Magma Account</span></div></div>
+                        <div class="account-skin-manager-grid">
+                          <div class="account-action-card">
+                            <strong data-i18n="settings.account.skin">Скин</strong>
+                            <div class="account-skin-manager-actions"><button class="ghost-btn" type="button" id="accountUploadSkin" data-i18n="settings.account.uploadSkin">Изменить скин</button><button class="account-danger-text" type="button" id="accountRemoveSkin" data-i18n="settings.account.removeSkin">Удалить</button></div>
+                            <input type="file" id="accountSkinFile" accept="image/png" hidden>
+                            <span class="account-skin-file-hint" data-i18n="settings.account.skinFormat">PNG · 64×64 или 64×32 · до 2 МБ</span>
+                          </div>
+                          <div class="account-action-card">
+                            <strong data-i18n="settings.account.cape">Плащ</strong>
+                            <div class="account-skin-manager-actions"><button class="ghost-btn" type="button" id="accountUploadCape" data-i18n="settings.account.uploadCape">Изменить плащ</button><button class="account-danger-text" type="button" id="accountRemoveCape" data-i18n="settings.account.removeCape">Удалить</button></div>
+                            <input type="file" id="accountCapeFile" accept="image/png" hidden>
+                            <span class="account-skin-file-hint" data-i18n="settings.account.capeFormat">PNG · 64×32 · до 2 МБ</span>
+                          </div>
+                        </div>
+                        <div class="account-skin-model-row"><label for="accountSkinModel" data-i18n="settings.account.playerModel">Модель игрока</label><select class="settings-select" id="accountSkinModel"><option value="default" data-i18n="settings.account.classic">Классическая (Steve)</option><option value="slim" data-i18n="settings.account.slim">Тонкая (Alex)</option></select></div>
+                        <p class="account-cloud-message" id="cloudSkinManagerMessage" role="status" aria-live="polite"></p>
+                      </div>
+                      <div class="account-preferences-card">
+                        <div class="account-preferences-heading"><strong data-i18n="settings.account.privacy">Приватность и уведомления</strong></div>
+                        <label class="account-preference-row"><span><strong data-i18n="settings.account.hideEmail">Скрывать почту в профиле</strong><small data-i18n="settings.account.hideEmailHint">Адрес почты не будет отображаться в обзоре аккаунта на сайте</small></span><input type="checkbox" id="accountHideProfileEmail"></label>
+                        <label class="account-preference-row"><span><strong data-i18n="settings.account.productUpdates">Новости и обновления продукта</strong><small data-i18n="settings.account.productUpdatesHint">Получать новости о продукте и обновлениях</small></span><input type="checkbox" id="accountProductUpdates"></label>
+                        <div class="account-inline-actions"><button class="ghost-btn" id="accountSavePreferences" type="button" data-i18n="settings.account.savePreferences">Сохранить настройки</button></div>
+                        <p class="account-cloud-message" id="cloudAccountPreferencesMessage" role="status" aria-live="polite"></p>
+                      </div>
+                      <div class="account-preferences-card">
+                        <div class="account-preferences-heading"><strong data-i18n="settings.account.sessions">Активные сеансы</strong></div>
+                        <span class="account-skin-file-hint" data-i18n="settings.account.sessionsHint">Завершить другие сеансы этого аккаунта. Текущий сеанс останется активным.</span>
+                        <div class="account-inline-actions"><button class="ghost-btn" id="accountSignOutOtherSessions" type="button" data-i18n="settings.account.signOutOther">Выйти из других сеансов</button></div>
+                        <p class="account-cloud-message" id="cloudSessionsMessage" role="status" aria-live="polite"></p>
+                      </div>
+                      <div class="settings-accounts-block" id="accountChangePasswordBlock">
+                        <button type="button" class="ghost-btn" id="accountChangePasswordOpenBtn" data-i18n="account.changePasswordBtn">Сменить пароль</button>
                       </div>
                     </section>
 
@@ -339,10 +373,6 @@
                       <div class="settings-label" data-i18n="account.accountsListLabel">Аккаунты</div>
                       <div class="account-list-items" id="settingsAccountsList"></div>
                       <button type="button" class="account-list-add-btn" id="settingsAddAccountBtn" data-i18n="account.addAccount">+ Добавить аккаунт</button>
-                    </div>
-
-                     <div class="settings-accounts-block" id="accountChangePasswordBlock">
-                      <button type="button" class="ghost-btn" id="accountChangePasswordOpenBtn" data-i18n="account.changePasswordBtn">Сменить пароль</button>
                     </div>
 
                     <div class="settings-accounts-block" style="display:flex;gap:10px;padding:16px;background:var(--bg-card);border:1px solid var(--border-soft);border-radius:var(--radius-md);">
@@ -680,6 +710,13 @@
                 </div>
 
                 <div class="launcher-links-row" style="margin-top:16px;">
+                  <a href="https://magmalauncher.space" class="launcher-link-card">
+                    <span class="launcher-link-icon"><img src="../assets/magmalauncher.png" alt="Magma Launcher"></span>
+                    <span class="launcher-link-text">
+                      <span class="launcher-link-title" data-i18n="settings.updates.link.website.title">Magma Launcher</span>
+                      <span class="launcher-link-desc" data-i18n="settings.updates.link.website.desc">Официальный сайт проекта</span>
+                    </span>
+                  </a>
                   <a href="https://github.com/Erz05506/MagmaLauncher" class="launcher-link-card">
                     <span class="launcher-link-icon"><img src="../assets/github-logo.png" alt="GitHub"></span>
                     <span class="launcher-link-text">
@@ -708,13 +745,7 @@
                       <span class="launcher-link-desc" data-i18n="settings.updates.link.telegram.desc">Новости и обновления</span>
                     </span>
                   </a>
-                    <a href="https://www.tiktok.com/@magma.launcher?_r=1&_t=ZS-99hjtZdg306" class="launcher-link-card">
-                    <span class="launcher-link-icon"><img src="../assets/tiktok-logo.png" alt="TikTok"></span>
-                    <span class="launcher-link-text">
-                      <span class="launcher-link-title" data-i18n="settings.updates.link.tiktok.title">TikTok</span>
-                      <span class="launcher-link-desc" data-i18n="settings.updates.link.tiktok.desc">Короткие видео о лаунчере</span>
-                    </span>
-                  </a>
+
                   <a href="https://www.donationalerts.com/r/erzz05" class="launcher-link-card">
                     <span class="launcher-link-icon"><img src="../assets/donationalerts-logo.png" alt="DonationAlerts"></span>
                     <span class="launcher-link-text">
@@ -1282,6 +1313,6 @@
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
 <script src="../assets/skinview3d.bundle.js"></script>
 <script src="app.js?v=20261104-authfix"></script>
-<script src="account-settings.js?v=20261105-accountui1"></script>
+<script src="account-settings.js?v=20261105-accountui2"></script>
 </body>
 </html>
