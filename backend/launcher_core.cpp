@@ -27,6 +27,7 @@ inline int WideCharToMultiByte(unsigned, unsigned long, const wchar_t*, int, cha
 #include <vector>
 #include <cstring>
 #include <cstdio>
+#include <cctype>
 #include <cstdint>
 #include <algorithm>
 #include <optional>
@@ -3927,7 +3928,11 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
                 std::transform(filename.begin(), filename.end(), filename.begin(),
                     [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
-                if (filename.rfind("customskinloader", 0) == 0 && entry.path().extension() == ".jar") {
+                std::string extension = entry.path().extension().string();
+                std::transform(extension.begin(), extension.end(), extension.begin(),
+                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+                if (filename.rfind("customskinloader", 0) == 0 && extension == ".jar") {
                     hasCustomSkinLoader = true;
                     break;
                 }
