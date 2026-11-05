@@ -1,0 +1,65 @@
+name: Linux build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - Linux&MacOS-support-update
+  pull_request:
+    branches:
+      - Linux&MacOS-support-update
+
+env:
+  CEF_VERSION: "156.0.14+g4fa4ab5+chromium-156.0.8078.48"
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake ninja-build curl dpkg-dev imagemagick \
+            libcurl4-openssl-dev nlohmann-json3-dev zlib1g-dev \
+            libgtk-3-dev libnss3-dev libnspr4-dev libx11-dev libx11-xcb-dev \
+            libxcb1-dev libxcomposite-dev libxdamage-dev libxext-dev \
+            libxfixes-dev libxrandr-dev libxkbcommon-dev libgbm-dev \
+            libasound2-dev libatk1.0-dev libatk-bridge2.0-dev libatspi2.0-dev \
+            libdrm-dev libdbus-1-dev libpango1.0-dev libcairo2-dev
+
+      - name: Create secret.h
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
+        run: |
+          if [ ! -f backend/secret.h ]; then
+            printf '#pragma once\n#define GOOGLE_CLIENT_ID "%s"\n#define GOOGLE_CLIENT_SECRET "%s"\n#define CURSEFORGE_API_KEY "%s"\n' "$GOOGLE_CLIENT_ID" "$GOOGLE_CLIENT_SECRET" "$CURSEFORGE_API_KEY" > backend/secret.h
+          fi
+
+      - name: Download CEF
+        run: |
+          VERSION="${CEF_VERSION//+/%2B}"
+          curl -fL --retry 3 -o cef.tar.bz2 "https://cef-builds.spotifycdn.com/cef_binary_${VERSION}_linux64.tar.bz2"
+          mkdir -p backend/cef-linux
+          tar -xjf cef.tar.bz2 --strip-components=1 -C backend/cef-linux
+
+      - name: Configure
+        run: |
+          cmake -S backend -B backend/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCEF_ROOT="$GITHUB_WORKSPACE/backend/cef-linux"
+
+      - name: Build
+        run: cmake --build backend/build --target MagmaLauncher --parallel 2
+
+      - name: Package Debian
+        run: packaging/linux/build_deb.sh 1.0.0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MagmaLauncher-linux-amd64
+          path: packaging/linux/out/magmalauncher_1.0.0_amd64.deb
