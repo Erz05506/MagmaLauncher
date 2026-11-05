@@ -257,7 +257,14 @@ std::vector<std::string> orderedMirrorUrls(const std::string& url) {
 
 void noteNetworkFailure(const std::string& url, const std::string& err) {
     if (err.rfind("ERR_NETWORK", 0) != 0) return;
-    if (err.find("resolve") == std::string::npos && err.find("connect") == std::string::npos) return;
+    const bool connectionFailed =
+        err.find("resolve") != std::string::npos ||
+        err.find("connect") != std::string::npos ||
+        err.find("reset") != std::string::npos ||
+        err.find("Recv failure") != std::string::npos ||
+        err.find("timed out") != std::string::npos ||
+        err.find("handshake") != std::string::npos;
+    if (!connectionFailed) return;
     std::lock_guard<std::mutex> lock(g_deadHostMutex);
     g_deadHosts.insert(hostOfUrl(url));
 }
@@ -964,7 +971,7 @@ bool fileMatchesSha1(const fs::path& path, const std::string& expectedSha1) {
 bool ensureFile(const std::string& url, const fs::path& destPath, const std::string& expectedSha1, std::string& errorOut) {
     if (fileMatchesSha1(destPath, expectedSha1)) return true;
     auto urls = orderedMirrorUrls(url);
-    std::string firstErr;
+    std::vector<std::string> errors;
     for (size_t i = 0; i < urls.size(); i++) {
         std::error_code rec;
         fs::path part = destPath; part += ".part";
@@ -974,9 +981,14 @@ bool ensureFile(const std::string& url, const fs::path& destPath, const std::str
         if (httpDownloadFile(urls[i], destPath, e, attempts)) return true;
         if (e == "CANCELLED") { errorOut = e; return false; }
         noteNetworkFailure(urls[i], e);
-        if (firstErr.empty()) firstErr = withHostHint(e, urls[i]);
+        errors.push_back((i == 0 ? "Основной сервер: " : "Резервное зеркало: ") +
+                         withHostHint(e, urls[i]));
     }
-    errorOut = firstErr;
+    errorOut.clear();
+    for (size_t i = 0; i < errors.size(); ++i) {
+        if (i) errorOut += " || ";
+        errorOut += errors[i];
+    }
     return false;
 }
 
