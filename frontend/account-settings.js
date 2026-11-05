@@ -19,10 +19,11 @@
     el.textContent = value || '';
     el.classList.toggle('is-success', !!success);
     el.classList.toggle('is-error', !!value && !success);
+    el.classList.toggle('is-visible', !!value);
     if (value && success) {
       messageTimers.set(id, setTimeout(() => {
         el.textContent = '';
-        el.classList.remove('is-success', 'is-error');
+        el.classList.remove('is-success', 'is-error', 'is-visible');
         messageTimers.delete(id);
       }, 60000));
     }
