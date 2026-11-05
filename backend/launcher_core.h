@@ -38,6 +38,7 @@ struct LaunchRequest {
 extern std::atomic<bool> g_paused;
 extern std::atomic<bool> g_cancelled;
 extern std::atomic<bool> g_gameProcessActive;
+extern std::atomic<bool> g_launchInProgress;
 extern std::atomic<unsigned long> g_gameProcessId;
 
 bool scheduleLauncherReopenAfterGameExit(std::string& errorOut);
