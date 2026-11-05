@@ -919,9 +919,6 @@ playBtn.addEventListener('click', async () => {
     windowHeight: launchRes.height,
   };
 
-  const skinInstanceRoot = selectedInstanceName ? `${params.gameDir}\\instances\\${selectedInstanceName}` : params.gameDir;
-  await ensureCustomSkinLoaderInstalled(currentSelectedLoader, selectedVersion, skinInstanceRoot + '\\mods', skinInstanceRoot);
-
   if (typeof window.launchGame !== 'function') {
     console.log('[MagmaLauncher] (dev-режим, бэкенд не подключен) launchGame недоступен');
     label.textContent = original;
