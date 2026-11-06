@@ -3,8 +3,13 @@ name: macOS build
 on:
   workflow_dispatch:
   push:
+    branches:
+      - 'Linux&MacOS-support-update'
     tags:
       - 'v*'
+  pull_request:
+    branches:
+      - 'Linux&MacOS-support-update'
 
 env:
   CEF_VERSION: "156.0.14+g4fa4ab5+chromium-156.0.8078.48"
