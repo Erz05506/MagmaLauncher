@@ -6620,7 +6620,8 @@ launcherCategoryTabs.forEach(tab => {
 
 function updateSkinChangeButton() {
   const button = document.getElementById('skinChangeBtn');
-  if (button) button.hidden = false;
+  if (!button) return;
+  button.hidden = currentAccountType() === 'magma' && getSkinSystemPref() !== 'elyby';
 }
 
 updateSkinChangeButton();
@@ -11573,11 +11574,11 @@ function getSkinSystemPref(accountId = getActiveAccountId()) {
 function renderSkinSystemOptions() {
   const accountId = getActiveAccountId();
   const selected = currentAccountType() === 'magma' ? getSkinSystemPref(accountId) : 'elyby';
-  document.querySelectorAll('#skinSystemOptions [data-skin-system]').forEach(button => {
+  document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(button => {
     button.classList.toggle('is-active', button.dataset.skinSystem === selected);
   });
 }
-document.querySelectorAll('#skinSystemOptions [data-skin-system]').forEach(button => {
+document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(button => {
   button.addEventListener('click', () => {
     if (currentAccountType() !== 'magma') return;
     localStorage.setItem(SKIN_SYSTEM_KEY + getActiveAccountId(), button.dataset.skinSystem);
@@ -11899,6 +11900,9 @@ function updateSettingsAccountTab() {
     el.hidden = !isMagmaAccount;
     if (el.classList.contains('magma-account-only')) el.style.display = isMagmaAccount ? '' : 'none';
   });
+
+  const skinChangeButton = document.getElementById('skinChangeBtn');
+  if (skinChangeButton) skinChangeButton.hidden = isMagmaAccount && getSkinSystemPref() !== 'elyby';
 
   const changePasswordBlock = document.getElementById('accountChangePasswordBlock');
   if (changePasswordBlock) changePasswordBlock.style.display = isMagmaAccount ? '' : 'none';
