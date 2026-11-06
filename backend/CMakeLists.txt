@@ -364,12 +364,23 @@ if(WIN32)
         POST_BUILD
 
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-            "${CMAKE_CURRENT_BINARY_DIR}/libcef.dll"
-            "${MAGMA_DIST_DIR}/libcef.dll"
+            "${CEF_RUNTIME_DIR}/libcef.dll"
+            "${CEF_RUNTIME_DIR}/chrome_elf.dll"
+            "${CEF_RUNTIME_DIR}/d3dcompiler_47.dll"
+            "${CEF_RUNTIME_DIR}/dxcompiler.dll"
+            "${CEF_RUNTIME_DIR}/dxil.dll"
+            "${CEF_RUNTIME_DIR}/libEGL.dll"
+            "${CEF_RUNTIME_DIR}/libGLESv2.dll"
+            "${CEF_RUNTIME_DIR}/vk_swiftshader.dll"
+            "${CEF_RUNTIME_DIR}/vulkan-1.dll"
+            "${CEF_RUNTIME_DIR}/vk_swiftshader_icd.json"
+            "${CEF_RUNTIME_DIR}/v8_context_snapshot.bin"
+            "${CEF_RUNTIME_DIR}/icudtl.dat"
+            "${MAGMA_DIST_DIR}"
 
         COMMAND "${CMAKE_COMMAND}" -E copy_directory
-            "${CMAKE_CURRENT_BINARY_DIR}/locales"
-            "${MAGMA_DIST_DIR}/locales"
+            "${CEF_RESOURCES_DIR}"
+            "${MAGMA_DIST_DIR}"
 
         VERBATIM
     )
