@@ -13043,11 +13043,8 @@ startVersionAutoRefresh();
   }
 
   if (restored) {
-    await Promise.race([
-      accountSkinViewerPending || Promise.resolve(),
-      new Promise(resolve => setTimeout(resolve, 4000)),
-    ]);
-}
+    accountSkinViewerPending?.catch(err => console.warn('[MagmaLauncher] Не удалось загрузить предпросмотр скина:', err));
+  }
 
  clearInterval(bootTicker);
   setBootProgress(0.94);
