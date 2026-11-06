@@ -11580,11 +11580,33 @@ function renderSkinSystemOptions() {
 document.querySelectorAll('#skinSystemOptions [data-skin-system]').forEach(button => {
   button.addEventListener('click', () => {
     if (currentAccountType() !== 'magma') return;
-    localStorage.setItem(SKIN_SYSTEM_KEY + getActiveAccountId(), button.dataset.skinSystem);
+    const accountId = getActiveAccountId();
+    const provider = button.dataset.skinSystem;
+    localStorage.setItem(SKIN_SYSTEM_KEY + accountId, provider);
     renderSkinSystemOptions();
     accountSkinViewerLoadedAt = 0;
     const nick = accountName?.textContent || '';
     if (nick) refreshAccountSkinViewer(nick);
+
+    (async () => {
+      await accountSessionQueue;
+      if (getActiveAccountId() !== accountId) return;
+      const { data, error } = await supabaseClient.auth.getSession();
+      if (error) throw error;
+      const session = data?.session;
+      if (!session || session.user.id !== accountId) return;
+      const metadata = session.user.user_metadata || {};
+      const { error: updateError } = await supabaseClient.auth.updateUser({
+        data: {
+          ...metadata,
+          magma_preferences: {
+            ...(metadata.magma_preferences || {}),
+            skin_provider: provider
+          }
+        }
+      });
+      if (updateError) throw updateError;
+    })().catch(err => console.warn('[MagmaLauncher] Не удалось синхронизировать систему скинов:', err));
   });
 });
 
