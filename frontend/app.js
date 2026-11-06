@@ -6616,6 +6616,11 @@ launcherCategoryTabs.forEach(tab => {
 const SKIN_SYSTEM_KEY = 'magma_skin_system';
 function getSkinSystemPref() { return localStorage.getItem(SKIN_SYSTEM_KEY) || 'magma'; }
 
+function updateSkinChangeButton() {
+  const button = document.getElementById('skinChangeBtn');
+  if (button) button.hidden = getSkinSystemPref() !== 'elyby';
+}
+
 document.querySelectorAll('.skin-system-option[data-skin-system]').forEach(btn => {
   if (btn.dataset.skinSystem === getSkinSystemPref() && !btn.classList.contains('is-disabled')) {
     document.querySelectorAll('.skin-system-option[data-skin-system]').forEach(b => b.classList.remove('is-active'));
@@ -6626,8 +6631,11 @@ document.querySelectorAll('.skin-system-option[data-skin-system]').forEach(btn =
     document.querySelectorAll('.skin-system-option[data-skin-system]').forEach(b => b.classList.remove('is-active'));
     btn.classList.add('is-active');
     localStorage.setItem(SKIN_SYSTEM_KEY, btn.dataset.skinSystem);
+    updateSkinChangeButton();
   });
 });
+
+updateSkinChangeButton();
 
 // ============================================
 // Change skin modal
