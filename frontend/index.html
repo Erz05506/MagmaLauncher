@@ -313,6 +313,13 @@
                     </div>
 
                     
+                    <div class="account-skin-system-card">
+                      <div><strong>Система скинов</strong><span>Скины Minecraft загружаются через Ely.by</span></div>
+                      <div class="skin-system-options account-skin-system-options">
+                        <button class="skin-system-option is-active" type="button" disabled><span class="skin-system-logo"><img src="../assets/ely_by.jpg" alt="Ely.by"></span>Ely.by</button>
+                      </div>
+                    </div>
+                    <button class="ghost-btn skin-change-btn" type="button" id="skinChangeBtn" data-i18n="settings.account.changeSkin">Сменить скин</button>
                     <section class="account-cloud-settings" id="accountCloudSettings">
                       <div class="account-cloud-heading"><span class="settings-label" data-i18n="settings.account.parameters">Параметры аккаунта</span><span class="account-cloud-status" id="accountCloudStatus">Проверка аккаунта…</span></div>
                       <div class="account-profile-actions">
@@ -323,15 +330,7 @@
                           <div class="account-action-top"><div><strong data-i18n="settings.account.email">Электронная почта</strong><span class="account-action-value" id="cloudCurrentEmail">—</span></div><button class="ghost-btn account-action-button" id="accountEmailToggle" type="button" data-i18n="settings.account.edit">Изменить</button></div>
                         </div>
                       </div>
-                      <div class="account-skin-system-card">
-                        <div><strong data-i18n="settings.account.skinSystem">Система скинов</strong><span data-i18n="settings.account.skinSystemHint">Выберите источник скинов для Minecraft</span></div>
-                        <div class="skin-system-options account-skin-system-options" id="accountSkinSystemOptions">
-                          <button class="skin-system-option is-active" type="button" data-skin-system="magma"><span class="skin-system-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="accountSkinMagmaLogo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff9a4d"/><stop offset="1" stop-color="#ff3d1c"/></linearGradient></defs><path fill="url(#accountSkinMagmaLogo)" d="M12 2 4 12l8 10 8-10zM12 6.5 17 12l-5 6-5-6z"/></svg></span>Magma Skins</button>
-                          <button class="skin-system-option" type="button" data-skin-system="elyby"><span class="skin-system-logo"><img src="../assets/ely_by.jpg" alt="Ely.by"></span>Ely.by</button>
-                        </div>
-                      </div>
-                      <button class="ghost-btn skin-change-btn" type="button" id="skinChangeBtn" data-i18n="settings.account.uploadSkin" hidden>Изменить скин</button>
-                      <div class="account-skin-manager" id="accountSkinManager">
+
                         <div class="account-manager-heading"><div><strong data-i18n="settings.account.skinManager">Скин и плащ</strong><span data-i18n="settings.account.skinManagerHint">Загрузите текстуры в свой Magma Account</span></div></div>
                         <div class="account-skin-manager-grid">
                           <div class="account-action-card">
@@ -358,7 +357,6 @@
                           </div>
                         </div></div>
                         <p class="account-cloud-message" id="cloudSkinManagerMessage" role="status" aria-live="polite"></p>
-                      </div>
                       <div class="account-preferences-card">
                         <div class="account-preferences-heading"><strong data-i18n="settings.account.sessions">Активные сеансы</strong></div>
                         <span class="account-skin-file-hint" data-i18n="settings.account.sessionsHint">Завершить другие сеансы этого аккаунта. Текущий сеанс останется активным.</span>
