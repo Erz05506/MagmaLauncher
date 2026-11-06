@@ -6668,7 +6668,6 @@ const CUSTOM_SKIN_LOADER_SLUG = 'customskinloader';
 const SKIN_LOADER_ENABLED_LOADERS = ['fabric', 'forge', 'neoforge', 'quilt'];
 
 async function ensureCustomSkinLoaderInstalled(loader, version, modsDir, instanceRootDir) {
-  if (getSkinSystemPref() !== 'elyby') return;
   if (!SKIN_LOADER_ENABLED_LOADERS.includes(loader)) return;
   if (typeof window.listModsInDir !== 'function' || typeof window.installMod !== 'function') return;
 
@@ -6685,19 +6684,27 @@ async function ensureCustomSkinLoaderInstalled(loader, version, modsDir, instanc
   }
 
   if (typeof window.installLocalFile === 'function') {
+    const skinProvider = getSkinSystemPref();
+    const magmaSkinSource = {
+      name: 'MagmaSkins',
+      type: 'CustomSkinAPI',
+      root: 'https://bjgpqlegoptegcbogncq.supabase.co/functions/v1/magma-skin-api/',
+    };
+    const elyBySkinSource = { name: 'ElyBy', type: 'ElyByAPI' };
     const config = {
       enable: true,
-      loadlist: [
-        { name: 'ElyBy', type: 'ElyByAPI' },
-        { name: 'Mojang', type: 'MojangAPI' },
-      ],
+      loadlist: skinProvider === 'elyby'
+        ? [elyBySkinSource, magmaSkinSource, { name: 'Mojang', type: 'MojangAPI' }]
+        : [magmaSkinSource, elyBySkinSource, { name: 'Mojang', type: 'MojangAPI' }],
     };
     try {
       const base64 = btoa(unescape(encodeURIComponent(JSON.stringify(config, null, 2))));
+      const separator = /\\/.test(instanceRootDir) ? '\\' : '/';
+      const targetDir = instanceRootDir.replace(/[\\/]+$/, '') + separator + 'CustomSkinLoader';
       await window.installLocalFile({
         filename: 'CustomSkinLoader.json',
         dataBase64: base64,
-        targetDir: `${instanceRootDir}\\CustomSkinLoader`,
+        targetDir,
       });
     } catch (err) {
       console.error('[MagmaLauncher] Не удалось записать конфиг CustomSkinLoader:', err);
