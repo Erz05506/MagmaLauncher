@@ -330,33 +330,6 @@
                           <div class="account-action-top"><div><strong data-i18n="settings.account.email">Электронная почта</strong><span class="account-action-value" id="cloudCurrentEmail">—</span></div><button class="ghost-btn account-action-button" id="accountEmailToggle" type="button" data-i18n="settings.account.edit">Изменить</button></div>
                         </div>
                       </div>
-
-                        <div class="account-manager-heading"><div><strong data-i18n="settings.account.skinManager">Скин и плащ</strong><span data-i18n="settings.account.skinManagerHint">Загрузите текстуры в свой Magma Account</span></div></div>
-                        <div class="account-skin-manager-grid">
-                          <div class="account-action-card">
-                            <strong data-i18n="settings.account.skin">Скин</strong>
-                            <div class="account-skin-manager-actions"><button class="ghost-btn" type="button" id="accountUploadSkin" data-i18n="settings.account.uploadSkin">Изменить скин</button><button class="ghost-btn account-danger-text" type="button" id="accountRemoveSkin" data-i18n="settings.account.removeSkin">Удалить</button></div>
-                            <input type="file" id="accountSkinFile" accept="image/png" hidden>
-                            <span class="account-skin-file-hint" data-i18n="settings.account.skinFormat">PNG · 64×64 или 64×32 · до 2 МБ</span>
-                          </div>
-                          <div class="account-action-card">
-                            <strong data-i18n="settings.account.cape">Плащ</strong>
-                            <div class="account-skin-manager-actions"><button class="ghost-btn" type="button" id="accountUploadCape" data-i18n="settings.account.uploadCape">Изменить плащ</button><button class="ghost-btn account-danger-text" type="button" id="accountRemoveCape" data-i18n="settings.account.removeCape">Удалить</button></div>
-                            <input type="file" id="accountCapeFile" accept="image/png" hidden>
-                            <span class="account-skin-file-hint" data-i18n="settings.account.capeFormat">PNG · 64×32 · до 2 МБ</span>
-                          </div>
-                        </div>
-                        <div class="account-skin-model-row"><label for="accountSkinModel" data-i18n="settings.account.playerModel">Модель игрока</label><div class="custom-select account-skin-model-select" id="accountSkinModelSelectWrap">
-                          <button type="button" class="custom-select-btn" id="accountSkinModelSelectBtn">
-                            <span id="accountSkinModelSelectLabel" data-i18n="settings.account.classic">Классическая (Steve)</span>
-                            <svg viewBox="0 0 24 24" class="chev"><path d="m6 9 6 6 6-6"/></svg>
-                          </button>
-                          <div class="custom-select-list" id="accountSkinModelSelectList">
-                            <button type="button" class="custom-select-item is-selected" data-value="default" data-i18n="settings.account.classic">Классическая (Steve)</button>
-                            <button type="button" class="custom-select-item" data-value="slim" data-i18n="settings.account.slim">Тонкая (Alex)</button>
-                          </div>
-                        </div></div>
-                        <p class="account-cloud-message" id="cloudSkinManagerMessage" role="status" aria-live="polite"></p>
                       <div class="account-preferences-card">
                         <div class="account-preferences-heading"><strong data-i18n="settings.account.sessions">Активные сеансы</strong></div>
                         <span class="account-skin-file-hint" data-i18n="settings.account.sessionsHint">Завершить другие сеансы этого аккаунта. Текущий сеанс останется активным.</span>
@@ -368,13 +341,13 @@
                       </div>
                     </section>
 
-                    <div class="settings-accounts-block">
+                    <div class="settings-accounts-block magma-account-only">
                       <div class="settings-label" data-i18n="account.accountsListLabel">Аккаунты</div>
                       <div class="account-list-items" id="settingsAccountsList"></div>
                       <button type="button" class="account-list-add-btn" id="settingsAddAccountBtn" data-i18n="account.addAccount">+ Добавить аккаунт</button>
                     </div>
 
-                    <div class="settings-accounts-block" style="display:flex;gap:10px;padding:16px;background:var(--bg-card);border:1px solid var(--border-soft);border-radius:var(--radius-md);">
+                    <div class="settings-accounts-block magma-account-only" style="display:flex;gap:10px;padding:16px;background:var(--bg-card);border:1px solid var(--border-soft);border-radius:var(--radius-md);">
                       <button type="button" class="instance-delete-btn logout-btn" id="accountLogoutBtn" data-i18n="account.logoutBtn" style="margin-bottom:0;">Выйти из аккаунта</button>
                       <button type="button" class="instance-delete-btn" id="accountDeleteBtn" data-i18n="account.deleteBtn" style="margin-bottom:0;">Удалить аккаунт</button>
                     </div>
