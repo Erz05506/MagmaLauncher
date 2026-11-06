@@ -36,6 +36,35 @@
     el.classList.toggle('is-online', good);
   }
 
+  function activeAccount() {
+    try {
+      const id = localStorage.getItem('magma_active_account_id') || '';
+      const accounts = JSON.parse(localStorage.getItem('magma_accounts') || '[]');
+      return accounts.find(account => account.id === id) || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function isActiveMagmaAccount(userId) {
+    const account = activeAccount();
+    return !!account && account.type === 'magma' && account.id === userId;
+  }
+
+  function clearAccountState() {
+    user = null;
+    skinRecord = { skin_path: null, cape_path: null, model: 'default' };
+    if ($('cloudNickname')) $('cloudNickname').value = '';
+    if ($('cloudNicknameCurrent')) $('cloudNicknameCurrent').textContent = '—';
+    if ($('cloudCurrentEmail')) $('cloudCurrentEmail').textContent = '—';
+    if ($('accountSkinModelSelectLabel')) $('accountSkinModelSelectLabel').textContent = tr('settings.account.classic', 'Классическая (Steve)');
+    updateSkinControls('elyby');
+    document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(button => {
+      button.classList.toggle('is-active', button.dataset.skinSystem === 'elyby');
+    });
+    requireSignedIn();
+  }
+
   function requireSignedIn() {
     document.querySelectorAll('#accountCloudSettings input, #accountCloudSettings button, #accountCloudSettings select').forEach(el => { el.disabled = !user; });
     if (!user) setStatus(tr('settings.account.signInRequired', 'Войдите в аккаунт'));
@@ -45,7 +74,7 @@
 
   async function savePreferences(patch) {
     preferenceSave = preferenceSave.catch(() => {}).then(async () => {
-      if (!user) throw new Error(tr('settings.account.signInRequired', 'Войдите в аккаунт'));
+      if (!user || !isActiveMagmaAccount(user.id)) throw new Error(tr('settings.account.signInRequired', 'Войдите в аккаунт'));
       const { data, error } = await client().auth.updateUser({ data: { ...user.user_metadata, magma_preferences: { ...preferences(), ...patch } } });
       if (error) throw error;
       user = data.user;
@@ -70,8 +99,11 @@
   }
 
   async function loadSkinRecord() {
-    const { data, error } = await client().from('magma_skins').select('skin_path,cape_path,model').eq('user_id', user.id).maybeSingle();
+    if (!user || !isActiveMagmaAccount(user.id)) return;
+    const userId = user.id;
+    const { data, error } = await client().from('magma_skins').select('skin_path,cape_path,model').eq('user_id', userId).maybeSingle();
     if (error) throw error;
+    if (!isActiveMagmaAccount(userId) || user?.id !== userId) return;
     skinRecord = data || { skin_path: null, cape_path: null, model: 'default' };
     syncSkinModelSelect(skinRecord.model === 'slim' ? 'slim' : 'default');
   }
@@ -81,14 +113,27 @@
     if (controls) controls.hidden = provider !== 'magma';
   }
 
-  async function refreshAccount() {
+  async function refreshAccount(force = false) {
     if (!client() || !$('accountCloudSettings')) return;
-    if (document.activeElement && $('accountCloudSettings').contains(document.activeElement)) return;
+    const account = activeAccount();
+    if (!account || account.type !== 'magma') {
+      clearAccountState();
+      return;
+    }
+    if (!force && document.activeElement && $('accountCloudSettings').contains(document.activeElement)) return;
+    const expectedUserId = account.id;
     const { data, error } = await client().auth.getUser();
-    if (error || !data.user) { user = null; requireSignedIn(); return; }
+    if (error || !data.user || data.user.id !== expectedUserId || !isActiveMagmaAccount(expectedUserId)) {
+      clearAccountState();
+      return;
+    }
     user = data.user;
-    const { data: row, error: profileError } = await client().from('profiles').select('nick').eq('id', user.id).maybeSingle();
+    const { data: row, error: profileError } = await client().from('profiles').select('nick').eq('id', expectedUserId).maybeSingle();
     if (profileError) throw profileError;
+    if (!isActiveMagmaAccount(expectedUserId) || user?.id !== expectedUserId) {
+      clearAccountState();
+      return;
+    }
     const nickname = row?.nick || user.user_metadata?.nick || '';
     $('cloudNickname').value = nickname;
     $('cloudNicknameCurrent').textContent = nickname || tr('settings.account.notSet', 'Не задан');
@@ -111,6 +156,7 @@
   }
 
   async function saveNickname() {
+    if (!user || !isActiveMagmaAccount(user.id)) return;
     message('cloudNicknameMessage', '');
     const nickname = $('cloudNickname').value.trim();
     if (!/^[A-Za-z0-9_]{3,16}$/.test(nickname)) return message('cloudNicknameMessage', tr('settings.account.nicknameInvalid', 'Ник должен содержать 3–16 латинских букв, цифр или _.'));
@@ -135,6 +181,7 @@
   }
 
   async function changeEmail() {
+    if (!user || !isActiveMagmaAccount(user.id)) return;
     const email = $('cloudNewEmail').value.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return message('cloudEmailMessage', tr('settings.account.emailInvalid', 'Введите корректный адрес почты.'));
     if (email === user.email?.toLowerCase()) return message('cloudEmailMessage', tr('settings.account.emailSame', 'Это уже текущий адрес.'));
@@ -171,7 +218,7 @@
   }
 
   async function saveSkinTexture(file, kind) {
-    if (!user) throw new Error(tr('settings.account.signInRequired', 'Войдите в аккаунт'));
+    if (!user || !isActiveMagmaAccount(user.id)) throw new Error(tr('settings.account.signInRequired', 'Войдите в аккаунт'));
     if (preferences().skin_provider === 'elyby') return;
     const validFile = await validatePng(file, kind);
     const path = user.id + '/' + kind + '.png';
@@ -195,7 +242,7 @@
   }
 
   async function removeSkinTexture(kind) {
-    if (!user || preferences().skin_provider === 'elyby') return;
+    if (!user || !isActiveMagmaAccount(user.id) || preferences().skin_provider === 'elyby') return;
     const oldPath = skinRecord[kind + '_path'];
     const next = {
       user_id: user.id,
@@ -217,7 +264,7 @@
   }
 
   async function saveSkinModel() {
-    if (!user || preferences().skin_provider === 'elyby') return;
+    if (!user || !isActiveMagmaAccount(user.id) || preferences().skin_provider === 'elyby') return;
     const next = {
       user_id: user.id,
       skin_path: skinRecord.skin_path || null,
@@ -236,6 +283,7 @@
   }
 
   async function signOutOtherSessions() {
+    if (!user || !isActiveMagmaAccount(user.id)) return;
     const button = $('accountSignOutOtherSessions');
     button.disabled = true;
     message('cloudSessionsMessage', '');
@@ -308,6 +356,11 @@
     document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(button => {
       button.addEventListener('click', async () => {
         const provider = button.dataset.skinSystem;
+        if (!user || !isActiveMagmaAccount(user.id)) {
+          document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(item => item.classList.toggle('is-active', item.dataset.skinSystem === 'elyby'));
+          updateSkinControls('elyby');
+          return;
+        }
         document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(item => item.classList.toggle('is-active', item === button));
         updateSkinControls(provider);
         try {
@@ -323,11 +376,19 @@
     });
 
     client().auth.onAuthStateChange((_event, session) => {
-      user = session?.user || null;
-      if (user) refreshAccount().catch(error => { setStatus(tr('settings.account.syncFailed', 'Ошибка синхронизации')); console.error('[Magma Account]', error); });
-      else { user = null; requireSignedIn(); }
+      const sessionUser = session?.user || null;
+      if (sessionUser && isActiveMagmaAccount(sessionUser.id)) {
+        user = sessionUser;
+        refreshAccount(true).catch(error => { setStatus(tr('settings.account.syncFailed', 'Ошибка синхронизации')); console.error('[Magma Account]', error); });
+      } else {
+        clearAccountState();
+      }
     });
-    await refreshAccount().catch(error => { setStatus(tr('settings.account.syncFailed', 'Ошибка синхронизации')); console.error('[Magma Account]', error); });
+    window.addEventListener('magma:active-account-changed', () => {
+      clearAccountState();
+      refreshAccount(true).catch(error => { setStatus(tr('settings.account.syncFailed', 'Ошибка синхронизации')); console.error('[Magma Account]', error); });
+    });
+    await refreshAccount().catch(error => { clearAccountState(); setStatus(tr('settings.account.syncFailed', 'Ошибка синхронизации')); console.error('[Magma Account]', error); });
     window.addEventListener('focus', () => refreshAccount().catch(console.error));
     document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshAccount().catch(console.error); });
   }

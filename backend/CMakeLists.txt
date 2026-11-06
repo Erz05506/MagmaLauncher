@@ -319,6 +319,47 @@ endif()
 set(MAGMA_DIST_DIR "${CMAKE_CURRENT_BINARY_DIR}/dist")
 file(MAKE_DIRECTORY "${MAGMA_DIST_DIR}")
 
+if(APPLE)
+    set(MAGMA_FRONTEND_RUNTIME_DIR "$<TARGET_FILE_DIR:MagmaLauncher>/../Resources/frontend")
+else()
+    set(MAGMA_FRONTEND_RUNTIME_DIR "$<TARGET_FILE_DIR:MagmaLauncher>/frontend")
+endif()
+
+file(GLOB_RECURSE MAGMA_FRONTEND_FILES
+    CONFIGURE_DEPENDS
+    LIST_DIRECTORIES false
+    "${CMAKE_CURRENT_SOURCE_DIR}/../frontend/*"
+)
+
+set(MAGMA_FRONTEND_SYNC_STAMP "${CMAKE_CURRENT_BINARY_DIR}/magma_frontend_sync.stamp")
+
+add_custom_command(
+    OUTPUT "${MAGMA_FRONTEND_SYNC_STAMP}"
+
+    COMMAND "${CMAKE_COMMAND}" -E rm -rf "${MAGMA_FRONTEND_RUNTIME_DIR}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${MAGMA_FRONTEND_RUNTIME_DIR}"
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/../frontend"
+        "${MAGMA_FRONTEND_RUNTIME_DIR}"
+
+    COMMAND "${CMAKE_COMMAND}" -E rm -rf "${MAGMA_DIST_DIR}/frontend"
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/../frontend"
+        "${MAGMA_DIST_DIR}/frontend"
+
+    COMMAND "${CMAKE_COMMAND}" -E touch "${MAGMA_FRONTEND_SYNC_STAMP}"
+
+    DEPENDS ${MAGMA_FRONTEND_FILES}
+    COMMENT "Synchronizing changed Magma Launcher frontend files"
+    VERBATIM
+)
+
+add_custom_target(MagmaFrontendSync ALL
+    DEPENDS "${MAGMA_FRONTEND_SYNC_STAMP}"
+)
+
+add_dependencies(MagmaLauncher MagmaFrontendSync)
+
 if(UNIX AND NOT APPLE)
 target_link_libraries(MagmaLauncher PRIVATE X11::X11)
     target_link_libraries(MagmaLauncher PRIVATE
