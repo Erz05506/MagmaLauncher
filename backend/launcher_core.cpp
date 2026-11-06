@@ -23,6 +23,7 @@ inline int WideCharToMultiByte(unsigned, unsigned long, const wchar_t*, int, cha
 #include <nlohmann/json.hpp>
 #include <zlib.h>
 #include <fstream>
+#include <iomanip>
 #include <sstream>
 #include <vector>
 #include <cstring>
@@ -4785,10 +4786,6 @@ bool checkLauncherUpdate(const std::string& manifestUrl, const std::string& curr
                 cmpVersionStrings(infoOut.version, currentVersion) > 0;
         }
         infoOut.available = newer && !infoOut.url.empty();
-        if (newer && infoOut.url.empty()) {
-            updateLog("Для платформы " + std::string(platform::kOsName) +
-                      " не указан URL обновления в update.json");
-        }
         return true;
     } catch (const std::exception& e) {
         errorOut = std::string("Не удалось разобрать манифест обновления: ") + e.what();
@@ -5082,12 +5079,20 @@ bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& 
 
     const fs::path helper = tempDir / "apply_update.sh";
     const fs::path log = platform::userDataDir() / "update.log";
+    auto shellQuote = [](const std::string& value) {
+        std::string out = "'";
+        for (char c : value) {
+            if (c == '\'') out += "'\\''";
+            else out += c;
+        }
+        return out + "'";
+    };
     std::ofstream script(helper, std::ios::binary | std::ios::trunc);
     if (!script) { errorOut = "Не удалось создать скрипт установки обновления"; return false; }
     script << "#!/bin/sh\n"
            << "PID=" << getpid() << "\n"
-           << "PACKAGE=" << std::quoted(package.string()) << "\n"
-           << "LOG=" << std::quoted(log.string()) << "\n"
+           << "PACKAGE=" << shellQuote(package.string()) << "\n"
+           << "LOG=" << shellQuote(log.string()) << "\n"
            << "while kill -0 \"$PID\" 2>/dev/null; do sleep 1; done\n"
            << "if pkexec dpkg -i \"$PACKAGE\" >>\"$LOG\" 2>&1; then\n"
            << "  /usr/bin/magmalauncher >>\"$LOG\" 2>&1 &\n"
