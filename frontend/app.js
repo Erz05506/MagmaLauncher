@@ -6618,30 +6618,10 @@ launcherCategoryTabs.forEach(tab => {
   tab.addEventListener('click', () => switchLauncherCategory(tab.dataset.launcherCategory));
 });
 
-// ============================================
-// Skin provider selection
-// ============================================
-const SKIN_SYSTEM_KEY = 'magma_skin_system';
-function getSkinSystemPref() { return localStorage.getItem(SKIN_SYSTEM_KEY) || 'magma'; }
-
 function updateSkinChangeButton() {
   const button = document.getElementById('skinChangeBtn');
-  if (button) button.hidden = getSkinSystemPref() !== 'elyby';
+  if (button) button.hidden = false;
 }
-
-document.querySelectorAll('.skin-system-option[data-skin-system]').forEach(btn => {
-  if (btn.dataset.skinSystem === getSkinSystemPref() && !btn.classList.contains('is-disabled')) {
-    document.querySelectorAll('.skin-system-option[data-skin-system]').forEach(b => b.classList.remove('is-active'));
-    btn.classList.add('is-active');
-  }
-  btn.addEventListener('click', () => {
-    if (btn.classList.contains('is-disabled')) return;
-    document.querySelectorAll('.skin-system-option[data-skin-system]').forEach(b => b.classList.remove('is-active'));
-    btn.classList.add('is-active');
-    localStorage.setItem(SKIN_SYSTEM_KEY, btn.dataset.skinSystem);
-    updateSkinChangeButton();
-  });
-});
 
 updateSkinChangeButton();
 
@@ -6692,18 +6672,10 @@ async function ensureCustomSkinLoaderInstalled(loader, version, modsDir, instanc
   }
 
   if (typeof window.installLocalFile === 'function') {
-    const skinProvider = getSkinSystemPref();
-    const magmaSkinSource = {
-      name: 'MagmaSkins',
-      type: 'CustomSkinAPI',
-      root: 'https://bjgpqlegoptegcbogncq.supabase.co/functions/v1/magma-skin-api/',
-    };
     const elyBySkinSource = { name: 'ElyBy', type: 'ElyByAPI' };
     const config = {
       enable: true,
-      loadlist: skinProvider === 'elyby'
-        ? [elyBySkinSource, magmaSkinSource, { name: 'Mojang', type: 'MojangAPI' }]
-        : [magmaSkinSource, elyBySkinSource, { name: 'Mojang', type: 'MojangAPI' }],
+      loadlist: [elyBySkinSource, { name: 'Mojang', type: 'MojangAPI' }],
     };
     try {
       const base64 = btoa(unescape(encodeURIComponent(JSON.stringify(config, null, 2))));
@@ -11587,26 +11559,6 @@ let accountSkinViewerModel = 'default';
 let accountSkinViewerCapeBlobUrl = null;
 
 async function loadSkinBlobUrl(nickname) {
-  try {
-    const { data: sessionData } = await supabaseClient.auth.getSession();
-    const user = sessionData.session?.user;
-    if (user && user.user_metadata?.magma_preferences?.skin_provider !== 'elyby') {
-      const { data, error } = await supabaseClient.from('magma_skins').select('skin_path,cape_path,model').eq('user_id', user.id).maybeSingle();
-      if (error) throw error;
-      accountSkinViewerModel = data?.model === 'slim' ? 'slim' : 'default';
-      if (data?.skin_path) {
-        const { data: file } = supabaseClient.storage.from('magma-skins').getPublicUrl(data.skin_path);
-        const response = await fetch(file.publicUrl + '?v=' + Date.now());
-        if (response.ok) return URL.createObjectURL(await response.blob());
-      }
-      return await defaultSteveSkinBlobUrl();
-    }
-  } catch (err) {
-    console.warn('[MagmaLauncher] Не удалось загрузить Magma Skin:', err);
-    accountSkinViewerModel = 'default';
-    return await defaultSteveSkinBlobUrl();
-  }
-
   accountSkinViewerModel = 'default';
   if (typeof window.fetchSkinBytes !== 'function') return await defaultSteveSkinBlobUrl();
   try {
@@ -11616,7 +11568,7 @@ async function loadSkinBlobUrl(nickname) {
     const bytes = base64ToUint8Array(result.dataBase64);
     return URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
   } catch (err) {
-    console.error('[MagmaLauncher] Не удалось загрузить байты скина:', err);
+    console.error('[MagmaLauncher] Не удалось загрузить скин Ely.by:', err);
     return await defaultSteveSkinBlobUrl();
   }
 }
@@ -11625,6 +11577,7 @@ let accountSkinViewer = null;
 let accountSkinViewerBlobUrl = null;
 let accountSkinViewerRequestId = 0;
 let accountSkinViewerNick = null;
+let accountSkinViewerAccountId = null;
 let accountSkinViewerLoadedAt = 0;
 let accountSkinViewerPending = null;
 let accountSkinViewerContextLossBound = false;
@@ -11642,7 +11595,9 @@ function releaseSkinBlobUrl(url) {
 async function doRefreshAccountSkinViewer(nickname) {
   if (!nickname) return;
 
-  const nickChanged = accountSkinViewerNick !== nickname;
+  const activeAccountId = getActiveAccountId();
+  const accountChanged = accountSkinViewerAccountId !== activeAccountId;
+  const nickChanged = accountSkinViewerNick !== nickname || accountChanged;
 
   if (!nickChanged && accountSkinViewer && Date.now() - accountSkinViewerLoadedAt < 60000) return;
 
@@ -11691,36 +11646,17 @@ async function doRefreshAccountSkinViewer(nickname) {
   }
 
   try {
-    const { data: sessionData } = await supabaseClient.auth.getSession();
-    const user = sessionData.session?.user;
-    if (user && user.user_metadata?.magma_preferences?.skin_provider !== 'elyby') {
-      const { data } = await supabaseClient.from('magma_skins').select('cape_path').eq('user_id', user.id).maybeSingle();
-      if (data?.cape_path) {
-        const { data: capeFile } = supabaseClient.storage.from('magma-skins').getPublicUrl(data.cape_path);
-        const capeResponse = await fetch(capeFile.publicUrl + '?v=' + Date.now());
-        if (capeResponse.ok) {
-          const capeBlobUrl = URL.createObjectURL(await capeResponse.blob());
-          await viewer.loadCape(capeBlobUrl);
-          releaseSkinBlobUrl(accountSkinViewerCapeBlobUrl);
-          accountSkinViewerCapeBlobUrl = capeBlobUrl;
-        }
-      } else {
-        await viewer.loadCape(null);
-        releaseSkinBlobUrl(accountSkinViewerCapeBlobUrl);
-        accountSkinViewerCapeBlobUrl = null;
-      }
-    } else {
-      await viewer.loadCape(null);
-      releaseSkinBlobUrl(accountSkinViewerCapeBlobUrl);
-      accountSkinViewerCapeBlobUrl = null;
-    }
+    await viewer.loadCape(null);
   } catch (err) {
-    console.warn('[MagmaLauncher] Не удалось обновить плащ в предпросмотре:', err);
+    console.warn('[MagmaLauncher] Не удалось очистить плащ в предпросмотре:', err);
   }
+  releaseSkinBlobUrl(accountSkinViewerCapeBlobUrl);
+  accountSkinViewerCapeBlobUrl = null;
 
   releaseSkinBlobUrl(accountSkinViewerBlobUrl);
   accountSkinViewerBlobUrl = blobUrl;
   accountSkinViewerNick = nickname;
+  accountSkinViewerAccountId = activeAccountId;
   accountSkinViewerLoadedAt = Date.now();
   setSkinViewerHint('settings.account.rotateHint');
 }
@@ -11852,8 +11788,13 @@ function updateSettingsAccountTab() {
   if (nameEl) nameEl.textContent = nick;
   if (iconEl) iconEl.innerHTML = accountTypeIconMarkup(currentAccountType());
 
+  const accountType = currentAccountType();
+  const isMagmaAccount = accountType === 'magma';
+  const cloudSettings = document.getElementById('accountCloudSettings');
+  if (cloudSettings) cloudSettings.style.display = isMagmaAccount ? '' : 'none';
+
   const changePasswordBlock = document.getElementById('accountChangePasswordBlock');
-  if (changePasswordBlock) changePasswordBlock.style.display = currentAccountType() === 'magma' ? '' : 'none';
+  if (changePasswordBlock) changePasswordBlock.style.display = isMagmaAccount ? '' : 'none';
 
   refreshAccountSkinViewer(nick);
 }
@@ -11954,32 +11895,62 @@ function renderAccountsListPanel() {
 
 async function switchToAccount(acc) {
   closeAccountListDropdown();
+  accountSkinViewerRequestId++;
+  accountSkinViewerLoadedAt = 0;
+  accountSkinViewerNick = null;
+  accountSkinViewerAccountId = null;
+  accountSkinViewerModel = 'default';
+
   if (acc.type === 'guest') {
-    saveGuestSession(acc.nickname);
     localStorage.setItem(ACTIVE_ACCOUNT_KEY, acc.id);
+    try {
+      await supabaseClient.auth.signOut({ scope: 'local' });
+    } catch (err) {
+      console.warn('[MagmaLauncher] Не удалось очистить предыдущую сессию:', err);
+    }
+    saveGuestSession(acc.nickname);
     finishLogin(acc.nickname);
     return;
   }
 
   if (acc.type === 'magma') {
     localStorage.setItem(ACTIVE_ACCOUNT_KEY, acc.id);
-    finishLogin(acc.nickname);
+    if (!acc.accessToken || !acc.refreshToken) {
+      resetAuthModalForms();
+      authTabs.forEach(tb => tb.classList.toggle('is-active', tb.dataset.tab === 'magma'));
+      authPanes.forEach(p => p.classList.toggle('is-active', p.dataset.pane === 'magma'));
+      showMagmaStep('login');
+      const loginEmailEl = document.getElementById('magmaLoginEmail');
+      if (loginEmailEl) loginEmailEl.value = acc.identifier || acc.nickname;
+      updateModalCloseVisibility();
+      openAuthModal();
+      return;
+    }
 
-    if (acc.accessToken && acc.refreshToken) {
-      supabaseClient.auth.setSession({
+    try {
+      const { data, error } = await supabaseClient.auth.setSession({
         access_token: acc.accessToken,
         refresh_token: acc.refreshToken,
-      }).then(({ data, error }) => {
-        if (!error && data.session) {
-          upsertActiveAccount({
-            ...acc,
-            accessToken: data.session.access_token,
-            refreshToken: data.session.refresh_token,
-          });
-        }
-      }).catch((err) => {
-        console.error('[MagmaLauncher] Не удалось обновить сессию аккаунта в фоне:', err);
       });
+      if (error || !data.session) throw error || new Error('Не удалось восстановить сессию аккаунта');
+
+      const updated = {
+        ...acc,
+        accessToken: data.session.access_token,
+        refreshToken: data.session.refresh_token,
+      };
+      saveAccounts([updated, ...getAccounts().filter(a => a.id !== updated.id)]);
+      finishLogin(acc.nickname);
+    } catch (err) {
+      console.error('[MagmaLauncher] Не удалось переключить Magma Account:', err);
+      resetAuthModalForms();
+      authTabs.forEach(tb => tb.classList.toggle('is-active', tb.dataset.tab === 'magma'));
+      authPanes.forEach(p => p.classList.toggle('is-active', p.dataset.pane === 'magma'));
+      showMagmaStep('login');
+      const loginEmailEl = document.getElementById('magmaLoginEmail');
+      if (loginEmailEl) loginEmailEl.value = acc.identifier || acc.nickname;
+      updateModalCloseVisibility();
+      openAuthModal();
     }
     return;
   }
