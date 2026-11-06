@@ -11844,6 +11844,7 @@ function isSkinViewerCanvasVisible() {
 }
 
 window.addEventListener('magma:account-settings-updated', () => {
+  renderSkinSystemOptions();
   accountSkinViewerLoadedAt = 0;
   const nick = (accountName && accountName.textContent) || '';
   if (nick) refreshAccountSkinViewer(nick);
