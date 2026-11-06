@@ -375,7 +375,6 @@ if(WIN32)
             "${CEF_RUNTIME_DIR}/vulkan-1.dll"
             "${CEF_RUNTIME_DIR}/vk_swiftshader_icd.json"
             "${CEF_RUNTIME_DIR}/v8_context_snapshot.bin"
-            "${CEF_RUNTIME_DIR}/icudtl.dat"
             "${MAGMA_DIST_DIR}"
 
         COMMAND "${CMAKE_COMMAND}" -E copy_directory
