@@ -319,10 +319,16 @@ endif()
 set(MAGMA_DIST_DIR "${CMAKE_CURRENT_BINARY_DIR}/dist")
 file(MAKE_DIRECTORY "${MAGMA_DIST_DIR}")
 
+if(APPLE)
+    set(MAGMA_FRONTEND_RUNTIME_DIR "$<TARGET_FILE_DIR:MagmaLauncher>/../Resources/frontend")
+else()
+    set(MAGMA_FRONTEND_RUNTIME_DIR "$<TARGET_FILE_DIR:MagmaLauncher>/frontend")
+endif()
+
 add_custom_target(MagmaFrontendSync ALL
     COMMAND "${CMAKE_COMMAND}" -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/../frontend"
-        "$<TARGET_FILE_DIR:MagmaLauncher>/frontend"
+        "${MAGMA_FRONTEND_RUNTIME_DIR}"
     COMMAND "${CMAKE_COMMAND}" -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/../frontend"
         "${MAGMA_DIST_DIR}/frontend"
