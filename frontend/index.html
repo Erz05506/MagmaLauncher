@@ -314,9 +314,10 @@
 
                     
                     <div class="account-skin-system-card">
-                      <div><strong>Система скинов</strong><span>Скины Minecraft загружаются через Ely.by</span></div>
-                      <div class="skin-system-options account-skin-system-options">
-                        <button class="skin-system-option is-active" type="button" disabled><span class="skin-system-logo"><img src="../assets/ely_by.jpg" alt="Ely.by"></span>Ely.by</button>
+                      <div><strong>Система скинов</strong><span>Выбери источник скинов для своего аккаунта</span></div>
+                      <div class="skin-system-options account-skin-system-options" id="skinSystemOptions">
+                        <button class="skin-system-option" type="button" data-skin-system="elyby"><span class="skin-system-logo"><img src="../assets/ely_by.jpg" alt="Ely.by"></span>Ely.by</button>
+                        <button class="skin-system-option magma-skin-option magma-account-only" type="button" data-skin-system="magma" hidden><span class="skin-system-logo"><span class="magma-skin-mark">M</span></span>MagmaSkins</button>
                       </div>
                     </div>
                     <button class="ghost-btn skin-change-btn" type="button" id="skinChangeBtn" data-i18n="settings.account.changeSkin">Сменить скин</button>
@@ -347,7 +348,7 @@
                       <button type="button" class="account-list-add-btn" id="settingsAddAccountBtn" data-i18n="account.addAccount">+ Добавить аккаунт</button>
                     </div>
 
-                    <div class="settings-accounts-block magma-account-only" style="display:flex;gap:10px;padding:16px;background:var(--bg-card);border:1px solid var(--border-soft);border-radius:var(--radius-md);">
+                    <div class="settings-accounts-block" style="display:flex;gap:10px;padding:16px;background:var(--bg-card);border:1px solid var(--border-soft);border-radius:var(--radius-md);">
                       <button type="button" class="instance-delete-btn logout-btn" id="accountLogoutBtn" data-i18n="account.logoutBtn" style="margin-bottom:0;">Выйти из аккаунта</button>
                       <button type="button" class="instance-delete-btn" id="accountDeleteBtn" data-i18n="account.deleteBtn" style="margin-bottom:0;">Удалить аккаунт</button>
                     </div>
@@ -1215,7 +1216,7 @@
         <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
       </button>
       <h3 class="modpack-title" data-i18n="account.deleteConfirmTitle">Удалить аккаунт?</h3>
-      <p class="auth-desc" data-i18n="account.deleteConfirmDesc">Это действие необратимо, аккаунт будет удалён навсегда.</p>
+      <p class="auth-desc" id="accountDeleteDesc" data-i18n="account.deleteConfirmDesc">Это действие необратимо, аккаунт будет удалён навсегда.</p>
             <div class="auth-error" id="accountDeleteError"></div>
       <button class="auth-submit" id="accountDeleteConfirmBtn" style="background:#ff6b5e;" data-i18n="account.deleteConfirmBtn">Удалить навсегда</button>
     </div>
