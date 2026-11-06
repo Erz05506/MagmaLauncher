@@ -1231,9 +1231,26 @@ bool extractZipPreservingStructure(const fs::path& zipPath, const fs::path& outD
 
         std::string normalized = name;
         std::replace(normalized.begin(), normalized.end(), '\\', '/');
-        bool isDir = !normalized.empty() && normalized.back() == '/';
+        fs::path relativePath(normalized);
+        bool unsafePath = relativePath.is_absolute() ||
+                          relativePath.has_root_name() ||
+                          relativePath.has_root_directory() ||
+                          (normalized.size() >= 2 &&
+                           std::isalpha(static_cast<unsigned char>(normalized[0])) &&
+                           normalized[1] == ':');
+        for (const auto& part : relativePath) {
+            if (part == "..") {
+                unsafePath = true;
+                break;
+            }
+        }
+        if (unsafePath) {
+            errorOut = "Недопустимый путь в ZIP-архиве: " + name;
+            return false;
+        }
 
-        fs::path outPath = outDir / fs::path(normalized);
+        bool isDir = !normalized.empty() && normalized.back() == '/';
+        fs::path outPath = outDir / relativePath;
 
         if (isDir) {
             std::error_code ec;
