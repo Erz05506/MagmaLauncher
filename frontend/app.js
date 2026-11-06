@@ -11568,7 +11568,7 @@ let accountSkinViewerCapeBlobUrl = null;
 
 const SKIN_SYSTEM_KEY = 'magma_skin_system_';
 function getSkinSystemPref(accountId = getActiveAccountId()) {
-  return (localStorage.getItem(SKIN_SYSTEM_KEY + accountId) || localStorage.getItem('magma_skin_system')) === 'magma' ? 'magma' : 'elyby';
+ return accountId && localStorage.getItem(SKIN_SYSTEM_KEY + accountId) === 'magma' ? 'magma' : 'elyby';
 }
 function renderSkinSystemOptions() {
   const accountId = getActiveAccountId();
@@ -11844,7 +11844,7 @@ async function ensureAccountSkinViewer() {
 }
 
 function refreshAccountSkinViewer(nickname) {
-  if (!nickname || currentAccountType() !== 'magma' || !isSkinViewerCanvasVisible()) return Promise.resolve();
+  if (!nickname || !isSkinViewerCanvasVisible()) return Promise.resolve();
   const task = (async () => {
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     if (!isSkinViewerCanvasVisible()) return;
@@ -11902,19 +11902,19 @@ function updateSettingsAccountTab() {
 
   const changePasswordBlock = document.getElementById('accountChangePasswordBlock');
   if (changePasswordBlock) changePasswordBlock.style.display = isMagmaAccount ? '' : 'none';
-  const skinViewer = document.querySelector('.account-skin-viewer');
-  if (skinViewer) skinViewer.style.display = isMagmaAccount ? '' : 'none';
+const skinViewer = document.querySelector('.account-skin-viewer');
+  if (skinViewer) skinViewer.style.display = '';
   const logoutButton = document.getElementById('accountLogoutBtn');
-  if (logoutButton) logoutButton.style.display = isMagmaAccount ? '' : 'none';
+  if (logoutButton) logoutButton.style.display = accountType === 'guest' ? 'none' : '';
+  ['accountSkinManager', 'accountChangePasswordBlock'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !isMagmaAccount) el.style.display = 'none';
+  });
   const deleteButton = document.getElementById('accountDeleteBtn');
   if (deleteButton) deleteButton.style.display = '';
 
-  renderSkinSystemOptions();
-  if (isMagmaAccount) {
-    refreshAccountSkinViewer(nick);
-  } else {
-    resetAccountSkinViewerForAccountSwitch();
-  }
+renderSkinSystemOptions();
+  refreshAccountSkinViewer(nick);
 }
 
 function finishLogin(nick, isMicrosoftLogin) {
@@ -12015,8 +12015,10 @@ async function switchToAccount(acc) {
   closeAccountListDropdown();
   localStorage.setItem(ACTIVE_ACCOUNT_KEY, acc.id);
   resetAccountSkinViewerForAccountSwitch();
+  accountName.textContent = acc.nickname;
+  renderAccountAvatar();
+  updateSettingsAccountTab();
   window.dispatchEvent(new CustomEvent('magma:active-account-changed'));
-
   if (acc.type === 'guest') {
     saveGuestSession(acc.nickname);
     accountSessionQueue = accountSessionQueue.catch(() => {}).then(async () => {

@@ -142,7 +142,13 @@
     document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(button => button.classList.toggle('is-active', button.dataset.skinSystem === provider));
     updateSkinControls(provider);
     if (provider === 'magma') await loadSkinRecord();
-    try { localStorage.setItem('magma_skin_system', provider); } catch {}
+    try {
+      const key = 'magma_skin_system_' + expectedUserId;
+      const changed = localStorage.getItem(key) !== provider;
+      localStorage.setItem(key, provider);
+      localStorage.removeItem('magma_skin_system');
+      if (changed && isActiveMagmaAccount(expectedUserId)) window.dispatchEvent(new CustomEvent('magma:account-settings-updated'));
+    } catch {}
     setStatus(tr('settings.account.synced', 'Синхронизировано'), true);
     requireSignedIn();
     const accounts = (() => { try { return JSON.parse(localStorage.getItem('magma_accounts') || '[]'); } catch { return []; } })();
@@ -279,7 +285,7 @@
   }
 
   async function refreshPreview() {
-    window.magmaRefreshAccountSkinViewer?.($('cloudNicknameCurrent').textContent);
+    window.magmaRefreshAccountSkinViewer?.($('settingsAccountName')?.textContent || activeAccount()?.nickname || '');
   }
 
   async function signOutOtherSessions() {
@@ -315,38 +321,38 @@
     $('cloudSaveNickname').addEventListener('click', saveNickname);
     $('cloudChangeEmail').addEventListener('click', changeEmail);
     $('accountSignOutOtherSessions').addEventListener('click', signOutOtherSessions);
-    $('accountUploadSkin').addEventListener('click', () => $('accountSkinFile').click());
-    $('accountUploadCape').addEventListener('click', () => $('accountCapeFile').click());
-    $('accountSkinFile').addEventListener('change', async event => {
+    $('accountUploadSkin')?.addEventListener('click', () => $('accountSkinFile')?.click());
+    $('accountUploadCape')?.addEventListener('click', () => $('accountCapeFile')?.click());
+    $('accountSkinFile')?.addEventListener('change', async event => {
       const file = event.target.files?.[0];
       if (!file) return;
       try { await saveSkinTexture(file, 'skin'); }
       catch (error) { message('cloudSkinManagerMessage', error.message || tr('settings.account.textureFailed', 'Не удалось загрузить скин.')); }
       finally { event.target.value = ''; }
     });
-    $('accountCapeFile').addEventListener('change', async event => {
+    $('accountCapeFile')?.addEventListener('change', async event => {
       const file = event.target.files?.[0];
       if (!file) return;
       try { await saveSkinTexture(file, 'cape'); }
       catch (error) { message('cloudSkinManagerMessage', error.message || tr('settings.account.textureFailed', 'Не удалось загрузить плащ.')); }
       finally { event.target.value = ''; }
     });
-    $('accountRemoveSkin').addEventListener('click', async () => {
+    $('accountRemoveSkin')?.addEventListener('click', async () => {
       try { await removeSkinTexture('skin'); }
       catch (error) { message('cloudSkinManagerMessage', error.message || tr('settings.account.textureFailed', 'Не удалось удалить скин.')); }
     });
-    $('accountRemoveCape').addEventListener('click', async () => {
+    $('accountRemoveCape')?.addEventListener('click', async () => {
       try { await removeSkinTexture('cape'); }
       catch (error) { message('cloudSkinManagerMessage', error.message || tr('settings.account.textureFailed', 'Не удалось удалить плащ.')); }
     });
-    $('accountSkinModelSelectBtn').addEventListener('click', event => {
+ $('accountSkinModelSelectBtn')?.addEventListener('click', event => {
       event.stopPropagation();
-      $('accountSkinModelSelectWrap').classList.toggle('is-open');
+      $('accountSkinModelSelectWrap')?.classList.toggle('is-open');
     });
-    $('accountSkinModelSelectList').querySelectorAll('.custom-select-item').forEach(item => {
+    $('accountSkinModelSelectList')?.querySelectorAll('.custom-select-item').forEach(item => {
       item.addEventListener('click', async () => {
         syncSkinModelSelect(item.dataset.value);
-        $('accountSkinModelSelectWrap').classList.remove('is-open');
+        $('accountSkinModelSelectWrap')?.classList.remove('is-open');
         try { await saveSkinModel(); }
         catch (error) { message('cloudSkinManagerMessage', error.message || tr('settings.account.modelFailed', 'Не удалось сохранить модель игрока.')); }
       });
@@ -364,7 +370,7 @@
         document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(item => item.classList.toggle('is-active', item === button));
         updateSkinControls(provider);
         try {
-          localStorage.setItem('magma_skin_system', provider);
+          localStorage.setItem('magma_skin_system_' + user.id, provider);
           if (user) await savePreferences({ skin_provider: provider });
           window.dispatchEvent(new CustomEvent('magma:account-settings-updated'));
           if (provider === 'magma') await loadSkinRecord();
