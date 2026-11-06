@@ -4756,32 +4756,38 @@ int cmpVersionStrings(const std::string& v1, const std::string& v2) {
 }
 
 bool checkLauncherUpdate(const std::string& manifestUrl, const std::string& currentVersion, UpdateInfo& infoOut, std::string& errorOut) {
-#ifndef _WIN32
-    (void)manifestUrl; (void)currentVersion;
-    infoOut = UpdateInfo{};
-    errorOut.clear();
-    return true;
-#endif
     std::string raw;
     if (!httpGetStringFast(manifestUrl, raw, errorOut)) return false;
     try {
         json j = json::parse(raw);
         infoOut.version = j.value("version", "");
-        infoOut.url = j.value("url", "");
         infoOut.notes = j.value("notes", "");
         infoOut.build = (j.contains("build") && j["build"].is_number_integer()) ? j["build"].get<int>() : 0;
+#ifdef _WIN32
+        infoOut.url = j.value("url", "");
+#elif defined(__APPLE__)
+        infoOut.url = platform::kOsArch == std::string("arm64")
+            ? j.value("macos_arm64_url", "")
+            : j.value("macos_x64_url", "");
+#else
+        infoOut.url = j.value("linux_url", "");
+#endif
         // New manifests can use a numeric build to publish maintenance updates
         // without changing the public version label (e.g. Alpha 1, build 3).
         // If "build" exists, it is authoritative for build-aware clients.
         // Older installed clients ignore it and can be bootstrapped once by
         // temporarily publishing version "Alpha 1.1".
+        bool newer = false;
         if (j.contains("build") && j["build"].is_number_integer()) {
-            const int manifestBuild = j["build"].get<int>();
-            infoOut.available = manifestBuild > MAGMA_LAUNCHER_BUILD;
+            newer = infoOut.build > MAGMA_LAUNCHER_BUILD;
         } else {
-            // Backward compatibility with manifests that only have "version".
-            infoOut.available = !infoOut.version.empty() &&
+            newer = !infoOut.version.empty() &&
                 cmpVersionStrings(infoOut.version, currentVersion) > 0;
+        }
+        infoOut.available = newer && !infoOut.url.empty();
+        if (newer && infoOut.url.empty()) {
+            updateLog("Для платформы " + std::string(platform::kOsName) +
+                      " не указан URL обновления в update.json");
         }
         return true;
     } catch (const std::exception& e) {
@@ -4879,13 +4885,17 @@ bool downloadUpdateFile(const std::string& url, const fs::path& dest, const Prog
 } // namespace
 
 static void updateLog(const std::string& line) {
+    std::error_code ec;
+#ifdef _WIN32
     const char* base = std::getenv("LOCALAPPDATA");
     if (!base) return;
-    std::error_code ec;
     fs::path dir = fs::path(base) / "MagmaLauncher";
+#else
+    fs::path dir = platform::userDataDir();
+#endif
     fs::create_directories(dir, ec);
     std::ofstream f(dir / "update.log", std::ios::binary | std::ios::app);
-    if (f) f << line << "\r\n";
+    if (f) f << line << "\n";
 }
 
 struct AppliedUpdateFile {
@@ -5049,10 +5059,138 @@ bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& 
     return true;
 }
 
-#else
-bool downloadAndInstallLauncherUpdate(const std::string&, const ProgressFn&, std::string& errorOut) {
-    errorOut = "ERR_UPDATE_APPLY||На этой ОС обновления ставятся через apt / новый DMG";
-    return false;
+#elif defined(__linux__)
+bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& onProgress, std::string& errorOut) {
+    g_cancelled.store(false);
+    std::error_code ec;
+    fs::path tempDir = fs::temp_directory_path(ec) / "MagmaLauncherUpdate";
+    if (ec) { errorOut = "Не удалось определить временную папку: " + ec.message(); return false; }
+    fs::create_directories(tempDir, ec);
+    if (ec) { errorOut = "Не удалось создать временную папку обновления: " + ec.message(); return false; }
+
+    fs::path package = tempDir / "magmalauncher-update.deb";
+    onProgress("update", 0.0, "Загружаем обновление...");
+    if (!downloadUpdateFile(url, package, onProgress, errorOut)) return false;
+
+    std::ifstream in(package, std::ios::binary);
+    char magic[8]{};
+    in.read(magic, sizeof(magic));
+    if (!in || std::string(magic, sizeof(magic)) != "!<arch>\n") {
+        errorOut = "ERR_NETWORK||Скачанный файл не является Debian-пакетом";
+        return false;
+    }
+
+    const fs::path helper = tempDir / "apply_update.sh";
+    const fs::path log = platform::userDataDir() / "update.log";
+    std::ofstream script(helper, std::ios::binary | std::ios::trunc);
+    if (!script) { errorOut = "Не удалось создать скрипт установки обновления"; return false; }
+    script << "#!/bin/sh\n"
+           << "PID=" << getpid() << "\n"
+           << "PACKAGE=" << std::quoted(package.string()) << "\n"
+           << "LOG=" << std::quoted(log.string()) << "\n"
+           << "while kill -0 \"$PID\" 2>/dev/null; do sleep 1; done\n"
+           << "if pkexec dpkg -i \"$PACKAGE\" >>\"$LOG\" 2>&1; then\n"
+           << "  /usr/bin/magmalauncher >>\"$LOG\" 2>&1 &\n"
+           << "else\n"
+           << "  if command -v zenity >/dev/null 2>&1; then zenity --error --text='Не удалось установить обновление MagmaLauncher. Подробности: update.log'; fi\n"
+           << "fi\n"
+           << "rm -f \"$PACKAGE\" \"$0\"\n";
+    script.close();
+    if (!script) { errorOut = "Не удалось записать скрипт установки обновления"; return false; }
+
+    if (platform::spawnDetached({"/bin/sh", helper.string()}, tempDir, log) == 0) {
+        errorOut = "Не удалось запустить установщик обновления";
+        return false;
+    }
+    updateLog("Linux: пакет загружен, передаём установку dpkg через pkexec");
+    onProgress("update", 1.0, "Перезапуск для установки обновления...");
+    return true;
+}
+
+#elif defined(__APPLE__)
+bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& onProgress, std::string& errorOut) {
+    g_cancelled.store(false);
+    std::error_code ec;
+    fs::path tempDir = fs::temp_directory_path(ec) / "MagmaLauncherUpdate";
+    if (ec) { errorOut = "Не удалось определить временную папку: " + ec.message(); return false; }
+    fs::create_directories(tempDir, ec);
+    if (ec) { errorOut = "Не удалось создать временную папку обновления: " + ec.message(); return false; }
+
+    fs::path dmg = tempDir / "MagmaLauncher-update.dmg";
+    onProgress("update", 0.0, "Загружаем обновление...");
+    if (!downloadUpdateFile(url, dmg, onProgress, errorOut)) return false;
+
+    fs::path appBundle = platform::executableDir().parent_path().parent_path();
+    if (appBundle.extension() != ".app" || !fs::exists(appBundle / "Contents" / "Info.plist", ec)) {
+        errorOut = "ERR_UPDATE_APPLY||Не удалось определить установленный MagmaLauncher.app";
+        return false;
+    }
+
+    auto shellQuote = [](const std::string& value) {
+        std::string out = "'";
+        for (char c : value) {
+            if (c == '\'') out += "'\\''";
+            else out += c;
+        }
+        return out + "'";
+    };
+    auto appleQuote = [](const std::string& value) {
+        std::string out;
+        for (char c : value) {
+            if (c == '\\' || c == '"') out += '\\';
+            out += c;
+        }
+        return out;
+    };
+
+    fs::path mount = tempDir / "mount";
+    fs::path stagedApp = tempDir / "MagmaLauncher.app.new";
+    fs::path helper = tempDir / "apply_update.sh";
+    fs::path log = platform::userDataDir() / "update.log";
+    fs::path backup = appBundle;
+    backup += ".old";
+
+    std::string privilegedCommand =
+        "/bin/rm -rf " + shellQuote(backup.string()) +
+        " && /bin/mv " + shellQuote(appBundle.string()) + " " + shellQuote(backup.string()) +
+        " && /usr/bin/ditto " + shellQuote(stagedApp.string()) + " " + shellQuote(appBundle.string()) +
+        " && /bin/rm -rf " + shellQuote(backup.string());
+    std::string appleScript = "do shell script \"" + appleQuote(privilegedCommand) +
+                              "\" with administrator privileges";
+
+    std::ofstream script(helper, std::ios::binary | std::ios::trunc);
+    if (!script) { errorOut = "Не удалось создать скрипт установки обновления"; return false; }
+    script << "#!/bin/bash\n"
+           << "PID=" << getpid() << "\n"
+           << "DMG=" << shellQuote(dmg.string()) << "\n"
+           << "APP=" << shellQuote(appBundle.string()) << "\n"
+           << "STAGE=" << shellQuote(stagedApp.string()) << "\n"
+           << "MOUNT=" << shellQuote(mount.string()) << "\n"
+           << "LOG=" << shellQuote(log.string()) << "\n"
+           << "while kill -0 \"$PID\" 2>/dev/null; do sleep 1; done\n"
+           << "mkdir -p \"$MOUNT\"\n"
+           << "hdiutil attach \"$DMG\" -nobrowse -readonly -mountpoint \"$MOUNT\" >>\"$LOG\" 2>&1 || exit 1\n"
+           << "SRC=\"$MOUNT/MagmaLauncher.app\"\n"
+           << "if [ ! -d \"$SRC\" ]; then hdiutil detach \"$MOUNT\" -quiet; exit 1; fi\n"
+           << "ditto \"$SRC\" \"$STAGE\" >>\"$LOG\" 2>&1 || exit 1\n"
+           << "if [ -w \"$(dirname \"$APP\")\" ]; then\n"
+           << "  BACKUP=\"$APP.old\"; rm -rf \"$BACKUP\"; mv \"$APP\" \"$BACKUP\" && ditto \"$STAGE\" \"$APP\" && rm -rf \"$BACKUP\" || { [ ! -d \"$BACKUP\" ] || mv \"$BACKUP\" \"$APP\"; exit 1; }\n"
+           << "else\n"
+           << "  osascript -e " << shellQuote(appleScript) << " >>\"$LOG\" 2>&1 || exit 1\n"
+           << "fi\n"
+           << "hdiutil detach \"$MOUNT\" -quiet || true\n"
+           << "open -a \"$APP\"\n"
+           << "rm -rf \"$STAGE\" \"$DMG\" \"$0\"\n";
+    script.close();
+    if (!script) { errorOut = "Не удалось записать скрипт установки обновления"; return false; }
+
+    if (platform::spawnDetached({"/bin/bash", helper.string()}, tempDir, log) == 0) {
+        errorOut = "Не удалось запустить установщик обновления";
+        return false;
+    }
+    updateLog("macOS: DMG загружен, передаём замену приложения помощнику");
+    onProgress("update", 1.0, "Перезапуск для установки обновления...");
+    return true;
 }
 #endif
 
