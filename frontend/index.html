@@ -1288,9 +1288,21 @@
       <p class="auth-desc" data-i18n="account.changePasswordHint">Доступно только для Magma-аккаунтов</p>
       <div class="auth-form">
         <label class="auth-field-label" data-i18n="account.currentPasswordPlaceholder">Текущий пароль</label>
-        <input type="password" class="auth-input" id="accountCurrentPasswordInput" placeholder="••••••••">
+        <div class="auth-input-wrap">
+          <input type="password" class="auth-input" id="accountCurrentPasswordInput" placeholder="••••••••">
+          <button type="button" class="auth-eye-toggle" data-target="accountCurrentPasswordInput" tabindex="-1">
+            <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
+          </button>
+        </div>
         <label class="auth-field-label" data-i18n="account.newPasswordPlaceholder">Новый пароль</label>
-        <input type="password" class="auth-input" id="accountNewPasswordInput" placeholder="••••••••">
+        <div class="auth-input-wrap">
+          <input type="password" class="auth-input" id="accountNewPasswordInput" placeholder="••••••••">
+          <button type="button" class="auth-eye-toggle" data-target="accountNewPasswordInput" tabindex="-1">
+            <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
+          </button>
+        </div>
         <div class="auth-error" id="accountChangePasswordError"></div>
         <button class="auth-submit" id="accountChangePasswordBtn" data-i18n="account.changePasswordBtn">Сменить пароль</button>
       </div>
@@ -1332,7 +1344,13 @@
       </button>
       <h3 class="modpack-title" data-i18n="settings.privacy.launcherLock.setupTitle">Настройка PIN-кода</h3>
       <label class="auth-field-label" data-i18n="settings.privacy.launcherLock.newPinLabel">Новый PIN-код</label>
-      <input type="password" class="auth-input" id="launcherLockSetupInput" maxlength="12" inputmode="numeric">
+      <div class="auth-input-wrap">
+        <input type="password" class="auth-input" id="launcherLockSetupInput" maxlength="12" inputmode="numeric">
+        <button type="button" class="auth-eye-toggle" data-target="launcherLockSetupInput" tabindex="-1">
+          <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
+        </button>
+      </div>
       <div class="auth-error" id="launcherLockSetupError"></div>
       <button class="auth-submit" id="launcherLockSetupSaveBtn" data-i18n="settings.privacy.launcherLock.saveBtn">Сохранить</button>
     </div>
