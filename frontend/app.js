@@ -929,6 +929,14 @@ playBtn.addEventListener('click', async () => {
   }
 
   try {
+    const gameDir = String(params.gameDir || '').replace(/[\\/]+$/, '');
+    const separator = /\\/.test(gameDir) ? '\\' : '/';
+    const instanceRootDir = params.instanceName
+      ? `${gameDir}${separator}instances${separator}${params.instanceName}`
+      : gameDir;
+    const modsDir = `${instanceRootDir}${separator}mods`;
+    await ensureCustomSkinLoaderInstalled(params.loader, params.version, modsDir, instanceRootDir);
+
     const raw = await window.launchGame(params);
     const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (!result.started) {
