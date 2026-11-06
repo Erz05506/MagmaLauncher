@@ -4726,7 +4726,7 @@ bool resetVersionCache(const std::string& version, const std::string& gameDir, s
 
 // Increment this number for every launcher binary update while keeping the public
 // product version (for example, "Alpha 1") unchanged.
-static constexpr int MAGMA_LAUNCHER_BUILD = 5;
+static constexpr int MAGMA_LAUNCHER_BUILD = 6;
 
 int cmpVersionStrings(const std::string& v1, const std::string& v2) {
     auto extractSegments = [](const std::string& v) {
@@ -5079,6 +5079,7 @@ bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& 
 
     const fs::path helper = tempDir / "apply_update.sh";
     const fs::path log = platform::userDataDir() / "update.log";
+    const fs::path guard = platform::userDataDir() / "update_attempt.txt";
     auto shellQuote = [](const std::string& value) {
         std::string out = "'";
         for (char c : value) {
@@ -5093,13 +5094,14 @@ bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& 
            << "PID=" << getpid() << "\n"
            << "PACKAGE=" << shellQuote(package.string()) << "\n"
            << "LOG=" << shellQuote(log.string()) << "\n"
+           << "GUARD=" << shellQuote(guard.string()) << "\n"
            << "while kill -0 \"$PID\" 2>/dev/null; do sleep 1; done\n"
            << "if pkexec dpkg -i \"$PACKAGE\" >>\"$LOG\" 2>&1; then\n"
            << "  /usr/bin/magmalauncher >>\"$LOG\" 2>&1 &\n"
            << "else\n"
            << "  if command -v zenity >/dev/null 2>&1; then zenity --error --text='Не удалось установить обновление MagmaLauncher. Подробности: update.log'; fi\n"
            << "fi\n"
-           << "rm -f \"$PACKAGE\" \"$0\"\n";
+           << "rm -f \"$GUARD\" \"$PACKAGE\" \"$0\"\n";
     script.close();
     if (!script) { errorOut = "Не удалось записать скрипт установки обновления"; return false; }
 
@@ -5152,14 +5154,18 @@ bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& 
     fs::path stagedApp = tempDir / "MagmaLauncher.app.new";
     fs::path helper = tempDir / "apply_update.sh";
     fs::path log = platform::userDataDir() / "update.log";
+    fs::path guard = platform::userDataDir() / "update_attempt.txt";
     fs::path backup = appBundle;
     backup += ".old";
 
     std::string privilegedCommand =
         "/bin/rm -rf " + shellQuote(backup.string()) +
         " && /bin/mv " + shellQuote(appBundle.string()) + " " + shellQuote(backup.string()) +
-        " && /usr/bin/ditto " + shellQuote(stagedApp.string()) + " " + shellQuote(appBundle.string()) +
-        " && /bin/rm -rf " + shellQuote(backup.string());
+        " && if /usr/bin/ditto " + shellQuote(stagedApp.string()) + " " + shellQuote(appBundle.string()) +
+        "; then /bin/rm -rf " + shellQuote(backup.string()) +
+        "; else /bin/rm -rf " + shellQuote(appBundle.string()) +
+        " && /bin/mv " + shellQuote(backup.string()) + " " + shellQuote(appBundle.string()) +
+        " && exit 1; fi";
     std::string appleScript = "do shell script \"" + appleQuote(privilegedCommand) +
                               "\" with administrator privileges";
 
@@ -5172,6 +5178,8 @@ bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& 
            << "STAGE=" << shellQuote(stagedApp.string()) << "\n"
            << "MOUNT=" << shellQuote(mount.string()) << "\n"
            << "LOG=" << shellQuote(log.string()) << "\n"
+           << "GUARD=" << shellQuote(guard.string()) << "\n"
+           << "trap 'rm -f \"$GUARD\"' EXIT\n"
            << "while kill -0 \"$PID\" 2>/dev/null; do sleep 1; done\n"
            << "mkdir -p \"$MOUNT\"\n"
            << "hdiutil attach \"$DMG\" -nobrowse -readonly -mountpoint \"$MOUNT\" >>\"$LOG\" 2>&1 || exit 1\n"
