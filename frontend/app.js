@@ -11795,6 +11795,9 @@ function updateSettingsAccountTab() {
 
   const changePasswordBlock = document.getElementById('accountChangePasswordBlock');
   if (changePasswordBlock) changePasswordBlock.style.display = isMagmaAccount ? '' : 'none';
+  document.querySelectorAll('.magma-account-only').forEach(el => {
+    el.style.display = isMagmaAccount ? '' : 'none';
+  });
 
   refreshAccountSkinViewer(nick);
 }
