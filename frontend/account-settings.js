@@ -4,7 +4,54 @@
   let user = null;
   let preferenceSave = Promise.resolve();
   let skinRecord = { skin_path: null, cape_path: null, model: 'default' };
+  let refreshPromise = null;
   const messageTimers = new Map();
+  const ACCOUNT_CACHE_PREFIX = 'magma_account_settings_cache_';
+
+  function activeMagmaAccount() {
+    try {
+      const id = localStorage.getItem('magma_active_account_id');
+      return JSON.parse(localStorage.getItem('magma_accounts') || '[]').find(item => item.id === id && item.type === 'magma') || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function readAccountCache(accountId) {
+    try { return JSON.parse(localStorage.getItem(ACCOUNT_CACHE_PREFIX + accountId) || 'null'); }
+    catch { return null; }
+  }
+
+  function writeAccountCache(patch = {}) {
+    const accountId = user?.id || localStorage.getItem('magma_active_account_id');
+    if (!accountId) return;
+    const current = readAccountCache(accountId) || {};
+    try {
+      localStorage.setItem(ACCOUNT_CACHE_PREFIX + accountId, JSON.stringify({
+        ...current,
+        ...patch,
+        updatedAt: Date.now()
+      }));
+    } catch {}
+  }
+
+  function renderCachedAccount(account) {
+    if (!account) return;
+    const cached = readAccountCache(account.id) || {};
+    const nickname = cached.nickname || account.nickname || '';
+    const email = cached.email || account.identifier || '';
+    const provider = cached.provider || localStorage.getItem('magma_skin_system_' + account.id) || localStorage.getItem('magma_skin_system') || 'magma';
+    if ($('cloudNickname')) $('cloudNickname').value = nickname;
+    if ($('cloudNicknameCurrent')) $('cloudNicknameCurrent').textContent = nickname || tr('settings.account.notSet', 'Не задан');
+    if ($('cloudCurrentEmail')) $('cloudCurrentEmail').textContent = email || '—';
+    document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(button => button.classList.toggle('is-active', button.dataset.skinSystem === provider));
+    updateSkinControls(provider);
+    if (cached.skinRecord) {
+      skinRecord = cached.skinRecord;
+      syncSkinModelSelect(skinRecord.model);
+    }
+    setStatus('Локальные данные · синхронизация в фоне');
+  }
 
   function tr(key, fallback) {
     const value = window.t?.(key);
@@ -81,33 +128,77 @@
     if (controls) controls.hidden = provider !== 'magma';
   }
 
-  async function refreshAccount() {
-    if (!client() || !$('accountCloudSettings')) return;
-    if (document.activeElement && $('accountCloudSettings').contains(document.activeElement)) return;
-    const { data, error } = await client().auth.getUser();
-    if (error || !data.user) { user = null; requireSignedIn(); return; }
-    user = data.user;
-    const { data: row, error: profileError } = await client().from('profiles').select('nick').eq('id', user.id).maybeSingle();
-    if (profileError) throw profileError;
-    const nickname = row?.nick || user.user_metadata?.nick || '';
-    $('cloudNickname').value = nickname;
-    $('cloudNicknameCurrent').textContent = nickname || tr('settings.account.notSet', 'Не задан');
-    $('cloudCurrentEmail').textContent = user.email || '—';
-    const provider = preferences().skin_provider === 'elyby' ? 'elyby' : 'magma';
-    document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(button => button.classList.toggle('is-active', button.dataset.skinSystem === provider));
-    updateSkinControls(provider);
-    if (provider === 'magma') await loadSkinRecord();
-    try { localStorage.setItem('magma_skin_system', provider); } catch {}
-    setStatus(tr('settings.account.synced', 'Синхронизировано'), true);
-    requireSignedIn();
-    const accounts = (() => { try { return JSON.parse(localStorage.getItem('magma_accounts') || '[]'); } catch { return []; } })();
-    const current = accounts.find(item => item.id === user.id);
-    if (current && nickname && current.nickname !== nickname) {
-      current.nickname = nickname;
-      localStorage.setItem('magma_accounts', JSON.stringify(accounts));
-      if ($('accountName') && localStorage.getItem('magma_active_account_id') === user.id) $('accountName').textContent = nickname;
-      if ($('settingsAccountName')) $('settingsAccountName').textContent = nickname;
-    }
+  function refreshAccount() {
+    if (refreshPromise) return refreshPromise;
+    refreshPromise = (async () => {
+      if (!client() || !$('accountCloudSettings')) return;
+      if (document.activeElement && $('accountCloudSettings').contains(document.activeElement)) return;
+
+      const account = activeMagmaAccount();
+      if (!account) {
+        user = null;
+        requireSignedIn();
+        return;
+      }
+
+      const accountId = account.id;
+      const { data, error } = await client().auth.getSession();
+      if (error) throw error;
+      const session = data?.session;
+      if (!session?.user || session.user.id !== accountId || localStorage.getItem('magma_active_account_id') !== accountId) {
+        user = null;
+        requireSignedIn();
+        setStatus('Ожидание локальной сессии аккаунта');
+        return;
+      }
+
+      user = session.user;
+      requireSignedIn();
+
+      const { data: row, error: profileError } = await client().from('profiles').select('nick').eq('id', accountId).maybeSingle();
+      if (profileError) throw profileError;
+      if (localStorage.getItem('magma_active_account_id') !== accountId) return;
+
+      const nickname = row?.nick || user.user_metadata?.nick || account.nickname || '';
+      const provider = preferences().skin_provider === 'elyby' ? 'elyby' : 'magma';
+      if ($('cloudNickname')) $('cloudNickname').value = nickname;
+      if ($('cloudNicknameCurrent')) $('cloudNicknameCurrent').textContent = nickname || tr('settings.account.notSet', 'Не задан');
+      if ($('cloudCurrentEmail')) $('cloudCurrentEmail').textContent = user.email || account.identifier || '—';
+
+      document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(button => button.classList.toggle('is-active', button.dataset.skinSystem === provider));
+      updateSkinControls(provider);
+      try {
+        localStorage.setItem('magma_skin_system_' + accountId, provider);
+        localStorage.setItem('magma_skin_system', provider);
+      } catch {}
+
+      if (provider === 'magma') await loadSkinRecord();
+      else skinRecord = { skin_path: null, cape_path: null, model: 'default' };
+
+      if (localStorage.getItem('magma_active_account_id') !== accountId) return;
+      writeAccountCache({
+        nickname,
+        email: user.email || account.identifier || '',
+        provider,
+        skinRecord: { ...skinRecord }
+      });
+      setStatus(tr('settings.account.synced', 'Синхронизировано'), true);
+
+      const accounts = (() => { try { return JSON.parse(localStorage.getItem('magma_accounts') || '[]'); } catch { return []; } })();
+      const current = accounts.find(item => item.id === accountId);
+      if (current && nickname && current.nickname !== nickname) {
+        current.nickname = nickname;
+        localStorage.setItem('magma_accounts', JSON.stringify(accounts));
+        if ($('accountName') && localStorage.getItem('magma_active_account_id') === accountId) $('accountName').textContent = nickname;
+        if ($('settingsAccountName')) $('settingsAccountName').textContent = nickname;
+      }
+    })();
+    const currentPromise = refreshPromise;
+    currentPromise.then(
+      () => { if (refreshPromise === currentPromise) refreshPromise = null; },
+      () => { if (refreshPromise === currentPromise) refreshPromise = null; }
+    );
+    return currentPromise;
   }
 
   async function saveNickname() {
@@ -312,7 +403,11 @@
         updateSkinControls(provider);
         try {
           localStorage.setItem('magma_skin_system', provider);
-          if (user) await savePreferences({ skin_provider: provider });
+          if (user) {
+            localStorage.setItem('magma_skin_system_' + user.id, provider);
+            await savePreferences({ skin_provider: provider });
+            writeAccountCache({ provider });
+          }
           window.dispatchEvent(new CustomEvent('magma:account-settings-updated'));
           if (provider === 'magma') await loadSkinRecord();
           await refreshPreview();
@@ -322,14 +417,20 @@
       });
     });
 
+    renderCachedAccount(activeMagmaAccount());
     client().auth.onAuthStateChange((_event, session) => {
       user = session?.user || null;
-      if (user) refreshAccount().catch(error => { setStatus(tr('settings.account.syncFailed', 'Ошибка синхронизации')); console.error('[Magma Account]', error); });
+      if (user) refreshAccount().catch(error => { setStatus('Нет соединения · используются сохранённые данные'); console.error('[Magma Account]', error); });
       else { user = null; requireSignedIn(); }
     });
-    await refreshAccount().catch(error => { setStatus(tr('settings.account.syncFailed', 'Ошибка синхронизации')); console.error('[Magma Account]', error); });
-    window.addEventListener('focus', () => refreshAccount().catch(console.error));
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshAccount().catch(console.error); });
+    refreshAccount().catch(error => { setStatus('Нет соединения · используются сохранённые данные'); console.error('[Magma Account]', error); });
+    window.addEventListener('focus', () => refreshAccount().catch(error => { setStatus('Нет соединения · используются сохранённые данные'); console.warn('[Magma Account]', error); }));
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) refreshAccount().catch(error => { setStatus('Нет соединения · используются сохранённые данные'); console.warn('[Magma Account]', error); });
+    });
+    window.setInterval(() => {
+      if (!document.hidden) refreshAccount().catch(error => console.warn('[Magma Account] Background sync failed:', error));
+    }, 30000);
   }
 
   document.addEventListener('DOMContentLoaded', bind);
