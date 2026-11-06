@@ -239,8 +239,12 @@ static std::filesystem::path getFrontendDir() {
 }
 
 static std::filesystem::path getUpdateGuardPath() {
+#ifdef _WIN32
     const char* base = std::getenv("LOCALAPPDATA");
     std::filesystem::path dir = base ? (std::filesystem::path(base) / "MagmaLauncher") : getExeDir();
+#else
+    std::filesystem::path dir = platform::userDataDir();
+#endif
     std::error_code ec;
     std::filesystem::create_directories(dir, ec);
     return dir / "update_attempt.txt";
