@@ -4510,7 +4510,44 @@ struct AppliedUpdateFile {
     bool hadOriginal = false;
 };
 
-static bool applyUpdateFilesInPlace(const fs::path& srcDir, const fs::path& installDir, std::string& errorOut) {
+static bool updateFilesMatch(const fs::path& a, const fs::path& b) {
+    std::error_code ec;
+    if (!fs::is_regular_file(a, ec) || ec) return false;
+    ec.clear();
+    if (!fs::is_regular_file(b, ec) || ec) return false;
+    ec.clear();
+    const auto sizeA = fs::file_size(a, ec);
+    if (ec) return false;
+    const auto sizeB = fs::file_size(b, ec);
+    if (ec || sizeA != sizeB) return false;
+
+    std::ifstream left(a, std::ios::binary);
+    std::ifstream right(b, std::ios::binary);
+    if (!left || !right) return false;
+
+    char leftBuffer[65536];
+    char rightBuffer[65536];
+    while (left && right) {
+        left.read(leftBuffer, sizeof(leftBuffer));
+        right.read(rightBuffer, sizeof(rightBuffer));
+        const auto leftCount = left.gcount();
+        const auto rightCount = right.gcount();
+        if (leftCount != rightCount ||
+            std::memcmp(leftBuffer, rightBuffer, static_cast<size_t>(leftCount)) != 0) return false;
+    }
+    return left.eof() && right.eof();
+}
+
+static bool applyUpdateFilesInPlace(const fs::path& srcDir, const fs::path& installDir,
+                                    const fs::path& requiredExeName, std::string& errorOut) {
+    const fs::path stagedExe = srcDir / requiredExeName;
+    std::error_code checkEc;
+    if (!fs::is_regular_file(stagedExe, checkEc) || checkEc ||
+        fs::file_size(stagedExe, checkEc) == 0 || checkEc) {
+        errorOut = "ERR_UPDATE_APPLY||В архиве отсутствует корректный файл " + requiredExeName.string();
+        updateLog(errorOut);
+        return false;
+    }
     std::vector<AppliedUpdateFile> applied;
     std::string failure;
     std::error_code ec;
@@ -4546,23 +4583,44 @@ static bool applyUpdateFilesInPlace(const fs::path& srcDir, const fs::path& inst
         fe.clear();
         fs::copy_file(it->path(), dest, fs::copy_options::overwrite_existing, fe);
         applied.push_back(rec);
-        if (fe) { failure = "не удалось скопировать " + dest.string() + ": " + fe.message(); break; }
+        if (fe) {
+            failure = "не удалось скопировать " + dest.string() + ": " + fe.message();
+            break;
+        }
+        if (!updateFilesMatch(it->path(), dest)) {
+            failure = "проверка скопированного файла не пройдена: " + dest.string();
+            break;
+        }
     }
 
     if (failure.empty() && ec) failure = "ошибка чтения распакованного обновления: " + ec.message();
 
     if (!failure.empty()) {
+        bool rollbackOk = true;
         for (auto r = applied.rbegin(); r != applied.rend(); ++r) {
             std::error_code re;
             fs::remove(r->dest, re);
-            if (r->hadOriginal) fs::rename(r->backup, r->dest, re);
+            if (re) rollbackOk = false;
+            if (r->hadOriginal) {
+                re.clear();
+                fs::rename(r->backup, r->dest, re);
+                if (re) rollbackOk = false;
+            }
         }
-        updateLog("ОШИБКА применения, откат выполнен: " + failure);
-        errorOut = "ERR_UPDATE_APPLY||" + failure;
+        updateLog(std::string("ОШИБКА применения: ") + failure +
+                  (rollbackOk ? "; откат завершён" : "; ОШИБКА отката, резервные .old файлы сохранены"));
+        errorOut = "ERR_UPDATE_APPLY||" + failure +
+                   (rollbackOk ? "" : " (не удалось полностью восстановить предыдущие файлы; проверьте .old)");
         return false;
     }
 
-    updateLog("Применено файлов: " + std::to_string(applied.size()));
+    if (!updateFilesMatch(stagedExe, installDir / requiredExeName)) {
+        errorOut = "ERR_UPDATE_APPLY||Новая версия exe не прошла итоговую проверку";
+        updateLog(errorOut);
+        return false;
+    }
+
+    updateLog("Применено и проверено файлов: " + std::to_string(applied.size()));
     return true;
 }
 #ifdef _WIN32
@@ -4633,12 +4691,17 @@ bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& 
         if (ec) { errorOut = "Не удалось подготовить exe: " + ec.message(); updateLog(errorOut); return false; }
     }
 
-    if (!fs::exists(sourceDir / selfPath.filename(), ec)) {
-        updateLog("ВНИМАНИЕ: в архиве нет " + selfPath.filename().string() + " — бэкенд (exe) не обновится");
+    const fs::path stagedExe = sourceDir / selfPath.filename();
+    ec.clear();
+    if (!fs::is_regular_file(stagedExe, ec) || ec ||
+        fs::file_size(stagedExe, ec) == 0 || ec) {
+        errorOut = "ERR_UPDATE_APPLY||В архиве отсутствует корректный " + selfPath.filename().string();
+        updateLog(errorOut);
+        return false;
     }
 
     onProgress("update", 0.95, "Устанавливаем обновление...");
-    if (!applyUpdateFilesInPlace(sourceDir, installDir, errorOut)) return false;
+    if (!applyUpdateFilesInPlace(sourceDir, installDir, selfPath.filename(), errorOut)) return false;
 
     onProgress("update", 0.99, "Перезапуск...");
 
