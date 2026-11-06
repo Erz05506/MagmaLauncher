@@ -2540,6 +2540,8 @@ body.has-modal-open .play-btn .crack {
 .account-settings-type-icon svg { width: 20px; height: 20px; border-radius: 3px; overflow: hidden; }
 
 .skin-system-options { display: flex; gap: 8px; flex-shrink: 0; }
+.skin-system-option[hidden] { display: none !important; }
+.magma-skin-mark { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #1a0a02; font-size: 10px; font-weight: 900; background: linear-gradient(135deg, #ff9a4d, #ff3d1c); }
 .skin-system-option {
   display: flex;
   align-items: center;
