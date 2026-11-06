@@ -143,6 +143,7 @@
       }
 
       const accountId = account.id;
+      const previousCache = readAccountCache(accountId) || {};
       const { data, error } = await client().auth.getSession();
       if (error) throw error;
       const session = data?.session;
@@ -184,6 +185,10 @@
       else skinRecord = { skin_path: null, cape_path: null, model: 'default' };
 
       if (localStorage.getItem('magma_active_account_id') !== accountId) return;
+      const cloudSettingsChanged =
+        previousCache.provider !== provider ||
+        JSON.stringify(previousCache.skinRecord || {}) !== JSON.stringify(skinRecord) ||
+        (previousCache.nickname || account.nickname || '') !== nickname;
       writeAccountCache({
         nickname,
         email: user.email || account.identifier || '',
@@ -191,7 +196,6 @@
         skinRecord: { ...skinRecord }
       });
       setStatus(tr('settings.account.synced', 'Синхронизировано'), true);
-      window.dispatchEvent(new CustomEvent('magma:account-settings-updated'));
 
       const accounts = (() => { try { return JSON.parse(localStorage.getItem('magma_accounts') || '[]'); } catch { return []; } })();
       const current = accounts.find(item => item.id === accountId);
@@ -201,6 +205,7 @@
         if ($('accountName') && localStorage.getItem('magma_active_account_id') === accountId) $('accountName').textContent = nickname;
         if ($('settingsAccountName')) $('settingsAccountName').textContent = nickname;
       }
+      if (cloudSettingsChanged) window.dispatchEvent(new CustomEvent('magma:account-settings-updated'));
     })();
     const currentPromise = refreshPromise;
     currentPromise.then(
