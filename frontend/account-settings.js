@@ -158,14 +158,14 @@
       user = session.user;
       requireSignedIn();
 
-      try {
-        const { data: verifiedData, error: verifiedError } = await client().auth.getUser();
-        if (!verifiedError && verifiedData?.user?.id === accountId && localStorage.getItem('magma_active_account_id') === accountId) {
-          user = verifiedData.user;
-        }
-      } catch {}
-
-      const { data: row, error: profileError } = await client().from('profiles').select('nick').eq('id', accountId).maybeSingle();
+      const verifiedUserPromise = client().auth.getUser().catch(() => null);
+      const profilePromise = client().from('profiles').select('nick').eq('id', accountId).maybeSingle();
+      const [verifiedResult, profileResult] = await Promise.all([verifiedUserPromise, profilePromise]);
+      const verifiedData = verifiedResult?.data;
+      if (!verifiedResult?.error && verifiedData?.user?.id === accountId && localStorage.getItem('magma_active_account_id') === accountId) {
+        user = verifiedData.user;
+      }
+      const { data: row, error: profileError } = profileResult;
       if (profileError) throw profileError;
       if (localStorage.getItem('magma_active_account_id') !== accountId) return;
 
