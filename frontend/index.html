@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>MagmaLauncher</title>
-<link rel="stylesheet" href="style.css?v=20261107-frontsync">
+<link rel="stylesheet" href="style.css?v=20261105-accountui2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <script>(function(){try{document.documentElement.setAttribute('data-theme',localStorage.getItem('magma_theme')||'magma');}catch(e){}})();</script>
 <style>html,body{background:#0a0a0c;}</style>
@@ -317,12 +317,12 @@
                       <div><strong>Система скинов</strong><span>Выбери источник скинов для своего аккаунта</span></div>
                       <div class="skin-system-options account-skin-system-options" id="skinSystemOptions">
                         <button class="skin-system-option" type="button" data-skin-system="elyby"><span class="skin-system-logo"><img src="../assets/ely_by.jpg" alt="Ely.by"></span>Ely.by</button>
-                        <button class="skin-system-option magma-skin-option magma-account-only" type="button" data-skin-system="magma" hidden><span class="skin-system-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="magmaSkinDiamondGradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff9a4d"/><stop offset="1" stop-color="#ff3d1c"/></linearGradient></defs><path fill="url(#magmaSkinDiamondGradient)" fill-rule="evenodd" d="M12 2 4 12l8 10 8-10zM12 6.5 17 12l-5 6-5-6z"/></svg></span>MagmaSkins</button>
+                        <button class="skin-system-option magma-skin-option magma-account-only" type="button" data-skin-system="magma" hidden><span class="skin-system-logo"><span class="magma-skin-mark">M</span></span>MagmaSkins</button>
                       </div>
                     </div>
                     <button class="ghost-btn skin-change-btn" type="button" id="skinChangeBtn" data-i18n="settings.account.changeSkin">Сменить скин</button>
                     <section class="account-cloud-settings" id="accountCloudSettings">
-                      <div class="account-cloud-heading"><span class="settings-label" data-i18n="settings.account.parameters">Параметры аккаунта</span><span class="account-cloud-status" id="accountCloudStatus">Загрузка локальных данных…</span></div>
+                      <div class="account-cloud-heading"><span class="settings-label" data-i18n="settings.account.parameters">Параметры аккаунта</span><span class="account-cloud-status" id="accountCloudStatus">Проверка аккаунта…</span></div>
                       <div class="account-profile-actions">
                         <div class="account-action-card">
                           <div class="account-action-top"><div><strong data-i18n="settings.account.nickname">Никнейм</strong><span class="account-action-value" id="cloudNicknameCurrent">—</span></div><button class="ghost-btn account-action-button" id="accountNicknameToggle" type="button" data-i18n="settings.account.edit">Изменить</button></div>
@@ -1332,7 +1332,7 @@
 <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
 <script src="../assets/skinview3d.bundle.js"></script>
-<script src="app.js?v=20261107-accountcache"></script>
-<script src="account-settings.js?v=20261107-accountcache"></script>
+<script src="app.js?v=20261105-skinpreview2"></script>
+<script src="account-settings.js?v=20261105-accountui3"></script>
 </body>
 </html>
