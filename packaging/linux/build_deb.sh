@@ -17,8 +17,11 @@ if [ ! -x "$DIST/MagmaLauncher" ]; then
     exit 1
 fi
 
-if [ ! -f "$DIST/libcef.so" ]; then
-    echo "Не найден libcef.so в $DIST. Сначала собери CEF-приложение." >&2
+CEF_ROOT="${CEF_ROOT:-$ROOT/backend/cef-linux}"
+CEF_LIB="$CEF_ROOT/Release/libcef.so"
+
+if [ ! -f "$CEF_LIB" ]; then
+    echo "Не найден libcef.so: $CEF_LIB. Сначала скачай CEF." >&2
     exit 1
 fi
 
@@ -37,6 +40,7 @@ install -d "$STAGE/DEBIAN" "$STAGE/opt/$PKG" \
     "$STAGE/usr/share/pixmaps"
 
 cp -a "$DIST/." "$STAGE/opt/$PKG/"
+install -m 0755 "$CEF_LIB" "$STAGE/opt/$PKG/libcef.so"
 install -m 0644 "$ICON_SRC" "$STAGE/opt/$PKG/assets/magmalauncher.png"
 
 find "$STAGE/opt/$PKG" -type f \( \
