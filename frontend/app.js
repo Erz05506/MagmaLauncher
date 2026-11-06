@@ -11393,7 +11393,7 @@ let isLoggedIn = false;
 
 const ACCOUNTS_KEY = 'magma_accounts';
 const ACTIVE_ACCOUNT_KEY = 'magma_active_account_id';
-let pendingGuestSignOut = Promise.resolve();
+let accountSessionQueue = Promise.resolve();
 
 function getAccounts() {
   try { return JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || '[]'); } catch { return []; }
@@ -11568,7 +11568,7 @@ let accountSkinViewerCapeBlobUrl = null;
 
 const SKIN_SYSTEM_KEY = 'magma_skin_system_';
 function getSkinSystemPref(accountId = getActiveAccountId()) {
-  return localStorage.getItem(SKIN_SYSTEM_KEY + accountId) === 'magma' ? 'magma' : 'elyby';
+  return (localStorage.getItem(SKIN_SYSTEM_KEY + accountId) || localStorage.getItem('magma_skin_system')) === 'magma' ? 'magma' : 'elyby';
 }
 function renderSkinSystemOptions() {
   const accountId = getActiveAccountId();
@@ -11976,7 +11976,7 @@ async function switchToAccount(acc) {
 
   if (acc.type === 'guest') {
     localStorage.setItem(ACTIVE_ACCOUNT_KEY, acc.id);
-    pendingGuestSignOut = supabaseClient.auth.signOut({ scope: 'local' }).catch(err => {
+    accountSessionQueue = accountSessionQueue.then(() => supabaseClient.auth.signOut({ scope: 'local' })).catch(err => {
       console.warn('[MagmaLauncher] Не удалось очистить локальную сессию:', err);
     });
     saveGuestSession(acc.nickname);
@@ -11999,17 +11999,15 @@ async function switchToAccount(acc) {
     }
 
     finishLogin(acc.nickname);
-    pendingGuestSignOut
-      .then(() => supabaseClient.auth.setSession({
-        access_token: acc.accessToken,
-        refresh_token: acc.refreshToken,
-      }))
-      .then(({ data, error }) => {
-        if (error || !data?.session) throw error || new Error('Session unavailable');
-        if (getActiveAccountId() !== acc.id) return;
-        saveAccounts([{ ...acc, accessToken: data.session.access_token, refreshToken: data.session.refresh_token }, ...getAccounts().filter(a => a.id !== acc.id)]);
-      })
-      .catch(err => {
+    accountSessionQueue = accountSessionQueue.then(() => {
+      if (getActiveAccountId() !== acc.id) return null;
+      return supabaseClient.auth.setSession({ access_token: acc.accessToken, refresh_token: acc.refreshToken });
+    }).then(result => {
+      if (!result) return;
+      const { data, error } = result;
+      if (error || !data?.session || getActiveAccountId() !== acc.id) return;
+      saveAccounts([{ ...acc, accessToken: data.session.access_token, refreshToken: data.session.refresh_token }, ...getAccounts().filter(a => a.id !== acc.id)]);
+    }).catch(err => {
         console.error('[MagmaLauncher] Фоновое восстановление Magma Account не удалось:', err);
         if (getActiveAccountId() !== acc.id) return;
         resetAuthModalForms();
@@ -12110,7 +12108,7 @@ async function tryRestoreActiveAccount() {
 
   if (acc.type === 'guest') {
     if (!isValidMinecraftNick(acc.nickname)) return false;
-    pendingGuestSignOut = supabaseClient.auth.signOut({ scope: 'local' }).catch(err => {
+    accountSessionQueue = accountSessionQueue.then(() => supabaseClient.auth.signOut({ scope: 'local' })).catch(err => {
       console.warn('[MagmaLauncher] Не удалось очистить локальную сессию:', err);
     });
     saveGuestSession(acc.nickname);
@@ -12122,16 +12120,15 @@ async function tryRestoreActiveAccount() {
   if (acc.type === 'magma' && acc.accessToken && acc.refreshToken) {
     finishLogin(acc.nickname);
     updateModalCloseVisibility();
-    pendingGuestSignOut
-      .then(() => supabaseClient.auth.setSession({
-        access_token: acc.accessToken,
-        refresh_token: acc.refreshToken,
-      }))
-      .then(({ data, error }) => {
-        if (error || !data?.session || getActiveAccountId() !== acc.id) return;
-        saveAccounts([{ ...acc, accessToken: data.session.access_token, refreshToken: data.session.refresh_token }, ...getAccounts().filter(a => a.id !== acc.id)]);
-      })
-      .catch(err => console.warn('[MagmaLauncher] Фоновое восстановление Magma Account не удалось:', err));
+    accountSessionQueue = accountSessionQueue.then(() => {
+      if (getActiveAccountId() !== acc.id) return null;
+      return supabaseClient.auth.setSession({ access_token: acc.accessToken, refresh_token: acc.refreshToken });
+    }).then(result => {
+      if (!result) return;
+      const { data, error } = result;
+      if (error || !data?.session || getActiveAccountId() !== acc.id) return;
+      saveAccounts([{ ...acc, accessToken: data.session.access_token, refreshToken: data.session.refresh_token }, ...getAccounts().filter(a => a.id !== acc.id)]);
+    }).catch(err => console.warn('[MagmaLauncher] Фоновое восстановление Magma Account не удалось:', err));
     return true;
   }
 
@@ -12241,7 +12238,7 @@ document.getElementById('guestSubmit')?.addEventListener('click', async () => {
   accountSkinViewerLoadedAt = 0;
   accountSkinViewerNick = null;
   accountSkinViewerAccountId = null;
-  pendingGuestSignOut = supabaseClient.auth.signOut({ scope: 'local' }).catch((err) => {
+  accountSessionQueue = accountSessionQueue.then(() => supabaseClient.auth.signOut({ scope: 'local' })).catch(err => {
     console.warn('[MagmaLauncher] Не удалось очистить предыдущую сессию:', err);
   });
 
