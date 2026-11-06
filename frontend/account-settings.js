@@ -41,6 +41,7 @@
     const nickname = cached.nickname || account.nickname || '';
     const email = cached.email || account.identifier || '';
     const provider = cached.provider || localStorage.getItem('magma_skin_system_' + account.id) || localStorage.getItem('magma_skin_system') || 'magma';
+    try { localStorage.setItem('magma_skin_system_' + account.id, provider); } catch {}
     if ($('cloudNickname')) $('cloudNickname').value = nickname;
     if ($('cloudNicknameCurrent')) $('cloudNicknameCurrent').textContent = nickname || tr('settings.account.notSet', 'Не задан');
     if ($('cloudCurrentEmail')) $('cloudCurrentEmail').textContent = email || '—';
@@ -155,6 +156,13 @@
       user = session.user;
       requireSignedIn();
 
+      try {
+        const { data: verifiedData, error: verifiedError } = await client().auth.getUser();
+        if (!verifiedError && verifiedData?.user?.id === accountId && localStorage.getItem('magma_active_account_id') === accountId) {
+          user = verifiedData.user;
+        }
+      } catch {}
+
       const { data: row, error: profileError } = await client().from('profiles').select('nick').eq('id', accountId).maybeSingle();
       if (profileError) throw profileError;
       if (localStorage.getItem('magma_active_account_id') !== accountId) return;
@@ -183,6 +191,7 @@
         skinRecord: { ...skinRecord }
       });
       setStatus(tr('settings.account.synced', 'Синхронизировано'), true);
+      window.dispatchEvent(new CustomEvent('magma:account-settings-updated'));
 
       const accounts = (() => { try { return JSON.parse(localStorage.getItem('magma_accounts') || '[]'); } catch { return []; } })();
       const current = accounts.find(item => item.id === accountId);
