@@ -319,6 +319,19 @@ endif()
 set(MAGMA_DIST_DIR "${CMAKE_CURRENT_BINARY_DIR}/dist")
 file(MAKE_DIRECTORY "${MAGMA_DIST_DIR}")
 
+add_custom_target(MagmaFrontendSync ALL
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/../frontend"
+        "$<TARGET_FILE_DIR:MagmaLauncher>/frontend"
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/../frontend"
+        "${MAGMA_DIST_DIR}/frontend"
+    COMMENT "Synchronizing Magma Launcher frontend files"
+    VERBATIM
+)
+
+add_dependencies(MagmaLauncher MagmaFrontendSync)
+
 if(UNIX AND NOT APPLE)
 target_link_libraries(MagmaLauncher PRIVATE X11::X11)
     target_link_libraries(MagmaLauncher PRIVATE
