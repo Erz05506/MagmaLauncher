@@ -12037,8 +12037,18 @@ async function tryRestoreActiveAccount() {
   const acc = getAccounts().find(a => a.id === activeId);
   if (!acc) return false;
 
+  accountSkinViewerRequestId++;
+  accountSkinViewerLoadedAt = 0;
+  accountSkinViewerNick = null;
+  accountSkinViewerAccountId = null;
+
   if (acc.type === 'guest') {
     if (!acc.nickname || !isValidMinecraftNick(acc.nickname)) return false;
+    try {
+      await supabaseClient.auth.signOut({ scope: 'local' });
+    } catch (err) {
+      console.warn('[MagmaLauncher] Не удалось очистить старую сессию при запуске гостя:', err);
+    }
     saveGuestSession(acc.nickname);
     finishLogin(acc.nickname);
     updateModalCloseVisibility();
@@ -12046,44 +12056,40 @@ async function tryRestoreActiveAccount() {
   }
 
   if (acc.type === 'magma') {
-
     if (!acc.nickname) return false;
 
-    finishLogin(acc.nickname);
-    updateModalCloseVisibility();
-
-    (async () => {
-      try {
-        let session = null;
-        const { data: existing } = await supabaseClient.auth.getSession();
-        if (existing && existing.session && existing.session.user.id === acc.id) {
-          session = existing.session;
-        } else if (acc.accessToken && acc.refreshToken) {
-          const { data, error } = await supabaseClient.auth.setSession({
-            access_token: acc.accessToken,
-            refresh_token: acc.refreshToken,
-          });
-          if (!error && data.session) session = data.session;
-        }
-        if (!session) return;
-
-        const refreshedAcc = { ...acc, accessToken: session.access_token, refreshToken: session.refresh_token };
-        upsertActiveAccount(refreshedAcc);
-
-        const { profile, missing } = await fetchProfileWithRetry(session.user.id);
-        if (missing || !profile) return;
-
-        if (profile.nick !== acc.nickname) {
-          upsertActiveAccount({ ...refreshedAcc, nickname: profile.nick });
-          accountName.textContent = profile.nick;
-          renderAccountAvatar();
-        }
-      } catch (err) {
-        console.error('[MagmaLauncher] Не удалось освежить сессию аккаунта в фоне:', err);
+    try {
+      let session = null;
+      const { data: existing } = await supabaseClient.auth.getSession();
+      if (existing?.session?.user?.id === acc.id) {
+        session = existing.session;
+      } else if (acc.accessToken && acc.refreshToken) {
+        const { data, error } = await supabaseClient.auth.setSession({
+          access_token: acc.accessToken,
+          refresh_token: acc.refreshToken,
+        });
+        if (error) throw error;
+        session = data.session;
       }
-    })();
 
-    return true;
+      if (!session || session.user.id !== acc.id) return false;
+
+      const { profile } = await fetchProfileWithRetry(session.user.id);
+      const nickname = profile?.nick || acc.nickname;
+      const refreshedAcc = {
+        ...acc,
+        nickname,
+        accessToken: session.access_token,
+        refreshToken: session.refresh_token,
+      };
+      saveAccounts([refreshedAcc, ...getAccounts().filter(a => a.id !== refreshedAcc.id)]);
+      finishLogin(nickname);
+      updateModalCloseVisibility();
+      return true;
+    } catch (err) {
+      console.error('[MagmaLauncher] Не удалось восстановить Magma Account:', err);
+      return false;
+    }
   }
 
   return false;
@@ -12175,7 +12181,7 @@ authTabs.forEach(tab => {
 
 const guestError = document.getElementById('guestError');
 
-document.getElementById('guestSubmit')?.addEventListener('click', () => {
+document.getElementById('guestSubmit')?.addEventListener('click', async () => {
   const nickname = document.getElementById('guestNickname').value.trim();
   hideError(guestError);
 
@@ -12186,6 +12192,16 @@ document.getElementById('guestSubmit')?.addEventListener('click', () => {
   if (!isValidMinecraftNick(nickname)) {
     showError(guestError, t('auth.magma.invalidNick'));
     return;
+  }
+
+  accountSkinViewerRequestId++;
+  accountSkinViewerLoadedAt = 0;
+  accountSkinViewerNick = null;
+  accountSkinViewerAccountId = null;
+  try {
+    await supabaseClient.auth.signOut({ scope: 'local' });
+  } catch (err) {
+    console.warn('[MagmaLauncher] Не удалось очистить предыдущую сессию:', err);
   }
 
   saveGuestSession(nickname);
