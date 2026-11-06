@@ -133,7 +133,8 @@
     if (refreshPromise) return refreshPromise;
     refreshPromise = (async () => {
       if (!client() || !$('accountCloudSettings')) return;
-      if (document.activeElement && $('accountCloudSettings').contains(document.activeElement)) return;
+      const focusedControl = document.activeElement;
+      if (focusedControl && $('accountCloudSettings').contains(focusedControl) && /^(INPUT|TEXTAREA|SELECT)$/.test(focusedControl.tagName)) return;
 
       const account = activeMagmaAccount();
       if (!account) {
