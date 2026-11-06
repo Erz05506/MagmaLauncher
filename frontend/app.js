@@ -11386,6 +11386,7 @@ let isLoggedIn = false;
 
 const ACCOUNTS_KEY = 'magma_accounts';
 const ACTIVE_ACCOUNT_KEY = 'magma_active_account_id';
+let pendingGuestSignOut = Promise.resolve();
 
 function getAccounts() {
   try { return JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || '[]'); } catch { return []; }
@@ -11906,17 +11907,16 @@ async function switchToAccount(acc) {
 
   if (acc.type === 'guest') {
     localStorage.setItem(ACTIVE_ACCOUNT_KEY, acc.id);
-    try {
-      await supabaseClient.auth.signOut({ scope: 'local' });
-    } catch (err) {
+    pendingGuestSignOut = supabaseClient.auth.signOut({ scope: 'local' }).catch((err) => {
       console.warn('[MagmaLauncher] Не удалось очистить предыдущую сессию:', err);
-    }
+    });
     saveGuestSession(acc.nickname);
     finishLogin(acc.nickname);
     return;
   }
 
   if (acc.type === 'magma') {
+    await pendingGuestSignOut;
     localStorage.setItem(ACTIVE_ACCOUNT_KEY, acc.id);
     if (!acc.accessToken || !acc.refreshToken) {
       resetAuthModalForms();
@@ -12198,11 +12198,9 @@ document.getElementById('guestSubmit')?.addEventListener('click', async () => {
   accountSkinViewerLoadedAt = 0;
   accountSkinViewerNick = null;
   accountSkinViewerAccountId = null;
-  try {
-    await supabaseClient.auth.signOut({ scope: 'local' });
-  } catch (err) {
+  pendingGuestSignOut = supabaseClient.auth.signOut({ scope: 'local' }).catch((err) => {
     console.warn('[MagmaLauncher] Не удалось очистить предыдущую сессию:', err);
-  }
+  });
 
   saveGuestSession(nickname);
   upsertActiveAccount({ id: 'guest:' + nickname.toLowerCase(), type: 'guest', nickname, identifier: '' });
