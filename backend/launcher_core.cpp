@@ -4708,7 +4708,7 @@ bool resetVersionCache(const std::string& version, const std::string& gameDir, s
 
 // Increment this number for every launcher binary update while keeping the public
 // product version (for example, "Alpha 1") unchanged.
-static constexpr int MAGMA_LAUNCHER_BUILD = 4;
+static constexpr int MAGMA_LAUNCHER_BUILD = 5;
 
 int cmpVersionStrings(const std::string& v1, const std::string& v2) {
     auto extractSegments = [](const std::string& v) {
