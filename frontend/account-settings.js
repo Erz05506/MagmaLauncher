@@ -110,7 +110,9 @@
 
   function updateSkinControls(provider) {
     const controls = $('accountSkinManager');
+    const changeButton = $('skinChangeBtn');
     if (controls) controls.hidden = provider !== 'magma';
+    if (changeButton) changeButton.hidden = provider !== 'elyby';
   }
 
   async function refreshAccount(force = false) {
