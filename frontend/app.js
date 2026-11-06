@@ -6672,10 +6672,17 @@ async function ensureCustomSkinLoaderInstalled(loader, version, modsDir, instanc
   }
 
   if (typeof window.installLocalFile === 'function') {
-    const elyBySkinSource = { name: 'ElyBy', type: 'ElyByAPI' };
+    const magmaSource = {
+      name: 'MagmaSkins',
+      type: 'CustomSkinAPI',
+      root: SUPABASE_URL + '/functions/v1/magma-skin-api/',
+    };
+    const elyBySource = { name: 'ElyBy', type: 'ElyByAPI' };
     const config = {
       enable: true,
-      loadlist: [elyBySkinSource, { name: 'Mojang', type: 'MojangAPI' }],
+      loadlist: currentAccountType() === 'magma' && getSkinSystemPref() === 'magma'
+        ? [magmaSource, elyBySource, { name: 'Mojang', type: 'MojangAPI' }]
+        : [elyBySource, { name: 'Mojang', type: 'MojangAPI' }],
     };
     try {
       const base64 = btoa(unescape(encodeURIComponent(JSON.stringify(config, null, 2))));
@@ -11559,8 +11566,55 @@ async function defaultSteveSkinBlobUrl() {
 let accountSkinViewerModel = 'default';
 let accountSkinViewerCapeBlobUrl = null;
 
+const SKIN_SYSTEM_KEY = 'magma_skin_system_';
+function getSkinSystemPref(accountId = getActiveAccountId()) {
+  return localStorage.getItem(SKIN_SYSTEM_KEY + accountId) === 'magma' ? 'magma' : 'elyby';
+}
+function renderSkinSystemOptions() {
+  const accountId = getActiveAccountId();
+  const selected = currentAccountType() === 'magma' ? getSkinSystemPref(accountId) : 'elyby';
+  document.querySelectorAll('#skinSystemOptions [data-skin-system]').forEach(button => {
+    button.classList.toggle('is-active', button.dataset.skinSystem === selected);
+  });
+}
+document.querySelectorAll('#skinSystemOptions [data-skin-system]').forEach(button => {
+  button.addEventListener('click', () => {
+    if (currentAccountType() !== 'magma') return;
+    localStorage.setItem(SKIN_SYSTEM_KEY + getActiveAccountId(), button.dataset.skinSystem);
+    renderSkinSystemOptions();
+    accountSkinViewerLoadedAt = 0;
+    const nick = accountName?.textContent || '';
+    if (nick) refreshAccountSkinViewer(nick);
+  });
+});
+
+let accountSkinViewerCapeSourceUrl = null;
+async function loadMagmaSkinBlobUrl(nickname) {
+  const endpoint = SUPABASE_URL + '/functions/v1/magma-skin-api/' + encodeURIComponent(nickname) + '.json';
+  const response = await fetch(endpoint, { cache: 'no-store' });
+  if (!response.ok) return await defaultSteveSkinBlobUrl();
+  const metadata = await response.json();
+  const textureId = metadata.textures?.default || metadata.textures?.slim;
+  if (!textureId) return await defaultSteveSkinBlobUrl();
+  const root = SUPABASE_URL + '/functions/v1/magma-skin-api/textures/';
+  const skinUrl = root + encodeURIComponent(textureId);
+  accountSkinViewerCapeSourceUrl = metadata.textures?.cape ? root + encodeURIComponent(metadata.textures.cape) : null;
+  const raw = await window.fetchSkinBytes({ url: skinUrl });
+  const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  if (!result.success) return await defaultSteveSkinBlobUrl();
+  return URL.createObjectURL(new Blob([base64ToUint8Array(result.dataBase64)], { type: 'image/png' }));
+}
 async function loadSkinBlobUrl(nickname) {
   accountSkinViewerModel = 'default';
+  accountSkinViewerCapeSourceUrl = null;
+  if (currentAccountType() === 'magma' && getSkinSystemPref() === 'magma' && typeof window.fetchSkinBytes === 'function') {
+    try {
+      return await loadMagmaSkinBlobUrl(nickname);
+    } catch (err) {
+      console.warn('[MagmaLauncher] Не удалось загрузить MagmaSkin для предпросмотра:', err);
+      return await defaultSteveSkinBlobUrl();
+    }
+  }
   if (typeof window.fetchSkinBytes !== 'function') return await defaultSteveSkinBlobUrl();
   try {
     const raw = await window.fetchSkinBytes({ url: elyBySkinUrl(nickname, true) });
@@ -11647,9 +11701,22 @@ async function doRefreshAccountSkinViewer(nickname) {
   }
 
   try {
-    await viewer.loadCape(null);
+    if (accountSkinViewerCapeSourceUrl && typeof window.fetchSkinBytes === 'function') {
+      const rawCape = await window.fetchSkinBytes({ url: accountSkinViewerCapeSourceUrl });
+      const capeResult = typeof rawCape === 'string' ? JSON.parse(rawCape) : rawCape;
+      if (capeResult.success) {
+        const capeBlob = URL.createObjectURL(new Blob([base64ToUint8Array(capeResult.dataBase64)], { type: 'image/png' }));
+        await viewer.loadCape(capeBlob);
+        releaseSkinBlobUrl(capeBlob);
+      } else {
+        await viewer.loadCape(null);
+      }
+    } else {
+      await viewer.loadCape(null);
+    }
   } catch (err) {
-    console.warn('[MagmaLauncher] Не удалось очистить плащ в предпросмотре:', err);
+    console.warn('[MagmaLauncher] Не удалось обновить плащ в предпросмотре:', err);
+    await viewer.loadCape(null);
   }
   releaseSkinBlobUrl(accountSkinViewerCapeBlobUrl);
   accountSkinViewerCapeBlobUrl = null;
@@ -11793,6 +11860,8 @@ function updateSettingsAccountTab() {
   const isMagmaAccount = accountType === 'magma';
   const cloudSettings = document.getElementById('accountCloudSettings');
   if (cloudSettings) cloudSettings.style.display = isMagmaAccount ? '' : 'none';
+  document.querySelectorAll('.magma-skin-option').forEach(el => { el.hidden = !isMagmaAccount; });
+  renderSkinSystemOptions();
 
   const changePasswordBlock = document.getElementById('accountChangePasswordBlock');
   if (changePasswordBlock) changePasswordBlock.style.display = isMagmaAccount ? '' : 'none';
@@ -11907,8 +11976,8 @@ async function switchToAccount(acc) {
 
   if (acc.type === 'guest') {
     localStorage.setItem(ACTIVE_ACCOUNT_KEY, acc.id);
-    pendingGuestSignOut = supabaseClient.auth.signOut({ scope: 'local' }).catch((err) => {
-      console.warn('[MagmaLauncher] Не удалось очистить предыдущую сессию:', err);
+    pendingGuestSignOut = supabaseClient.auth.signOut({ scope: 'local' }).catch(err => {
+      console.warn('[MagmaLauncher] Не удалось очистить локальную сессию:', err);
     });
     saveGuestSession(acc.nickname);
     finishLogin(acc.nickname);
@@ -11916,7 +11985,6 @@ async function switchToAccount(acc) {
   }
 
   if (acc.type === 'magma') {
-    await pendingGuestSignOut;
     localStorage.setItem(ACTIVE_ACCOUNT_KEY, acc.id);
     if (!acc.accessToken || !acc.refreshToken) {
       resetAuthModalForms();
@@ -11930,31 +11998,29 @@ async function switchToAccount(acc) {
       return;
     }
 
-    try {
-      const { data, error } = await supabaseClient.auth.setSession({
+    finishLogin(acc.nickname);
+    pendingGuestSignOut
+      .then(() => supabaseClient.auth.setSession({
         access_token: acc.accessToken,
         refresh_token: acc.refreshToken,
+      }))
+      .then(({ data, error }) => {
+        if (error || !data?.session) throw error || new Error('Session unavailable');
+        if (getActiveAccountId() !== acc.id) return;
+        saveAccounts([{ ...acc, accessToken: data.session.access_token, refreshToken: data.session.refresh_token }, ...getAccounts().filter(a => a.id !== acc.id)]);
+      })
+      .catch(err => {
+        console.error('[MagmaLauncher] Фоновое восстановление Magma Account не удалось:', err);
+        if (getActiveAccountId() !== acc.id) return;
+        resetAuthModalForms();
+        authTabs.forEach(tb => tb.classList.toggle('is-active', tb.dataset.tab === 'magma'));
+        authPanes.forEach(p => p.classList.toggle('is-active', p.dataset.pane === 'magma'));
+        showMagmaStep('login');
+        const loginEmailEl = document.getElementById('magmaLoginEmail');
+        if (loginEmailEl) loginEmailEl.value = acc.identifier || acc.nickname;
+        updateModalCloseVisibility();
+        openAuthModal();
       });
-      if (error || !data.session) throw error || new Error('Не удалось восстановить сессию аккаунта');
-
-      const updated = {
-        ...acc,
-        accessToken: data.session.access_token,
-        refreshToken: data.session.refresh_token,
-      };
-      saveAccounts([updated, ...getAccounts().filter(a => a.id !== updated.id)]);
-      finishLogin(acc.nickname);
-    } catch (err) {
-      console.error('[MagmaLauncher] Не удалось переключить Magma Account:', err);
-      resetAuthModalForms();
-      authTabs.forEach(tb => tb.classList.toggle('is-active', tb.dataset.tab === 'magma'));
-      authPanes.forEach(p => p.classList.toggle('is-active', p.dataset.pane === 'magma'));
-      showMagmaStep('login');
-      const loginEmailEl = document.getElementById('magmaLoginEmail');
-      if (loginEmailEl) loginEmailEl.value = acc.identifier || acc.nickname;
-      updateModalCloseVisibility();
-      openAuthModal();
-    }
     return;
   }
 
@@ -12035,7 +12101,7 @@ async function tryRestoreActiveAccount() {
   const activeId = getActiveAccountId();
   if (!activeId) return false;
   const acc = getAccounts().find(a => a.id === activeId);
-  if (!acc) return false;
+  if (!acc || !acc.nickname) return false;
 
   accountSkinViewerRequestId++;
   accountSkinViewerLoadedAt = 0;
@@ -12043,53 +12109,30 @@ async function tryRestoreActiveAccount() {
   accountSkinViewerAccountId = null;
 
   if (acc.type === 'guest') {
-    if (!acc.nickname || !isValidMinecraftNick(acc.nickname)) return false;
-    try {
-      await supabaseClient.auth.signOut({ scope: 'local' });
-    } catch (err) {
-      console.warn('[MagmaLauncher] Не удалось очистить старую сессию при запуске гостя:', err);
-    }
+    if (!isValidMinecraftNick(acc.nickname)) return false;
+    pendingGuestSignOut = supabaseClient.auth.signOut({ scope: 'local' }).catch(err => {
+      console.warn('[MagmaLauncher] Не удалось очистить локальную сессию:', err);
+    });
     saveGuestSession(acc.nickname);
     finishLogin(acc.nickname);
     updateModalCloseVisibility();
     return true;
   }
 
-  if (acc.type === 'magma') {
-    if (!acc.nickname) return false;
-
-    try {
-      let session = null;
-      const { data: existing } = await supabaseClient.auth.getSession();
-      if (existing?.session?.user?.id === acc.id) {
-        session = existing.session;
-      } else if (acc.accessToken && acc.refreshToken) {
-        const { data, error } = await supabaseClient.auth.setSession({
-          access_token: acc.accessToken,
-          refresh_token: acc.refreshToken,
-        });
-        if (error) throw error;
-        session = data.session;
-      }
-
-      if (!session || session.user.id !== acc.id) return false;
-
-      const { profile } = await fetchProfileWithRetry(session.user.id);
-      const nickname = profile?.nick || acc.nickname;
-      const refreshedAcc = {
-        ...acc,
-        nickname,
-        accessToken: session.access_token,
-        refreshToken: session.refresh_token,
-      };
-      saveAccounts([refreshedAcc, ...getAccounts().filter(a => a.id !== refreshedAcc.id)]);
-      finishLogin(nickname);
-      updateModalCloseVisibility();
-      return true;
-    } catch (err) {
-      console.error('[MagmaLauncher] Не удалось восстановить Magma Account:', err);
-      return false;
-    }
+  if (acc.type === 'magma' && acc.accessToken && acc.refreshToken) {
+    finishLogin(acc.nickname);
+    updateModalCloseVisibility();
+    pendingGuestSignOut
+      .then(() => supabaseClient.auth.setSession({
+        access_token: acc.accessToken,
+        refresh_token: acc.refreshToken,
+      }))
+      .then(({ data, error }) => {
+        if (error || !data?.session || getActiveAccountId() !== acc.id) return;
+        saveAccounts([{ ...acc, accessToken: data.session.access_token, refreshToken: data.session.refresh_token }, ...getAccounts().filter(a => a.id !== acc.id)]);
+      })
+      .catch(err => console.warn('[MagmaLauncher] Фоновое восстановление Magma Account не удалось:', err));
+    return true;
   }
 
   return false;
@@ -14055,6 +14098,9 @@ const accountDeleteError = document.getElementById('accountDeleteError');
 
 accountDeleteBtn?.addEventListener('click', () => {
   hideError(accountDeleteError);
+  const acc = getAccounts().find(a => a.id === getActiveAccountId());
+  const desc = document.getElementById('accountDeleteDesc');
+  if (desc) desc.textContent = acc?.type === 'guest' ? 'Гостевой профиль будет удалён только из этого лаунчера.' : t('account.deleteConfirmDesc');
   accountDeleteOverlay?.classList.add('is-open');
 });
 accountDeleteClose?.addEventListener('click', () => accountDeleteOverlay?.classList.remove('is-open'));
