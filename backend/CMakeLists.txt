@@ -405,6 +405,24 @@ if(WIN32)
         POST_BUILD
 
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            $<TARGET_RUNTIME_DLLS:MagmaLauncher>
+            "$<TARGET_FILE_DIR:MagmaLauncher>"
+
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            $<TARGET_RUNTIME_DLLS:MagmaLauncher>
+            "${MAGMA_DIST_DIR}"
+
+        COMMAND_EXPAND_LISTS
+        VERBATIM
+    )
+endif()
+
+if(WIN32)
+    add_custom_command(
+        TARGET MagmaLauncher
+        POST_BUILD
+
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "${CEF_RUNTIME_DIR}/libcef.dll"
             "${CEF_RUNTIME_DIR}/chrome_elf.dll"
             "${CEF_RUNTIME_DIR}/d3dcompiler_47.dll"
