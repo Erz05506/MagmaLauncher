@@ -23,17 +23,21 @@ inline int WideCharToMultiByte(unsigned, unsigned long, const wchar_t*, int, cha
 #include <nlohmann/json.hpp>
 #include <zlib.h>
 #include <fstream>
+#include <iomanip>
 #include <sstream>
 #include <vector>
 #include <cstring>
 #include <cstdio>
+#include <cctype>
 #include <cstdint>
 #include <algorithm>
 #include <optional>
 #include <filesystem>
 #include <map>
+#include <set>
 #include <chrono>
 #include <thread>
+#include <mutex>
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
@@ -51,6 +55,7 @@ std::atomic<bool> g_paused{false};
 std::atomic<bool> g_cancelled{false};
 
 std::atomic<bool> g_gameProcessActive{false};
+std::atomic<bool> g_launchInProgress{false};
 std::atomic<unsigned long> g_gameProcessId{0};
 
 namespace {
@@ -209,6 +214,81 @@ void applyCommonCurlOpts(CURL* curl) {
     curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
 }
 
+std::mutex g_deadHostMutex;
+std::set<std::string> g_deadHosts;
+
+std::string hostOfUrl(const std::string& url) {
+    size_t s = url.find("://");
+    if (s == std::string::npos) return "";
+    s += 3;
+    size_t e = url.find('/', s);
+    return url.substr(s, e == std::string::npos ? std::string::npos : e - s);
+}
+
+std::vector<std::string> orderedMirrorUrls(const std::string& url) {
+    static const std::pair<const char*, const char*> kMirrors[] = {
+        {"https://meta.fabricmc.net/",                  "https://bmclapi2.bangbang93.com/fabric-meta/"},
+        {"https://maven.fabricmc.net/",                 "https://bmclapi2.bangbang93.com/maven/"},
+        {"https://meta.quiltmc.org/",                   "https://bmclapi2.bangbang93.com/quilt-meta/"},
+        {"https://maven.quiltmc.org/repository/release/", "https://bmclapi2.bangbang93.com/maven/"},
+        {"https://maven.minecraftforge.net/",           "https://bmclapi2.bangbang93.com/maven/"},
+        {"https://maven.neoforged.net/releases/",       "https://bmclapi2.bangbang93.com/maven/"},
+        {"https://libraries.minecraft.net/",            "https://bmclapi2.bangbang93.com/maven/"},
+        {"https://repo1.maven.org/maven2/",             "https://bmclapi2.bangbang93.com/maven/"},
+        {"https://repo.maven.apache.org/maven2/",       "https://bmclapi2.bangbang93.com/maven/"},
+        {"https://launchermeta.mojang.com/",            "https://bmclapi2.bangbang93.com/"},
+        {"https://piston-data.mojang.com/",             "https://bmclapi2.bangbang93.com/"},
+        {"https://piston-meta.mojang.com/",             "https://bmclapi2.bangbang93.com/"},
+        {"https://resources.download.minecraft.net/",   "https://bmclapi2.bangbang93.com/assets/"},
+    };
+    std::vector<std::string> urls{url};
+    for (const auto& m : kMirrors) {
+        size_t n = std::strlen(m.first);
+        if (url.compare(0, n, m.first) == 0) {
+            urls.push_back(std::string(m.second) + url.substr(n));
+            break;
+        }
+    }
+    if (urls.size() > 1) {
+        std::lock_guard<std::mutex> lock(g_deadHostMutex);
+        if (g_deadHosts.count(hostOfUrl(url))) std::swap(urls[0], urls[1]);
+    }
+    return urls;
+}
+
+void noteNetworkFailure(const std::string& url, const std::string& err) {
+    if (err.rfind("ERR_NETWORK", 0) != 0) return;
+    const bool connectionFailed =
+        err.find("resolve") != std::string::npos ||
+        err.find("connect") != std::string::npos ||
+        err.find("reset") != std::string::npos ||
+        err.find("Recv failure") != std::string::npos ||
+        err.find("timed out") != std::string::npos ||
+        err.find("handshake") != std::string::npos;
+    if (!connectionFailed) return;
+    std::lock_guard<std::mutex> lock(g_deadHostMutex);
+    g_deadHosts.insert(hostOfUrl(url));
+}
+
+std::string withHostHint(std::string err, const std::string& url) {
+    if (err.rfind("ERR_NETWORK", 0) == 0) err += " [" + hostOfUrl(url) + "]";
+    return err;
+}
+
+bool httpGetOnceMirrored(const std::string& url, std::string& out, std::string& errorOut,
+                         const std::function<bool(const std::string&, std::string&, std::string&)>& once) {
+    auto urls = orderedMirrorUrls(url);
+    std::string firstErr;
+    for (const auto& u : urls) {
+        std::string e;
+        if (once(u, out, e)) return true;
+        noteNetworkFailure(u, e);
+        if (firstErr.empty()) firstErr = withHostHint(e, u);
+    }
+    errorOut = firstErr;
+    return false;
+}
+
 bool httpGetStringOnce(const std::string& url, std::string& out, std::string& errorOut) {
     CURL* curl = curl_easy_init();
     if (!curl) { errorOut = "curl_easy_init failed"; return false; }
@@ -235,7 +315,8 @@ bool httpGetStringOnce(const std::string& url, std::string& out, std::string& er
 
 bool httpGetString(const std::string& url, std::string& out, std::string& errorOut) {
     return withRetries([&](std::string& attemptError) {
-        return httpGetStringOnce(url, out, attemptError);
+        return httpGetOnceMirrored(url, out, attemptError,
+            [](const std::string& u, std::string& o, std::string& e) { return httpGetStringOnce(u, o, e); });
     }, 4, errorOut);
 }
 
@@ -266,7 +347,8 @@ bool httpGetStringOnceFast(const std::string& url, std::string& out, std::string
 bool httpGetStringFast(const std::string& url, std::string& out, std::string& errorOut) {
 
     return withRetries([&](std::string& attemptError) {
-        return httpGetStringOnceFast(url, out, attemptError);
+        return httpGetOnceMirrored(url, out, attemptError,
+            [](const std::string& u, std::string& o, std::string& e) { return httpGetStringOnceFast(u, o, e); });
     }, 4, errorOut);
 }
 
@@ -321,6 +403,12 @@ bool httpDownloadFileOnce(const std::string& url, const fs::path& destPath, std:
     fs::path tmpPath = destPath;
     tmpPath += ".part";
 
+    if (resumeFrom <= 0) {
+        resumeFrom = 0;
+        fs::remove(tmpPath, ec);
+        ec.clear();
+    }
+
     {
         std::ios::openmode mode = std::ios::binary | (resumeFrom > 0 ? std::ios::app : std::ios::trunc);
         std::ofstream out(tmpPath, mode);
@@ -329,6 +417,8 @@ bool httpDownloadFileOnce(const std::string& url, const fs::path& destPath, std:
         CURL* curl = curl_easy_init();
         if (!curl) { errorOut = "curl_easy_init failed"; return false; }
 
+        char curlError[CURL_ERROR_SIZE] = {};
+        curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curlError);
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeToFile);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &out);
@@ -336,41 +426,55 @@ bool httpDownloadFileOnce(const std::string& url, const fs::path& destPath, std:
         curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, connectTimeoutSec);
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
         curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, abortIfCancelledCallback);
-
         curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-
         curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 200L);
         curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, lowSpeedTimeSec);
-        if (absoluteTimeoutSec > 0) {
-            curl_easy_setopt(curl, CURLOPT_TIMEOUT, absoluteTimeoutSec);
-        }
-
-        if (resumeFrom > 0) {
-            curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, resumeFrom);
-        }
+        if (absoluteTimeoutSec > 0) curl_easy_setopt(curl, CURLOPT_TIMEOUT, absoluteTimeoutSec);
+        if (resumeFrom > 0) curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, resumeFrom);
 
         CURLcode res = curl_easy_perform(curl);
         long httpCode = 0;
+        char* effectiveUrl = nullptr;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+        curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &effectiveUrl);
+        std::string finalUrl = effectiveUrl ? effectiveUrl : url;
+        std::string detail = curlError[0] ? curlError : curl_easy_strerror(res);
         curl_easy_cleanup(curl);
+        out.flush();
+        bool writeOk = out.good();
+        out.close();
 
-        if (res != CURLE_OK) { errorOut = std::string("ERR_NETWORK||") + curl_easy_strerror(res); return false; }
-
-        if (resumeFrom > 0 && httpCode == 200) {
-            out.close();
-            fs::remove(tmpPath, ec);
-            errorOut = "Сервер не поддержал докачку файла, начинаем заново";
+        if (!writeOk) {
+            errorOut = "ERR_FILE_WRITE||Не удалось записать загруженный файл: " + tmpPath.string();
             return false;
         }
 
-        if (resumeFrom > 0 && httpCode == 416) {
-            out.close();
-            fs::remove(tmpPath, ec);
-            errorOut = "Докачка не подошла (416), начинаем закачку заново";
+        if (res != CURLE_OK) {
+            if (res == CURLE_ABORTED_BY_CALLBACK && g_cancelled.load()) {
+                errorOut = "CANCELLED";
+                return false;
+            }
+            errorOut = "ERR_NETWORK||curl " + std::to_string(static_cast<int>(res)) +
+                       " (" + detail + ") [" + finalUrl + "]";
             return false;
         }
+
+        if (resumeFrom > 0 && (httpCode == 200 || httpCode == 416)) {
+            fs::remove(tmpPath, ec);
+            errorOut = "ERR_DOWNLOAD_RESTART||Сервер не поддержал докачку (HTTP " +
+                       std::to_string(httpCode) + "), повторяем загрузку с начала";
+            return false;
+        }
+
         if (httpCode < 200 || httpCode >= 300) {
-            errorOut = "ERR_HTTP_STATUS||HTTP " + std::to_string(httpCode) + " (" + url + ")";
+            errorOut = "ERR_HTTP_STATUS||HTTP " + std::to_string(httpCode) + " (" + finalUrl + ")";
+            return false;
+        }
+
+        std::error_code sizeEc;
+        auto downloadedSize = fs::file_size(tmpPath, sizeEc);
+        if (sizeEc || downloadedSize == 0) {
+            errorOut = "ERR_EMPTY_DOWNLOAD||Сервер вернул пустой файл (" + finalUrl + ")";
             return false;
         }
     }
@@ -391,11 +495,45 @@ bool httpDownloadFile(const std::string& url, const fs::path& destPath, std::str
         std::error_code sizeEc;
         curl_off_t resumeFrom = 0;
         if (fs::exists(tmpPath, sizeEc)) {
-            resumeFrom = (curl_off_t)fs::file_size(tmpPath, sizeEc);
-            if (sizeEc) resumeFrom = 0;
+            resumeFrom = static_cast<curl_off_t>(fs::file_size(tmpPath, sizeEc));
+            if (sizeEc || resumeFrom <= 0) {
+                resumeFrom = 0;
+                fs::remove(tmpPath, sizeEc);
+            }
         }
         return httpDownloadFileOnce(url, destPath, attemptError, resumeFrom, connectTimeoutSec, lowSpeedTimeSec, absoluteTimeoutSec);
     }, maxAttempts, errorOut, onRetry);
+}
+
+fs::path pathFromUtf8(const std::string& value) {
+#ifdef _WIN32
+    if (value.empty()) return {};
+    int size = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+        value.data(), static_cast<int>(value.size()), nullptr, 0);
+    if (size <= 0) return fs::path(value);
+    std::wstring wide(static_cast<size_t>(size), L'\0');
+    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+        value.data(), static_cast<int>(value.size()), wide.data(), size);
+    return fs::path(wide);
+#else
+    return fs::path(value);
+#endif
+}
+
+std::string pathToUtf8(const fs::path& value) {
+#ifdef _WIN32
+    const std::wstring& wide = value.native();
+    if (wide.empty()) return {};
+    int size = WideCharToMultiByte(CP_UTF8, 0, wide.data(),
+        static_cast<int>(wide.size()), nullptr, 0, nullptr, nullptr);
+    if (size <= 0) return value.string();
+    std::string result(static_cast<size_t>(size), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, wide.data(), static_cast<int>(wide.size()),
+        result.data(), size, nullptr, nullptr);
+    return result;
+#else
+    return value.string();
+#endif
 }
 
 #ifdef _WIN32
@@ -609,6 +747,16 @@ int detectJavaMajorVersion(const fs::path& javaExe) {
 }
 #endif
 
+struct DownloadTask {
+    std::string url;
+    fs::path destination;
+    std::string sha1;
+};
+
+bool downloadFilesParallel(const std::vector<DownloadTask>& tasks, std::string& errorOut,
+                           const ProgressFn& onProgress, const std::string& stage,
+                           size_t maxWorkers = 8);
+
 bool ensureBundledJavaRuntime(const std::string& component, const fs::path& runtimeRoot,
                                const ProgressFn& onProgress, fs::path& javaExeOut, std::string& errorOut) {
     fs::path componentDir = runtimeRoot / component;
@@ -676,10 +824,11 @@ bool ensureBundledJavaRuntime(const std::string& component, const fs::path& runt
 
     if (!manifest.contains("files")) { errorOut = "В манифесте Java нет списка файлов"; return false; }
 
-    size_t total = manifest["files"].size();
-    size_t idx = 0;
+    std::vector<DownloadTask> runtimeDownloads;
+    std::vector<fs::path> executableFiles;
+    runtimeDownloads.reserve(manifest["files"].size());
+
     for (auto it = manifest["files"].begin(); it != manifest["files"].end(); ++it) {
-        idx++;
         if (!waitWhilePausedOrCancelled(errorOut)) return false;
 
         std::string relPath = it.key();
@@ -700,30 +849,28 @@ bool ensureBundledJavaRuntime(const std::string& component, const fs::path& runt
                 fs::create_symlink(entry.value("target", ""), dest, lec);
             }
 #endif
-
             continue;
-        }
-
-        if ((idx % 15) == 0 || idx == total) {
-            onProgress("java", (double)idx / (double)std::max<size_t>(1, total), "Загружаем Java...");
         }
 
         if (!entry.contains("downloads") || !entry["downloads"].contains("raw")) continue;
         const auto& raw = entry["downloads"]["raw"];
-
-        fs::path tmpDest = dest;
-        if (fs::exists(tmpDest)) continue; 
-
-        if (!httpDownloadFile(raw.value("url", ""), dest, errorOut)) return false;
+        runtimeDownloads.push_back({raw.value("url", ""), dest, raw.value("sha1", "")});
 #ifndef _WIN32
-        if (entry.value("executable", false)) {
-            std::error_code pec;
-            fs::permissions(dest,
-                fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
-                fs::perm_options::add, pec);
-        }
+        if (entry.value("executable", false)) executableFiles.push_back(dest);
 #endif
     }
+
+    onProgress("java", 0.0, "Загружаем файлы Java параллельно...");
+    if (!downloadFilesParallel(runtimeDownloads, errorOut, onProgress, "java", 8)) return false;
+
+#ifndef _WIN32
+    for (const auto& path : executableFiles) {
+        std::error_code pec;
+        fs::permissions(path,
+            fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
+            fs::perm_options::add, pec);
+    }
+#endif
 
     if (!fs::exists(javaExe)) {
         errorOut = "ERR_JAVA_MISSING_EXE||" + javaExe.string();
@@ -824,7 +971,105 @@ bool fileMatchesSha1(const fs::path& path, const std::string& expectedSha1) {
 
 bool ensureFile(const std::string& url, const fs::path& destPath, const std::string& expectedSha1, std::string& errorOut) {
     if (fileMatchesSha1(destPath, expectedSha1)) return true;
-    return httpDownloadFile(url, destPath, errorOut);
+    auto urls = orderedMirrorUrls(url);
+    std::vector<std::string> errors;
+    for (size_t i = 0; i < urls.size(); i++) {
+        std::error_code rec;
+        fs::path part = destPath; part += ".part";
+        if (i > 0) fs::remove(part, rec);
+        std::string e;
+        int attempts = (i + 1 < urls.size()) ? 3 : 8;
+        if (httpDownloadFile(urls[i], destPath, e, attempts)) return true;
+        if (e == "CANCELLED") { errorOut = e; return false; }
+        noteNetworkFailure(urls[i], e);
+        errors.push_back((i == 0 ? "Основной сервер: " : "Резервное зеркало: ") +
+                         withHostHint(e, urls[i]));
+    }
+    errorOut.clear();
+    for (size_t i = 0; i < errors.size(); ++i) {
+        if (i) errorOut += " || ";
+        errorOut += errors[i];
+    }
+    return false;
+}
+
+bool downloadFilesParallel(const std::vector<DownloadTask>& tasks, std::string& errorOut,
+                           const ProgressFn& onProgress, const std::string& stage,
+                           size_t maxWorkers) {
+    if (tasks.empty()) {
+        onProgress(stage, 1.0, "");
+        return true;
+    }
+
+    std::atomic<size_t> nextTask{0};
+    std::atomic<bool> failed{false};
+    std::mutex errorMutex;
+    std::mutex progressMutex;
+    size_t completed = 0;
+    const size_t workerCount = std::min(maxWorkers, tasks.size());
+    std::vector<std::thread> workers;
+    workers.reserve(workerCount);
+
+    try {
+        for (size_t worker = 0; worker < workerCount; ++worker) {
+            workers.emplace_back([&]() {
+                while (!failed.load() && !g_cancelled.load()) {
+                    try {
+                        const size_t index = nextTask.fetch_add(1);
+                        if (index >= tasks.size()) break;
+
+                        std::string taskError;
+                        if (!waitWhilePausedOrCancelled(taskError) ||
+                            !ensureFile(tasks[index].url, tasks[index].destination,
+                                        tasks[index].sha1, taskError)) {
+                            std::lock_guard<std::mutex> lock(errorMutex);
+                            if (!failed.exchange(true)) {
+                                errorOut = taskError.empty() ? "CANCELLED" : taskError;
+                            }
+                            break;
+                        }
+
+                        std::lock_guard<std::mutex> lock(progressMutex);
+                        ++completed;
+                        if (completed % 20 == 0 || completed == tasks.size()) {
+                            onProgress(stage, static_cast<double>(completed) /
+                                static_cast<double>(tasks.size()), "");
+                        }
+                    } catch (const std::exception& e) {
+                        std::lock_guard<std::mutex> lock(errorMutex);
+                        if (!failed.exchange(true)) {
+                            errorOut = std::string("ERR_DOWNLOAD_EXCEPTION||") + e.what();
+                        }
+                        break;
+                    } catch (...) {
+                        std::lock_guard<std::mutex> lock(errorMutex);
+                        if (!failed.exchange(true)) {
+                            errorOut = "ERR_DOWNLOAD_EXCEPTION||Неизвестная ошибка в потоке загрузки";
+                        }
+                        break;
+                    }
+                }
+            });
+        }
+    } catch (const std::exception& e) {
+        std::lock_guard<std::mutex> lock(errorMutex);
+        if (!failed.exchange(true)) {
+            errorOut = std::string("ERR_DOWNLOAD_WORKER_CREATE||") + e.what();
+        }
+    }
+
+    for (auto& worker : workers) {
+        if (worker.joinable()) worker.join();
+    }
+
+    if (g_cancelled.load()) {
+        errorOut = "CANCELLED";
+        return false;
+    }
+    if (failed.load()) return false;
+
+    onProgress(stage, 1.0, "");
+    return true;
 }
 
 bool extractZipFlatIgnoringDirsAndMeta(const fs::path& zipPath, const fs::path& outDir) {
@@ -987,9 +1232,26 @@ bool extractZipPreservingStructure(const fs::path& zipPath, const fs::path& outD
 
         std::string normalized = name;
         std::replace(normalized.begin(), normalized.end(), '\\', '/');
-        bool isDir = !normalized.empty() && normalized.back() == '/';
+        fs::path relativePath(normalized);
+        bool unsafePath = relativePath.is_absolute() ||
+                          relativePath.has_root_name() ||
+                          relativePath.has_root_directory() ||
+                          (normalized.size() >= 2 &&
+                           std::isalpha(static_cast<unsigned char>(normalized[0])) &&
+                           normalized[1] == ':');
+        for (const auto& part : relativePath) {
+            if (part == "..") {
+                unsafePath = true;
+                break;
+            }
+        }
+        if (unsafePath) {
+            errorOut = "Недопустимый путь в ZIP-архиве: " + name;
+            return false;
+        }
 
-        fs::path outPath = outDir / fs::path(normalized);
+        bool isDir = !normalized.empty() && normalized.back() == '/';
+        fs::path outPath = outDir / relativePath;
 
         if (isDir) {
             std::error_code ec;
@@ -2742,7 +3004,7 @@ bool installModrinthModpackImpl(const std::string& id, const std::string& mcVers
                                  const std::string& instanceName, const std::string& gameDir,
                                  const ProgressFn& onProgress, std::string& resolvedVersionOut,
                                  std::string& resolvedLoaderOut, std::string& errorOut) {
-    onProgress("manifest", 0.0, "Ищем сборку на Modrinth...");
+    onProgress("manifest", 0.0, "d:modpack.findMr");
 
     std::string url = "https://api.modrinth.com/v2/project/" + urlEncodeForModrinth(id) + "/version";
     if (!mcVersion.empty()) url += "?game_versions=" + urlEncodeForModrinth("[\"" + mcVersion + "\"]");
@@ -2865,7 +3127,7 @@ bool installCurseForgeModpackImpl(const std::string& id, const std::string& mcVe
                                    const std::string& instanceName, const std::string& gameDir,
                                    const ProgressFn& onProgress, std::string& resolvedVersionOut,
                                    std::string& resolvedLoaderOut, std::string& errorOut) {
-    onProgress("manifest", 0.0, "Ищем сборку на CurseForge...");
+    onProgress("manifest", 0.0, "d:modpack.findCf");
 
     std::string versionParam = mcVersion.empty() ? "" :
         ("&gameVersion=" + urlEncodeForModrinth(curseforgeVersionParam(mcVersion)));
@@ -2893,7 +3155,7 @@ bool installCurseForgeModpackImpl(const std::string& id, const std::string& mcVe
     fs::create_directories(tmpDir, ec);
 
     fs::path packZipPath = tmpDir / "pack.zip";
-    onProgress("manifest", 0.1, "Загружаем сборку...");
+    onProgress("manifest", 0.1, "d:modpack.download");
     if (!httpDownloadFile(packUrl, packZipPath, errorOut)) return false;
 
     fs::path extractDir = tmpDir / "extracted";
@@ -2977,8 +3239,24 @@ bool installCurseForgeModpackImpl(const std::string& id, const std::string& mcVe
 
     resolvedVersionOut = resolvedMcVersion;
     resolvedLoaderOut = resolvedLoader;
-    onProgress("mods", 1.0, "Сборка установлена");
-    return true;
+    onProgress("mods", 1.0, "Modpack installed");
+    return true;"d:modpack.done";
+}
+
+std::optional<fs::path> findShallowestFile(const fs::path& root, const std::string& filename) {
+    std::optional<fs::path> best;
+    int bestDepth = 1 << 30;
+    std::error_code ec;
+    for (auto it = fs::recursive_directory_iterator(root, fs::directory_options::skip_permission_denied, ec);
+         it != fs::recursive_directory_iterator(); it.increment(ec)) {
+        if (ec) break;
+        std::error_code fe;
+        if (!it->is_regular_file(fe)) continue;
+        if (it->path().filename() != filename) continue;
+        if (it->path().string().find("__MACOSX") != std::string::npos) continue;
+        if (it.depth() < bestDepth) { bestDepth = it.depth(); best = it->path(); }
+    }
+    return best;
 }
 
 bool installModpackFromLocalFileImpl(const std::string& localPath, const std::string& instanceName,
@@ -2987,7 +3265,7 @@ bool installModpackFromLocalFileImpl(const std::string& localPath, const std::st
                                       std::string& errorOut) {
     fs::path srcFile(localPath);
     std::error_code ec;
-    if (!fs::exists(srcFile, ec)) { errorOut = "Файл не найден: " + localPath; return false; }
+    if (!fs::exists(srcFile, ec)) { errorOut = "ERR_FILE_NOT_FOUND||" + localPath; return false; }
 
     fs::path root(gameDir);
     fs::path tmpDir = root / "modpack_tmp" / instanceName;
@@ -2995,8 +3273,12 @@ bool installModpackFromLocalFileImpl(const std::string& localPath, const std::st
     fs::create_directories(tmpDir, ec);
 
     fs::path extractDir = tmpDir / "extracted";
-    onProgress("manifest", 0.05, "Распаковываем архив...");
+    onProgress("manifest", 0.05, "d:modpack.unpack");
     if (!extractZipPreservingStructure(srcFile, extractDir, errorOut)) return false;
+
+    if (auto mr = findShallowestFile(extractDir, "modrinth.index.json")) extractDir = mr->parent_path();
+    else if (auto cf = findShallowestFile(extractDir, "manifest.json")) extractDir = cf->parent_path();
+    else if (auto mmc = findShallowestFile(extractDir, "mmc-pack.json")) extractDir = mmc->parent_path();
 
     fs::path mrpackIndex = extractDir / "modrinth.index.json";
     fs::path cfManifest = extractDir / "manifest.json";
@@ -3025,7 +3307,7 @@ bool installModpackFromLocalFileImpl(const std::string& localPath, const std::st
             else if (deps.contains("quilt-loader")) resolvedLoader = "quilt";
             else if (deps.contains("neoforge")) resolvedLoader = "neoforge";
         }
-        if (resolvedMcVersion.empty()) { errorOut = "Не удалось определить версию Minecraft из сборки"; return false; }
+        if (resolvedMcVersion.empty()) { errorOut = "ERR_PACK_NO_MC_VERSION||"; return false; }
 
         if (index.contains("files")) {
             size_t total = index["files"].size();
@@ -3079,7 +3361,7 @@ bool installModpackFromLocalFileImpl(const std::string& localPath, const std::st
                 if (dashPos != std::string::npos) { resolvedLoader = loaderId.substr(0, dashPos); break; }
             }
         }
-        if (resolvedMcVersion.empty()) { errorOut = "Не удалось определить версию Minecraft из сборки"; return false; }
+        if (resolvedMcVersion.empty()) { errorOut = "ERR_PACK_NO_MC_VERSION||"; return false; }
 
         fs::path modsDir = instanceDir / "mods";
         fs::create_directories(modsDir, ec);
@@ -3098,7 +3380,7 @@ bool installModpackFromLocalFileImpl(const std::string& localPath, const std::st
                 std::string fileInfoUrl = "https://api.curseforge.com/v1/mods/" + projectId + "/files/" + fileId;
                 std::string fileRaw, fileErr;
                 if (!httpGetStringWithHeader(fileInfoUrl, curseforgeAuthHeader(), fileRaw, fileErr)) {
-                    onProgress("mods", (double)idx / (double)std::max<size_t>(1, total), "Пропускаем недоступный файл...");
+                    onProgress("mods", (double)idx / (double)std::max<size_t>(1, total), "d:modpack.skip");
                     continue;
                 }
 
@@ -3120,8 +3402,32 @@ bool installModpackFromLocalFileImpl(const std::string& localPath, const std::st
         if (fs::exists(overridesSrc, ec)) {
             fs::copy(overridesSrc, instanceDir, fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec);
         }
+    } else if (fs::exists(extractDir / "mmc-pack.json", ec)) {
+        resolvedMcVersion.clear();
+        resolvedLoader = "vanilla";
+        try {
+            std::ifstream f(extractDir / "mmc-pack.json", std::ios::binary);
+            std::stringstream ss; ss << f.rdbuf();
+            json mmc = json::parse(ss.str());
+            for (const auto& comp : mmc.value("components", json::array())) {
+                std::string uid = comp.value("uid", "");
+                if (uid == "net.minecraft") resolvedMcVersion = comp.value("version", "");
+                else if (uid == "net.fabricmc.fabric-loader") resolvedLoader = "fabric";
+                else if (uid == "org.quiltmc.quilt-loader") resolvedLoader = "quilt";
+                else if (uid == "net.minecraftforge") resolvedLoader = "forge";
+                else if (uid == "net.neoforged") resolvedLoader = "neoforge";
+            }
+        } catch (...) {}
+        if (resolvedMcVersion.empty()) { errorOut = "ERR_PACK_NO_MC_VERSION||"; return false; }
+
+        onProgress("mods", 0.5, "d:modpack.copy");
+        fs::path gameRoot = extractDir;
+        for (const char* d : {".minecraft", "minecraft"}) {
+            if (fs::exists(extractDir / d, ec)) { gameRoot = extractDir / d; break; }
+        }
+        fs::copy(gameRoot, instanceDir, fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec);
     } else {
-        errorOut = "Это не похоже на модпак (нет modrinth.index.json или manifest.json)";
+        errorOut = "ERR_NOT_MODPACK||";
         return false;
     }
 
@@ -3461,7 +3767,7 @@ bool extractZipFromRarArchiveImpl(const fs::path& rarPath, const fs::path& targe
 
 bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std::string& errorOut) {
 
-    g_cancelled.store(false);
+    try {
     g_paused.store(false);
 
     if (g_gameProcessActive.load()) {
@@ -3475,7 +3781,7 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         return false;
     }
 
-    fs::path root(req.gameDir);
+    fs::path root = pathFromUtf8(req.gameDir);
     fs::path versionsDir = root / "versions" / req.version;
     fs::path librariesDir = root / "libraries";
     fs::path assetsDir = root / "assets";
@@ -3517,7 +3823,7 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
     }
 
     std::string javaPath;
-    bool manualPathValid = !req.javaPath.empty() && fs::exists(req.javaPath);
+    bool manualPathValid = !req.javaPath.empty() && fs::exists(pathFromUtf8(req.javaPath));
 
     if (manualPathValid) {
 
@@ -3528,7 +3834,7 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
 
         if (fallback && (fallbackMajor == requiredMajor || fallbackMajor == -1)) {
 
-            javaPath = fallback->string();
+            javaPath = pathToUtf8(*fallback);
         } else {
 
             fs::path runtimeRoot = root / "runtime";
@@ -3536,7 +3842,7 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
             if (!ensureBundledJavaRuntime(requiredComponent, runtimeRoot, onProgress, bundledJava, errorOut)) {
                 return false;
             }
-            javaPath = bundledJava.string();
+            javaPath = pathToUtf8(bundledJava);
         }
     }
 
@@ -3561,39 +3867,41 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
     std::vector<fs::path> nativesJarsToExtract;
 
     if (vjson.contains("libraries")) {
-        size_t total = vjson["libraries"].size();
-        size_t idx = 0;
+        std::vector<DownloadTask> libraryDownloads;
+        std::map<std::string, bool> scheduledLibraryPaths;
         for (const auto& lib : vjson["libraries"]) {
-            idx++;
             if (!waitWhilePausedOrCancelled(errorOut)) return false;
-            onProgress("libraries", (double)idx / (double)std::max<size_t>(1,total), "");
-
             if (lib.contains("rules") && !rulesAllowWindows(lib["rules"])) continue;
+            if (!lib.contains("downloads")) continue;
 
-            if (lib.contains("downloads")) {
-                const auto& downloads = lib["downloads"];
-
-                if (downloads.contains("artifact")) {
-                    const auto& art = downloads["artifact"];
-                    fs::path dest = librariesDir / fs::path(art.value("path",""));
-                    if (!ensureFile(art.value("url",""), dest, art.value("sha1",""), errorOut)) return false;
-                    classpathEntries.push_back(dest.string());
+            const auto& downloads = lib["downloads"];
+            if (downloads.contains("artifact")) {
+                const auto& art = downloads["artifact"];
+                fs::path dest = librariesDir / fs::path(art.value("path", ""));
+                if (scheduledLibraryPaths.emplace(pathToUtf8(dest), true).second) {
+                    libraryDownloads.push_back({art.value("url", ""), dest, art.value("sha1", "")});
                 }
+                classpathEntries.push_back(pathToUtf8(dest));
+            }
 
-                if (lib.contains("natives") && downloads.contains("classifiers")) {
-                    std::string classifierKey = lib["natives"].value(platform::kOsName, "");
-                    size_t archPos = classifierKey.find("${arch}");
-                    if (archPos != std::string::npos) classifierKey.replace(archPos, 7, "64");
+            if (lib.contains("natives") && downloads.contains("classifiers")) {
+                std::string classifierKey = lib["natives"].value(platform::kOsName, "");
+                size_t archPos = classifierKey.find("${arch}");
+                if (archPos != std::string::npos) classifierKey.replace(archPos, 7, "64");
 
-                    if (!classifierKey.empty() && downloads["classifiers"].contains(classifierKey)) {
-                        const auto& art = downloads["classifiers"][classifierKey];
-                        fs::path dest = librariesDir / fs::path(art.value("path",""));
-                        if (!ensureFile(art.value("url",""), dest, art.value("sha1",""), errorOut)) return false;
-                        nativesJarsToExtract.push_back(dest);
+                if (!classifierKey.empty() && downloads["classifiers"].contains(classifierKey)) {
+                    const auto& art = downloads["classifiers"][classifierKey];
+                    fs::path dest = librariesDir / fs::path(art.value("path", ""));
+                    if (scheduledLibraryPaths.emplace(pathToUtf8(dest), true).second) {
+                        libraryDownloads.push_back({art.value("url", ""), dest, art.value("sha1", "")});
                     }
+                    nativesJarsToExtract.push_back(dest);
                 }
             }
         }
+
+        onProgress("libraries", 0.0, "Загружаем библиотеки параллельно...");
+        if (!downloadFilesParallel(libraryDownloads, errorOut, onProgress, "libraries", 8)) return false;
     }
 
     onProgress("libraries", 1.0, "Распаковываем нативные библиотеки...");
@@ -3626,23 +3934,21 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         catch (const std::exception& e) { errorOut = std::string("Не удалось разобрать asset index: ") + e.what(); return false; }
 
         if (assetIndex.contains("objects")) {
-            size_t total = assetIndex["objects"].size();
-            size_t idx = 0;
+            std::vector<DownloadTask> assetDownloads;
+            assetDownloads.reserve(assetIndex["objects"].size());
+            std::map<std::string, bool> scheduledAssetHashes;
+
             for (auto it = assetIndex["objects"].begin(); it != assetIndex["objects"].end(); ++it) {
-                idx++;
-                if (!waitWhilePausedOrCancelled(errorOut)) return false;
                 std::string hash = it.value().value("hash", "");
-                if (hash.size() < 2) continue;
+                if (hash.size() < 2 || !scheduledAssetHashes.emplace(hash, true).second) continue;
                 std::string prefix = hash.substr(0, 2);
                 fs::path dest = assetsDir / "objects" / prefix / hash;
                 std::string url = "https://resources.download.minecraft.net/" + prefix + "/" + hash;
-
-                if ((idx % 25) == 0 || idx == total) {
-                    onProgress("assets", (double)idx / (double)std::max<size_t>(1,total), "");
-                }
-
-                if (!ensureFile(url, dest, hash, errorOut)) return false;
+                assetDownloads.push_back({url, dest, hash});
             }
+
+            onProgress("assets", 0.0, "Загружаем ассеты параллельно...");
+            if (!downloadFilesParallel(assetDownloads, errorOut, onProgress, "assets", 8)) return false;
         }
     }
 
@@ -3653,39 +3959,108 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
     std::string accessToken = isOnlineAuth ? req.authAccessToken : "0";
     std::string userType = isOnlineAuth ? "msa" : "legacy";
 
-    fs::path instanceDir = req.instanceName.empty() ? root : (root / "instances" / req.instanceName);
+    fs::path instanceDir = req.instanceName.empty() ? root : (root / "instances" / pathFromUtf8(req.instanceName));
     fs::create_directories(instanceDir);
 
     if (req.instanceName.empty()) {
         reconcileModsForVersion(instanceDir / "mods", req.version, req.loader);
     }
 
+    if (req.loader != "vanilla") {
+        onProgress("magma_skins", 0.0, "Подключаем Magma Skins...");
+
+        fs::path modsDir = instanceDir / "mods";
+        std::error_code skinLoaderEc;
+        fs::create_directories(modsDir, skinLoaderEc);
+
+        bool hasCustomSkinLoader = false;
+        if (!skinLoaderEc && fs::exists(modsDir, skinLoaderEc)) {
+            for (const auto& entry : fs::directory_iterator(modsDir, skinLoaderEc)) {
+                if (skinLoaderEc) break;
+                if (!entry.is_regular_file()) continue;
+
+                std::string filename = entry.path().filename().string();
+                std::transform(filename.begin(), filename.end(), filename.begin(),
+                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+                std::string extension = entry.path().extension().string();
+                std::transform(extension.begin(), extension.end(), extension.begin(),
+                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+                if (filename.rfind("customskinloader", 0) == 0 && extension == ".jar") {
+                    hasCustomSkinLoader = true;
+                    break;
+                }
+            }
+        }
+
+        std::string skinLoaderFile;
+        std::string skinLoaderError;
+        if (!skinLoaderEc && (hasCustomSkinLoader ||
+            installModToDirImpl("customskinloader", req.version, req.loader, modsDir, skinLoaderFile, skinLoaderError))) {
+            fs::path extraListDir = instanceDir / "CustomSkinLoader" / "ExtraList";
+            fs::create_directories(extraListDir, skinLoaderEc);
+
+            if (!skinLoaderEc) {
+                json source = {
+                    {"name", "Magma Skins"},
+                    {"type", "CustomSkinAPI"},
+                    {"root", "https://bjgpqlegoptegcbogncq.supabase.co/functions/v1/magma-skin-api/"}
+                };
+
+                std::ofstream config(extraListDir / "MagmaSkins.json", std::ios::binary | std::ios::trunc);
+                if (config) {
+                    config << source.dump(2);
+                    config.close();
+                    onProgress("magma_skins", 1.0, "Magma Skins подключён.");
+                } else {
+                    onProgress("magma_skins", 1.0, "Не удалось сохранить конфигурацию Magma Skins.");
+                }
+            } else {
+                onProgress("magma_skins", 1.0, "Не удалось создать папку CustomSkinLoader.");
+            }
+        } else {
+            if (g_cancelled.load() || skinLoaderError == "CANCELLED") {
+                errorOut = "CANCELLED";
+                return false;
+            }
+            std::string detail = skinLoaderError.empty() ? skinLoaderEc.message() : skinLoaderError;
+            errorOut = "Не удалось установить CustomSkinLoader: " + detail;
+            return false;
+        }
+    }
+
+    if (g_cancelled.load()) {
+        errorOut = "CANCELLED";
+        return false;
+    }
+
     int ramMb = req.ramMb;
     if (ramMb < 512) ramMb = 512;
     if (ramMb > 65536) ramMb = 65536;
 
-    std::string classpath = clientJarPath.string();
+    std::string classpath = pathToUtf8(clientJarPath);
     for (const auto& e : classpathEntries) { classpath += platform::kPathListSep; classpath += e; }
 
     std::vector<std::pair<std::string,std::string>> vars = {
         {"auth_player_name", req.username},
         {"version_name", req.version},
-        {"game_directory", instanceDir.string()},
-        {"assets_root", assetsDir.string()},
+        {"game_directory", pathToUtf8(instanceDir)},
+        {"assets_root", pathToUtf8(assetsDir)},
         {"assets_index_name", vjson.value("assets", req.version)},
         {"auth_uuid", uuid},
         {"auth_access_token", accessToken},
         {"user_type", userType},
         {"version_type", vjson.value("type", "release")},
-        {"natives_directory", nativesDir.string()},
+        {"natives_directory", pathToUtf8(nativesDir)},
         {"launcher_name", "MagmaLauncher"},
         {"launcher_version", "1.0"},
         {"classpath", classpath},
         {"auth_session", "0"},
-        {"game_assets", (assetsDir / "virtual" / "legacy").string()},
+        {"game_assets", pathToUtf8(assetsDir / "virtual" / "legacy")},
         {"user_properties", "{}"},
         {"classpath_separator", platform::kPathListSep},
-        {"library_directory", librariesDir.string()},
+        {"library_directory", pathToUtf8(librariesDir)},
     };
 
     std::vector<std::string> jvmArgs;
@@ -3710,7 +4085,7 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         if (vjson["arguments"].contains("jvm")) collect(vjson["arguments"]["jvm"], jvmArgs);
         if (vjson["arguments"].contains("game")) collect(vjson["arguments"]["game"], gameArgs);
     } else if (vjson.contains("minecraftArguments")) {
-        jvmArgs = { "-Djava.library.path=" + nativesDir.string(), "-cp", classpath };
+        jvmArgs = { "-Djava.library.path=" + pathToUtf8(nativesDir), "-cp", classpath };
         std::istringstream iss(vjson["minecraftArguments"].get<std::string>());
         std::string tok;
         while (iss >> tok) gameArgs.push_back(substitutePlaceholders(tok, vars));
@@ -3762,7 +4137,7 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
         if (a == "-cp" || a == "-classpath") hasCp = true;
         if (a.rfind("-Djava.library.path", 0) == 0) hasLibPath = true;
     }
-    if (!hasLibPath) jvmArgs.insert(jvmArgs.begin(), "-Djava.library.path=" + nativesDir.string());
+    if (!hasLibPath) jvmArgs.insert(jvmArgs.begin(), "-Djava.library.path=" + pathToUtf8(nativesDir));
     if (!hasCp) { jvmArgs.push_back("-cp"); jvmArgs.push_back(classpath); }
 
     std::string mainClass = ((req.loader == "fabric" || req.loader == "quilt") && !fabricMainClass.empty())
@@ -3779,14 +4154,17 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
 #ifdef _WIN32
 
     std::string cmdLine = cmd.str();
-    std::vector<char> cmdBuf(cmdLine.begin(), cmdLine.end());
-    cmdBuf.push_back('\0');
+    std::wstring wideCommand = pathFromUtf8(cmdLine).wstring();
+    std::vector<wchar_t> cmdBuf(wideCommand.begin(), wideCommand.end());
+    cmdBuf.push_back(L'\0');
 
-    STARTUPINFOA si{}; si.cb = sizeof(si);
+    std::wstring wideJavaPath = pathFromUtf8(javaPath).wstring();
+    std::wstring wideWorkingDirectory = instanceDir.wstring();
+    STARTUPINFOW si{}; si.cb = sizeof(si);
     PROCESS_INFORMATION pi{};
-    BOOL ok = CreateProcessA(
-        nullptr, cmdBuf.data(), nullptr, nullptr, FALSE,
-        CREATE_NO_WINDOW, nullptr, instanceDir.string().c_str(), &si, &pi);
+    BOOL ok = CreateProcessW(
+        wideJavaPath.c_str(), cmdBuf.data(), nullptr, nullptr, FALSE,
+        CREATE_NO_WINDOW, nullptr, wideWorkingDirectory.c_str(), &si, &pi);
 
         if (!ok) {
         DWORD err = GetLastError();
@@ -3837,6 +4215,13 @@ bool launchMinecraft(const LaunchRequest& req, const ProgressFn& onProgress, std
 #endif
     onProgress("launch", 1.0, "Игра запущена");
     return true;
+    } catch (const std::exception& e) {
+        errorOut = std::string("ERR_LAUNCH_EXCEPTION||") + e.what();
+        return false;
+    } catch (...) {
+        errorOut = "ERR_LAUNCH_EXCEPTION||Неизвестная ошибка";
+        return false;
+    }
 }
 
 bool detectSystemJava(std::string& javaPathOut, std::string& errorOut) {
@@ -4315,11 +4700,11 @@ bool createModpack(const ModpackRequest& req, const ProgressFn& onProgress, std:
     for (size_t i = 0; i < total; i++) {
         if (g_cancelled.load()) { errorOut = "CANCELLED"; return false; }
         onProgress("mods", (double)i / (double)std::max<size_t>(1, total),
-                   "Скачиваем " + enabledMods[i].slug + "...");
+        "d:mods.downloading|" + enabledMods[i].slug);
         std::string installedFileName; 
         if (!installModToDir(enabledMods[i].slug, req.mcVersion, req.loader, modsDir.string(), installedFileName, errorOut)) return false;
     }
-    onProgress("mods", 1.0, "Модпак создан");
+    onProgress("mods", 1.0, "d:modpack.done");
     return true;
 }
 
@@ -4341,7 +4726,7 @@ bool resetVersionCache(const std::string& version, const std::string& gameDir, s
 
 // Increment this number for every launcher binary update while keeping the public
 // product version (for example, "Alpha 1") unchanged.
-static constexpr int MAGMA_LAUNCHER_BUILD = 4;
+static constexpr int MAGMA_LAUNCHER_BUILD = 6;
 
 int cmpVersionStrings(const std::string& v1, const std::string& v2) {
     auto extractSegments = [](const std::string& v) {
@@ -4372,33 +4757,35 @@ int cmpVersionStrings(const std::string& v1, const std::string& v2) {
 }
 
 bool checkLauncherUpdate(const std::string& manifestUrl, const std::string& currentVersion, UpdateInfo& infoOut, std::string& errorOut) {
-#ifndef _WIN32
-    (void)manifestUrl; (void)currentVersion;
-    infoOut = UpdateInfo{};
-    errorOut.clear();
-    return true;
-#endif
     std::string raw;
     if (!httpGetStringFast(manifestUrl, raw, errorOut)) return false;
     try {
         json j = json::parse(raw);
         infoOut.version = j.value("version", "");
-        infoOut.url = j.value("url", "");
         infoOut.notes = j.value("notes", "");
         infoOut.build = (j.contains("build") && j["build"].is_number_integer()) ? j["build"].get<int>() : 0;
+#ifdef _WIN32
+        infoOut.url = j.value("url", "");
+#elif defined(__APPLE__)
+        infoOut.url = platform::kOsArch == std::string("arm64")
+            ? j.value("macos_arm64_url", "")
+            : j.value("macos_x64_url", "");
+#else
+        infoOut.url = j.value("linux_url", "");
+#endif
         // New manifests can use a numeric build to publish maintenance updates
         // without changing the public version label (e.g. Alpha 1, build 3).
         // If "build" exists, it is authoritative for build-aware clients.
         // Older installed clients ignore it and can be bootstrapped once by
         // temporarily publishing version "Alpha 1.1".
+        bool newer = false;
         if (j.contains("build") && j["build"].is_number_integer()) {
-            const int manifestBuild = j["build"].get<int>();
-            infoOut.available = manifestBuild > MAGMA_LAUNCHER_BUILD;
+            newer = infoOut.build > MAGMA_LAUNCHER_BUILD;
         } else {
-            // Backward compatibility with manifests that only have "version".
-            infoOut.available = !infoOut.version.empty() &&
+            newer = !infoOut.version.empty() &&
                 cmpVersionStrings(infoOut.version, currentVersion) > 0;
         }
+        infoOut.available = newer && !infoOut.url.empty();
         return true;
     } catch (const std::exception& e) {
         errorOut = std::string("Не удалось разобрать манифест обновления: ") + e.what();
@@ -4495,13 +4882,17 @@ bool downloadUpdateFile(const std::string& url, const fs::path& dest, const Prog
 } // namespace
 
 static void updateLog(const std::string& line) {
+    std::error_code ec;
+#ifdef _WIN32
     const char* base = std::getenv("LOCALAPPDATA");
     if (!base) return;
-    std::error_code ec;
     fs::path dir = fs::path(base) / "MagmaLauncher";
+#else
+    fs::path dir = platform::userDataDir();
+#endif
     fs::create_directories(dir, ec);
     std::ofstream f(dir / "update.log", std::ios::binary | std::ios::app);
-    if (f) f << line << "\r\n";
+    if (f) f << line << "\n";
 }
 
 struct AppliedUpdateFile {
@@ -4728,10 +5119,154 @@ bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& 
     return true;
 }
 
-#else
-bool downloadAndInstallLauncherUpdate(const std::string&, const ProgressFn&, std::string& errorOut) {
-    errorOut = "ERR_UPDATE_APPLY||На этой ОС обновления ставятся через apt / новый DMG";
-    return false;
+#elif defined(__linux__)
+bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& onProgress, std::string& errorOut) {
+    g_cancelled.store(false);
+    std::error_code ec;
+    fs::path tempDir = fs::temp_directory_path(ec) / "MagmaLauncherUpdate";
+    if (ec) { errorOut = "Не удалось определить временную папку: " + ec.message(); return false; }
+    fs::create_directories(tempDir, ec);
+    if (ec) { errorOut = "Не удалось создать временную папку обновления: " + ec.message(); return false; }
+
+    fs::path package = tempDir / "magmalauncher-update.deb";
+    onProgress("update", 0.0, "Загружаем обновление...");
+    if (!downloadUpdateFile(url, package, onProgress, errorOut)) return false;
+
+    std::ifstream in(package, std::ios::binary);
+    char magic[8]{};
+    in.read(magic, sizeof(magic));
+    if (!in || std::string(magic, sizeof(magic)) != "!<arch>\n") {
+        errorOut = "ERR_NETWORK||Скачанный файл не является Debian-пакетом";
+        return false;
+    }
+
+    const fs::path helper = tempDir / "apply_update.sh";
+    const fs::path log = platform::userDataDir() / "update.log";
+    const fs::path guard = platform::userDataDir() / "update_attempt.txt";
+    auto shellQuote = [](const std::string& value) {
+        std::string out = "'";
+        for (char c : value) {
+            if (c == '\'') out += "'\\''";
+            else out += c;
+        }
+        return out + "'";
+    };
+    std::ofstream script(helper, std::ios::binary | std::ios::trunc);
+    if (!script) { errorOut = "Не удалось создать скрипт установки обновления"; return false; }
+    script << "#!/bin/sh\n"
+           << "PID=" << getpid() << "\n"
+           << "PACKAGE=" << shellQuote(package.string()) << "\n"
+           << "LOG=" << shellQuote(log.string()) << "\n"
+           << "GUARD=" << shellQuote(guard.string()) << "\n"
+           << "while kill -0 \"$PID\" 2>/dev/null; do sleep 1; done\n"
+           << "if pkexec dpkg -i \"$PACKAGE\" >>\"$LOG\" 2>&1; then\n"
+           << "  /usr/bin/magmalauncher >>\"$LOG\" 2>&1 &\n"
+           << "else\n"
+           << "  if command -v zenity >/dev/null 2>&1; then zenity --error --text='Не удалось установить обновление MagmaLauncher. Подробности: update.log'; fi\n"
+           << "fi\n"
+           << "rm -f \"$GUARD\" \"$PACKAGE\" \"$0\"\n";
+    script.close();
+    if (!script) { errorOut = "Не удалось записать скрипт установки обновления"; return false; }
+
+    if (platform::spawnDetached({"/bin/sh", helper.string()}, tempDir, log) == 0) {
+        errorOut = "Не удалось запустить установщик обновления";
+        return false;
+    }
+    updateLog("Linux: пакет загружен, передаём установку dpkg через pkexec");
+    onProgress("update", 1.0, "Перезапуск для установки обновления...");
+    return true;
+}
+
+#elif defined(__APPLE__)
+bool downloadAndInstallLauncherUpdate(const std::string& url, const ProgressFn& onProgress, std::string& errorOut) {
+    g_cancelled.store(false);
+    std::error_code ec;
+    fs::path tempDir = fs::temp_directory_path(ec) / "MagmaLauncherUpdate";
+    if (ec) { errorOut = "Не удалось определить временную папку: " + ec.message(); return false; }
+    fs::create_directories(tempDir, ec);
+    if (ec) { errorOut = "Не удалось создать временную папку обновления: " + ec.message(); return false; }
+
+    fs::path dmg = tempDir / "MagmaLauncher-update.dmg";
+    onProgress("update", 0.0, "Загружаем обновление...");
+    if (!downloadUpdateFile(url, dmg, onProgress, errorOut)) return false;
+
+    fs::path appBundle = platform::executableDir().parent_path().parent_path();
+    if (appBundle.extension() != ".app" || !fs::exists(appBundle / "Contents" / "Info.plist", ec)) {
+        errorOut = "ERR_UPDATE_APPLY||Не удалось определить установленный MagmaLauncher.app";
+        return false;
+    }
+
+    auto shellQuote = [](const std::string& value) {
+        std::string out = "'";
+        for (char c : value) {
+            if (c == '\'') out += "'\\''";
+            else out += c;
+        }
+        return out + "'";
+    };
+    auto appleQuote = [](const std::string& value) {
+        std::string out;
+        for (char c : value) {
+            if (c == '\\' || c == '"') out += '\\';
+            out += c;
+        }
+        return out;
+    };
+
+    fs::path mount = tempDir / "mount";
+    fs::path stagedApp = tempDir / "MagmaLauncher.app.new";
+    fs::path helper = tempDir / "apply_update.sh";
+    fs::path log = platform::userDataDir() / "update.log";
+    fs::path guard = platform::userDataDir() / "update_attempt.txt";
+    fs::path backup = appBundle;
+    backup += ".old";
+
+    std::string privilegedCommand =
+        "/bin/rm -rf " + shellQuote(backup.string()) +
+        " && /bin/mv " + shellQuote(appBundle.string()) + " " + shellQuote(backup.string()) +
+        " && if /usr/bin/ditto " + shellQuote(stagedApp.string()) + " " + shellQuote(appBundle.string()) +
+        "; then /bin/rm -rf " + shellQuote(backup.string()) +
+        "; else /bin/rm -rf " + shellQuote(appBundle.string()) +
+        " && /bin/mv " + shellQuote(backup.string()) + " " + shellQuote(appBundle.string()) +
+        " && exit 1; fi";
+    std::string appleScript = "do shell script \"" + appleQuote(privilegedCommand) +
+                              "\" with administrator privileges";
+
+    std::ofstream script(helper, std::ios::binary | std::ios::trunc);
+    if (!script) { errorOut = "Не удалось создать скрипт установки обновления"; return false; }
+    script << "#!/bin/bash\n"
+           << "PID=" << getpid() << "\n"
+           << "DMG=" << shellQuote(dmg.string()) << "\n"
+           << "APP=" << shellQuote(appBundle.string()) << "\n"
+           << "STAGE=" << shellQuote(stagedApp.string()) << "\n"
+           << "MOUNT=" << shellQuote(mount.string()) << "\n"
+           << "LOG=" << shellQuote(log.string()) << "\n"
+           << "GUARD=" << shellQuote(guard.string()) << "\n"
+           << "trap 'rm -f \"$GUARD\"' EXIT\n"
+           << "while kill -0 \"$PID\" 2>/dev/null; do sleep 1; done\n"
+           << "mkdir -p \"$MOUNT\"\n"
+           << "hdiutil attach \"$DMG\" -nobrowse -readonly -mountpoint \"$MOUNT\" >>\"$LOG\" 2>&1 || exit 1\n"
+           << "SRC=\"$MOUNT/MagmaLauncher.app\"\n"
+           << "if [ ! -d \"$SRC\" ]; then hdiutil detach \"$MOUNT\" -quiet; exit 1; fi\n"
+           << "ditto \"$SRC\" \"$STAGE\" >>\"$LOG\" 2>&1 || exit 1\n"
+           << "if [ -w \"$(dirname \"$APP\")\" ]; then\n"
+           << "  BACKUP=\"$APP.old\"; rm -rf \"$BACKUP\"; mv \"$APP\" \"$BACKUP\" && ditto \"$STAGE\" \"$APP\" && rm -rf \"$BACKUP\" || { [ ! -d \"$BACKUP\" ] || mv \"$BACKUP\" \"$APP\"; exit 1; }\n"
+           << "else\n"
+           << "  osascript -e " << shellQuote(appleScript) << " >>\"$LOG\" 2>&1 || exit 1\n"
+           << "fi\n"
+           << "hdiutil detach \"$MOUNT\" -quiet || true\n"
+           << "open -a \"$APP\"\n"
+           << "rm -rf \"$STAGE\" \"$DMG\" \"$0\"\n";
+    script.close();
+    if (!script) { errorOut = "Не удалось записать скрипт установки обновления"; return false; }
+
+    if (platform::spawnDetached({"/bin/bash", helper.string()}, tempDir, log) == 0) {
+        errorOut = "Не удалось запустить установщик обновления";
+        return false;
+    }
+    updateLog("macOS: DMG загружен, передаём замену приложения помощнику");
+    onProgress("update", 1.0, "Перезапуск для установки обновления...");
+    return true;
 }
 #endif
 

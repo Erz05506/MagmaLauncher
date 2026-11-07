@@ -13,6 +13,15 @@
   <key>CFBundleVersion</key><string>1</string>
   <key>LSMinimumSystemVersion</key><string>11.0</string>
   <key>NSHighResolutionCapable</key><true/>
+  <key>LSApplicationCategoryType</key><string>public.app-category.games</string>
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key><string>com.magmalauncher.auth</string>
+      <key>CFBundleURLSchemes</key>
+      <array><string>magma</string></array>
+    </dict>
+  </array>
   <key>NSPrincipalClass</key><string>NSApplication</string>
 </dict>
 </plist>

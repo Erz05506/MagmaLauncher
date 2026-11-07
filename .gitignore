@@ -18,3 +18,4 @@ installer/*.exe
 *.bin
 *.zip
 *.tar.gz
+/packaging/linux/out/

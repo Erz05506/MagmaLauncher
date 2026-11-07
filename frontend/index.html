@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>MagmaLauncher</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=20261105-accountui2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <script>(function(){try{document.documentElement.setAttribute('data-theme',localStorage.getItem('magma_theme')||'magma');}catch(e){}})();</script>
 <style>html,body{background:#0a0a0c;}</style>
@@ -11,7 +11,6 @@
 <base target="_blank">
 </head>
 <body>
-
   <div class="boot-splash" id="bootSplash">
     <div class="boot-glow"></div>
     <div class="boot-content">
@@ -27,7 +26,7 @@
 
   <div class="app">
 
-    <!-- LEFT RAIL (MODRINTH STYLE) -->
+    
     <nav class="rail">
       <div class="rail-logo" data-tooltip="MagmaLauncher"></div>
       <div class="rail-nav">
@@ -47,10 +46,10 @@
       </button>
     </nav>
 
-    <!-- MAIN CONTENT -->
+    
     <main class="stage">
 
-      <!-- TOP BAR: ACCOUNT -->
+      
       <header class="topbar">
         <div class="brand">
           <span class="brand-name">Magma<span class="brand-accent">Launcher</span></span>
@@ -67,7 +66,7 @@
         </div>
       </header>
 
-      <!-- CONTENT -->
+      
       <section class="content">
 
         <div class="view is-active" data-view="home">
@@ -80,7 +79,7 @@
           <div class="mods-subview is-active" data-home-subview="overview">
             <div class="view-grid">
 
-              <!-- HERO SECTION -->
+              
               <div class="hero">
                 <div class="hero-glow"></div>
 
@@ -99,7 +98,7 @@
                       <svg viewBox="0 0 24 24" class="chev"><path d="m6 9 6 6 6-6"/></svg>
                     </button>
 
-                    <!-- VERSION SELECTOR -->
+                    
                     <div class="version-dropdown" id="versionDropdown">
   <div class="loader-tabs" id="loaderTabs"></div>
   <button type="button" class="loader-tab" id="snapshotToggleBtn" data-i18n="hero.snapshots">Снапшоты</button>
@@ -117,7 +116,7 @@
                   </button>
                 </div>
 
-                <!-- DOWNLOAD PROGRESS — HIDDEN UNTIL LAUNCH -->
+                
                 <div class="launch-progress" id="launchProgress" style="display:none;">
                   <button class="launch-pause-btn" id="launchPauseBtn" data-tooltip-i18n="launch.pauseTooltip" type="button">
                     <svg viewBox="0 0 24 24" class="pause-icon"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
@@ -137,7 +136,7 @@
                 </div>
               </div>
 
-              <!-- NEWS COLUMN -->
+              
               <aside class="news" id="newsContainer"></aside>
 
             </div>
@@ -163,7 +162,7 @@
 
           <div class="mods-subview" data-instances-subview="mine">
             <div class="instance-grid" id="instanceGrid">
-              <!-- INSTALLED INSTANCES ARE RENDERED BY app.js -->
+              
             </div>
           </div>
 
@@ -215,7 +214,7 @@
             <h2 data-i18n="mods.title">Моды</h2>
           </div>
 
-          <!-- MOD CATEGORIES: MODS / RESOURCE PACKS / SHADERS / WORLDS -->
+          
           <div class="mods-category-tabs" id="modsCategoryTabs"></div>
 
           <div class="mods-header-actions mods-header-actions-row">
@@ -271,10 +270,10 @@
           <div class="mods-subview is-active" data-subview="browse">
             <div class="mod-search-warning" id="modSearchWarning" style="display:none;"></div>
             <div class="mod-list" id="modList">
-              <!-- SEARCH RESULTS ARE RENDERED BY app.js -->
+              
             </div>
             <div class="mod-list-pagination" id="modListPagination">
-              <!-- PAGINATION IS RENDERED BY app.js -->
+              
             </div>
           </div>
 
@@ -284,7 +283,7 @@
               <button type="button" class="mods-subtab" data-installed-scope="all"></button>
             </div>
             <div class="installed-mod-list" id="installedModList">
-              <!-- DIRECTORY CONTENT IS RENDERED BY app.js -->
+              
             </div>
           </div>
         </div>
@@ -313,43 +312,68 @@
                       <span class="account-settings-type-icon" id="settingsAccountTypeIcon"></span>
                     </div>
 
-                    <div class="settings-row">
-                      <div>
-                        <div class="settings-label" data-i18n="settings.account.skinSystem.label">Система скинов</div>
-                        <div class="settings-hint" data-i18n="settings.account.skinSystem.hint">Откуда лаунчер берёт ваш скин</div>
-                      </div>
-                      <div class="skin-system-options" id="skinSystemOptions">
-                        <button type="button" class="skin-system-option is-active" data-skin-system="elyby">
-                         <span class="skin-system-logo"><img src="../assets/ely_by.jpg" alt="Ely.by"></span>
-                          <span>Ely.by</span>
-                        </button>
-                        <button type="button" class="skin-system-option is-disabled" data-skin-system="magma">
-                          <span class="skin-system-logo">
-                            <svg viewBox="0 0 24 24">
-                              <defs>
-                                <linearGradient id="skinSystemMagmaGrad" x1="0" y1="0" x2="1" y2="1">
-                                  <stop offset="0" stop-color="#ff9a4d"/>
-                                  <stop offset="1" stop-color="#ff3d1c"/>
-                                </linearGradient>
-                              </defs>
-                              <path fill="url(#skinSystemMagmaGrad)" d="M12 2 4 12l8 10 8-10zM12 6.5 17 12l-5 6-5-6z"/>
-                            </svg>
-                          </span>
-                          <span data-i18n="settings.account.skinSystem.magmaLabel">Magma Skins (в разработке)</span>
-                        </button>
+                    
+                    <div class="account-skin-system-card">
+<div><strong data-i18n="settings.account.skinSystem">Система скинов</strong><span data-i18n="settings.account.skinSystemHint">Выберите сервис, из которого Minecraft будет загружать скины и плащи.</span></div>                      <div class="skin-system-options account-skin-system-options" id="accountSkinSystemOptions">
+                        <button class="skin-system-option" type="button" data-skin-system="elyby"><span class="skin-system-logo"><img src="../assets/ely_by.jpg" alt="Ely.by"></span>Ely.by</button>
+                        <button class="skin-system-option magma-skin-option magma-account-only" type="button" data-skin-system="magma" hidden><span class="skin-system-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="skinSystemMagmaGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff9a4d"/><stop offset="1" stop-color="#ff3d1c"/></linearGradient></defs><path fill="url(#skinSystemMagmaGrad)" d="M12 2 4 12l8 10 8-10zM12 6.5 17 12l-5 6-5-6z"/></svg></span>MagmaSkins</button>
                       </div>
                     </div>
+                    <button class="ghost-btn skin-change-btn" type="button" id="skinChangeBtn" data-i18n="settings.account.changeSkin">Сменить скин</button>
+                    <div class="account-skin-manager" id="accountSkinManager" hidden>
+                        <div class="account-manager-heading"><div><strong data-i18n="settings.account.skinManager">Скин и плащ</strong><span data-i18n="settings.account.skinManagerHint">Загрузите текстуры в свой Magma Account</span></div></div>
+                        <div class="account-skin-manager-grid">
+                          <div class="account-action-card">
+                            <strong data-i18n="settings.account.skin">Скин</strong>
+                            <div class="account-skin-manager-actions"><button class="ghost-btn" type="button" id="accountUploadSkin" data-i18n="settings.account.uploadSkin">Изменить скин</button><button class="ghost-btn account-danger-text" type="button" id="accountRemoveSkin" data-i18n="settings.account.removeSkin">Удалить</button></div>
+                            <input type="file" id="accountSkinFile" accept="image/png" hidden>
+                            <span class="account-skin-file-hint" data-i18n="settings.account.skinFormat">PNG · 64×64 или 64×32 · до 2 МБ</span>
+                          </div>
+                          <div class="account-action-card">
+                            <strong data-i18n="settings.account.cape">Плащ</strong>
+                            <div class="account-skin-manager-actions"><button class="ghost-btn" type="button" id="accountUploadCape" data-i18n="settings.account.uploadCape">Изменить плащ</button><button class="ghost-btn account-danger-text" type="button" id="accountRemoveCape" data-i18n="settings.account.removeCape">Удалить</button></div>
+                            <input type="file" id="accountCapeFile" accept="image/png" hidden>
+                            <span class="account-skin-file-hint" data-i18n="settings.account.capeFormat">PNG · 64×32 · до 2 МБ</span>
+                          </div>
+                        </div>
+                        <div class="account-skin-model-row"><label for="accountSkinModel" data-i18n="settings.account.playerModel">Модель игрока</label><div class="custom-select account-skin-model-select" id="accountSkinModelSelectWrap">
+                          <button type="button" class="custom-select-btn" id="accountSkinModelSelectBtn">
+                            <span id="accountSkinModelSelectLabel" data-i18n="settings.account.classic">Классическая (Steve)</span>
+                            <svg viewBox="0 0 24 24" class="chev"><path d="m6 9 6 6 6-6"/></svg>
+                          </button>
+                          <div class="custom-select-list" id="accountSkinModelSelectList">
+                            <button type="button" class="custom-select-item is-selected" data-value="default" data-i18n="settings.account.classic">Классическая (Steve)</button>
+                            <button type="button" class="custom-select-item" data-value="slim" data-i18n="settings.account.slim">Тонкая (Alex)</button>
+                          </div>
+                        </div></div>
+                        <p class="account-cloud-message" id="cloudSkinManagerMessage" role="status" aria-live="polite"></p>
+                      </div>
 
-                   <button type="button" class="ghost-btn skin-change-btn" id="skinChangeBtn" data-i18n="settings.account.changeSkin">Сменить скин</button>
+                    <section class="account-cloud-settings" id="accountCloudSettings">
+                      <div class="account-cloud-heading"><span class="settings-label" data-i18n="settings.account.parameters">Параметры аккаунта</span><span class="account-cloud-status" id="accountCloudStatus" data-i18n="settings.account.checking">Проверка аккаунта…</span></div>
+                      <div class="account-profile-actions">
+                        <div class="account-action-card">
+                          <div class="account-action-top"><div><strong data-i18n="settings.account.nickname">Никнейм</strong><span class="account-action-value" id="cloudNicknameCurrent">—</span></div><button class="ghost-btn account-action-button" id="accountNicknameToggle" type="button" data-i18n="settings.account.edit">Изменить</button></div>
+                        </div>
+                        <div class="account-action-card">
+                          <div class="account-action-top"><div><strong data-i18n="settings.account.email">Электронная почта</strong><span class="account-action-value" id="cloudCurrentEmail">—</span></div><button class="ghost-btn account-action-button" id="accountEmailToggle" type="button" data-i18n="settings.account.edit">Изменить</button></div>
+                        </div>
+                      </div>
+                      <div class="account-preferences-card">
+                        <div class="account-preferences-heading"><strong data-i18n="settings.account.sessions">Активные сеансы</strong></div>
+                        <span class="account-skin-file-hint" data-i18n="settings.account.sessionsHint">Завершить другие сеансы этого аккаунта. Текущий сеанс останется активным.</span>
+                        <div class="account-inline-actions"><button class="ghost-btn" id="accountSignOutOtherSessions" type="button" data-i18n="settings.account.signOutOther">Выйти из других сеансов</button></div>
+                        <p class="account-cloud-message" id="cloudSessionsMessage" role="status" aria-live="polite"></p>
+                      </div>
+                      <div class="settings-accounts-block" id="accountChangePasswordBlock">
+                        <button type="button" class="ghost-btn" id="accountChangePasswordOpenBtn" data-i18n="account.changePasswordBtn">Сменить пароль</button>
+                      </div>
+                    </section>
 
                     <div class="settings-accounts-block">
                       <div class="settings-label" data-i18n="account.accountsListLabel">Аккаунты</div>
                       <div class="account-list-items" id="settingsAccountsList"></div>
                       <button type="button" class="account-list-add-btn" id="settingsAddAccountBtn" data-i18n="account.addAccount">+ Добавить аккаунт</button>
-                    </div>
-
-                     <div class="settings-accounts-block" id="accountChangePasswordBlock">
-                      <button type="button" class="ghost-btn" id="accountChangePasswordOpenBtn" data-i18n="account.changePasswordBtn">Сменить пароль</button>
                     </div>
 
                     <div class="settings-accounts-block" style="display:flex;gap:10px;padding:16px;background:var(--bg-card);border:1px solid var(--border-soft);border-radius:var(--radius-md);">
@@ -361,7 +385,8 @@
                 </div>
               </div>
 
-              <div class="mods-subview" data-settings-subview="launcher">
+
+                              <div class="mods-subview" data-settings-subview="launcher">
                 <div class="settings-layout" style="align-items:flex-start;">
                   <nav class="settings-nav" id="launcherCategoryNav">
                     <button type="button" class="mods-subtab is-active" data-launcher-category="interface" data-i18n="settings.launcherCat.interface">Интерфейс</button>
@@ -598,7 +623,7 @@
                             <div class="settings-label" data-i18n="settings.privacy.sessions.label">Сессии</div>
                             <div class="settings-hint" data-i18n="settings.privacy.sessions.hint">Завершить вход на всех устройствах для этого Magma-аккаунта</div>
                           </div>
-                          <button type="button" class="ghost-btn" id="privacySignOutAllBtn" data-i18n="settings.privacy.sessions.signOutAllBtn">Выйти со всех устройств</button>
+                         <button type="button" class="ghost-btn" id="privacySignOutAllBtn" disabled data-i18n="settings.privacy.sessions.signOutAllBtn">Выйти со всех устройств</button>
                         </div>
                         <div class="settings-row">
                           <div>
@@ -686,6 +711,13 @@
                 </div>
 
                 <div class="launcher-links-row" style="margin-top:16px;">
+                  <a href="https://magmalauncher.space" class="launcher-link-card">
+                    <span class="launcher-link-icon"><img src="../assets/magmalauncher.png" alt="Magma Launcher"></span>
+                    <span class="launcher-link-text">
+                      <span class="launcher-link-title" data-i18n="settings.updates.link.website.title">Magma Launcher</span>
+                      <span class="launcher-link-desc" data-i18n="settings.updates.link.website.desc">Официальный сайт проекта</span>
+                    </span>
+                  </a>
                   <a href="https://github.com/Erz05506/MagmaLauncher" class="launcher-link-card">
                     <span class="launcher-link-icon"><img src="../assets/github-logo.png" alt="GitHub"></span>
                     <span class="launcher-link-text">
@@ -714,13 +746,7 @@
                       <span class="launcher-link-desc" data-i18n="settings.updates.link.telegram.desc">Новости и обновления</span>
                     </span>
                   </a>
-                    <a href="https://www.tiktok.com/@magma.launcher?_r=1&_t=ZS-99hjtZdg306" class="launcher-link-card">
-                    <span class="launcher-link-icon"><img src="../assets/tiktok-logo.png" alt="TikTok"></span>
-                    <span class="launcher-link-text">
-                      <span class="launcher-link-title" data-i18n="settings.updates.link.tiktok.title">TikTok</span>
-                      <span class="launcher-link-desc" data-i18n="settings.updates.link.tiktok.desc">Короткие видео о лаунчере</span>
-                    </span>
-                  </a>
+
                   <a href="https://www.donationalerts.com/r/erzz05" class="launcher-link-card">
                     <span class="launcher-link-icon"><img src="../assets/donationalerts-logo.png" alt="DonationAlerts"></span>
                     <span class="launcher-link-text">
@@ -833,14 +859,6 @@
                       <input type="checkbox" id="reopenOnGameExitToggle" style="width:20px;height:20px;accent-color:var(--magma-1);cursor:pointer;">
                     </label>
                   </div>
-                  <div class="settings-row" id="privacySessionsRow">
-  <div>
-    <div class="settings-label" data-i18n="settings.privacy.sessions.label">Сессии</div>
-    <div class="settings-hint" data-i18n="settings.privacy.sessions.hint">...</div>
-  </div>
-  <button type="button" class="ghost-btn" id="privacySignOutAllBtn" disabled data-i18n="settings.privacy.sessions.signOutAllBtn">Выйти со всех устройств</button>
-</div>
-
                   <div class="settings-row" id="resolutionRow" style="align-items:flex-start;">
                     <div>
                       <div class="settings-label" data-i18n="settings.resolution.label">Разрешение окна</div>
@@ -905,7 +923,6 @@
         </button>
 
         <button class="auth-tab" data-tab="magma">
-  <span class="auth-tab-badge" data-i18n="auth.tab.comingSoonBadge">Скоро</span>
  <svg viewBox="0 0 24 24" class="auth-tab-icon">
   <defs>
     <linearGradient id="authTabMagmaGrad" x1="0" y1="0" x2="1" y2="1">
@@ -932,7 +949,7 @@
 
       <div class="auth-content">
 
-        <!-- GUEST -->
+        
         <div class="auth-pane is-active" data-pane="guest">
           <label class="auth-field-label" data-i18n="auth.guest.label">Никнейм</label>
           <input type="text" class="auth-input" id="guestNickname" placeholder="Steve" maxlength="16">
@@ -941,14 +958,134 @@
           <button class="auth-submit" id="guestSubmit" data-i18n="auth.guest.continue">Продолжить как гость</button>
         </div>
 
-        <!-- MAGMA ACCOUNT: SIGN IN -->
-        <div class="auth-pane" data-pane="magma">
-  <p class="auth-desc" data-i18n="auth.magma.comingSoonDesc">
-    Вход через Magma Аккаунт временно отключён для альфа-версии — доступен только гостевой вход. Скоро вернём.
-  </p>
-  <button class="auth-submit auth-submit-ms" disabled>
-    <span data-i18n="auth.ms.comingSoonButton">Скоро будет доступно</span>
-  </button>
+        
+<div class="auth-pane" data-pane="magma">
+
+  <div class="auth-form" id="magmaLoginForm" style="display:flex;">
+    <label class="auth-field-label" data-i18n="auth.magma.emailLabel">Почта или ник</label>
+    <input type="text" class="auth-input" id="magmaLoginEmail" autocomplete="username">
+
+    <label class="auth-field-label" data-i18n="auth.magma.passwordLabel">Пароль</label>
+    <div class="auth-input-wrap">
+      <input type="password" class="auth-input" id="magmaLoginPassword" autocomplete="current-password">
+      <button type="button" class="auth-eye-toggle" data-target="magmaLoginPassword" tabindex="-1">
+        <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
+      </button>
+    </div>
+
+    <div class="auth-error" id="magmaLoginError"></div>
+    <button class="auth-submit" id="magmaLoginSubmit" data-i18n="auth.magma.signIn">Войти</button>
+
+    <div class="auth-divider"><span data-i18n="auth.google.or">или</span></div>
+    <button class="auth-submit auth-submit-google" id="googleAuthSubmit" data-context="login">
+      <svg viewBox="0 0 24 24" class="google-icon-btn"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 6-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.4 14.4a7.2 7.2 0 0 1 0-4.8V6.5H1.4a12 12 0 0 0 0 11l4-3.1z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.5l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"/></svg>
+      <span data-i18n="auth.google.button">Войти через Google</span>
+    </button>
+
+    <p class="auth-switch"><span data-i18n="auth.magma.noAccount">Нет аккаунта?</span><a href="#" id="showMagmaRegister" data-i18n="auth.magma.createLink">Создать</a></p>
+    <p class="auth-switch"><a href="#" id="showMagmaForgotPassword" data-i18n="auth.magma.forgotLink">Забыли пароль?</a></p>
+  </div>
+  <div class="auth-form" id="magmaForgotPasswordForm" style="display:none;">
+    <button type="button" class="auth-back" id="magmaForgotPasswordBack"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <p class="auth-desc" data-i18n="auth.magma.forgotDesc">Укажите почту, привязанную к Magma Account. Мы отправим ссылку для восстановления пароля.</p>
+    <label class="auth-field-label" data-i18n="auth.magma.emailOnly">Email</label>
+    <input type="email" class="auth-input" id="magmaForgotPasswordEmail" autocomplete="email" placeholder="you@example.com">
+    <div class="auth-error" id="magmaForgotPasswordError"></div>
+    <button class="auth-submit" id="magmaForgotPasswordSubmit" data-i18n="auth.magma.sendResetLink">Отправить ссылку</button>
+  </div>
+  <div class="auth-form" id="magmaResetPasswordForm" style="display:none;">
+    <button type="button" class="auth-back" id="magmaResetPasswordBack"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <p class="auth-desc" data-i18n="auth.magma.resetDesc">Придумайте новый пароль для Magma Account.</p>
+    <label class="auth-field-label" data-i18n="auth.magma.newPassword">Новый пароль</label>
+    <input type="password" class="auth-input" id="magmaResetPassword" autocomplete="new-password" minlength="6">
+    <label class="auth-field-label" data-i18n="auth.magma.confirmNewPassword">Повторите пароль</label>
+    <input type="password" class="auth-input" id="magmaResetPasswordConfirm" autocomplete="new-password" minlength="6">
+    <div class="auth-error" id="magmaResetPasswordError"></div>
+    <button class="auth-submit" id="magmaResetPasswordSubmit" data-i18n="auth.magma.saveNewPassword">Сохранить пароль</button>
+  </div>
+  <div class="auth-form" id="magmaRegisterForm" style="display:none;">
+    <button type="button" class="auth-back" id="magmaRegisterBack"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="auth-form" id="magmaRegStep1">
+      <p class="auth-desc register-intro" data-i18n="auth.magma.registerStepDesc">Enter your nickname, password and email first. We'll then send you a verification code.</p>
+      <div class="register-fields-grid">
+        <div class="register-field">
+          <label class="auth-field-label" data-i18n="auth.magma.registerNick">Nickname (username)</label>
+          <input type="text" class="auth-input" id="magmaRegNick" maxlength="16" autocomplete="off">
+          <span class="auth-field-hint" data-i18n="auth.magma.nickRules">3–16 characters: Latin letters, numbers and _</span>
+        </div>
+        <div class="register-field">
+          <label class="auth-field-label" data-i18n="auth.magma.registerPassword">Password</label>
+          <div class="auth-input-wrap">
+            <input type="password" class="auth-input" id="magmaRegPassword" autocomplete="new-password">
+            <button type="button" class="auth-eye-toggle" data-target="magmaRegPassword" tabindex="-1">
+              <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="register-field">
+          <label class="auth-field-label" data-i18n="auth.magma.registerConfirm">Confirm password</label>
+          <div class="auth-input-wrap">
+            <input type="password" class="auth-input" id="magmaRegPasswordConfirm" autocomplete="new-password">
+            <button type="button" class="auth-eye-toggle" data-target="magmaRegPasswordConfirm" tabindex="-1">
+              <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="register-field">
+          <label class="auth-field-label" data-i18n="auth.magma.registerEmail">Email</label>
+          <input type="email" class="auth-input" id="magmaRegEmail" placeholder="you@example.com" autocomplete="email">
+        </div>
+      </div>
+      <button class="auth-submit register-wide" id="magmaRegisterSendCode" data-i18n="auth.magma.sendCode">Get code</button>
+      <div class="auth-divider register-wide"><span data-i18n="auth.google.or">or</span></div>
+      <button class="auth-submit auth-submit-google register-wide" id="googleRegisterSubmit" data-context="register">
+        <svg viewBox="0 0 24 24" class="google-icon-btn"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 6-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.4 14.4a7.2 7.2 0 0 1 0-4.8V6.5H1.4a12 12 0 0 0 0 11l4-3.1z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.5l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"/></svg>
+        <span data-i18n="auth.google.registerButton">Register with Google</span>
+      </button>
+    </div>
+    <div class="auth-form" id="magmaRegStep2" style="display:none;">
+      <p class="auth-desc" id="magmaRegCodeDesc"></p>
+      <label class="auth-field-label" data-i18n="auth.magma.codeLabel">Код из письма</label>
+      <input type="text" class="auth-input auth-code-input" id="magmaRegCode" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="000000">
+      <button class="auth-submit" id="magmaRegisterVerify" data-i18n="auth.magma.verifyCode">Подтвердить</button>
+      <button type="button" class="ghost-btn" id="magmaRegisterResend" style="width:100%;margin-top:10px;"></button>
+      <p class="auth-switch"><a href="#" id="magmaRegisterChangeEmail" data-i18n="auth.magma.changeEmail">Изменить почту</a></p>
+    </div>
+    
+    <div class="auth-error" id="magmaRegisterError"></div>
+  </div>
+  <div class="auth-form" id="magmaGoogleSetupForm" style="display:none;">
+    <button type="button" class="auth-back" id="magmaGoogleSetupBack"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <p class="auth-desc" id="magmaGoogleSetupDesc"></p>
+
+    <label class="auth-field-label" data-i18n="auth.magma.registerNick">Никнейм (логин)</label>
+    <input type="text" class="auth-input" id="magmaGoogleNick" maxlength="16" autocomplete="off">
+    <span class="auth-field-hint" data-i18n="auth.magma.nickRules">3–16 символов: латинские буквы, цифры и _</span>
+
+    <label class="auth-field-label" data-i18n="auth.magma.registerPassword">Пароль</label>
+    <div class="auth-input-wrap">
+      <input type="password" class="auth-input" id="magmaGoogleSetupPassword" autocomplete="new-password">
+      <button type="button" class="auth-eye-toggle" data-target="magmaGoogleSetupPassword" tabindex="-1">
+        <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
+      </button>
+    </div>
+
+    <label class="auth-field-label" data-i18n="auth.magma.registerConfirm">Повторите пароль</label>
+    <div class="auth-input-wrap">
+      <input type="password" class="auth-input" id="magmaGoogleSetupConfirm" autocomplete="new-password">
+      <button type="button" class="auth-eye-toggle" data-target="magmaGoogleSetupConfirm" tabindex="-1">
+        <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
+      </button>
+    </div>
+
+    <div class="auth-error" id="magmaGoogleSetupError"></div>
+    <button class="auth-submit" id="magmaGoogleSetupSubmit" data-i18n="auth.google.finishButton">Завершить регистрацию</button>
+  </div>
 </div>
 
         <div class="auth-pane" data-pane="microsoft">
@@ -1033,7 +1170,7 @@
 
       <label class="auth-field-label" data-i18n="mods.recommended">Рекомендуемые моды</label>
       <div class="modpack-default-mods" id="modpackDefaultMods">
-        <!-- RENDERED BY app.js BASED ON THE SELECTED LOADER -->
+        
       </div>
 
       <div class="auth-error" id="modpackError"></div>
@@ -1107,12 +1244,41 @@
         <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
       </button>
       <h3 class="modpack-title" data-i18n="account.deleteConfirmTitle">Удалить аккаунт?</h3>
-      <p class="auth-desc" data-i18n="account.deleteConfirmDesc">Это действие необратимо, аккаунт будет удалён навсегда.</p>
+      <p class="auth-desc" id="accountDeleteDesc" data-i18n="account.deleteConfirmDesc">Это действие необратимо, аккаунт будет удалён навсегда.</p>
             <div class="auth-error" id="accountDeleteError"></div>
       <button class="auth-submit" id="accountDeleteConfirmBtn" style="background:#ff6b5e;" data-i18n="account.deleteConfirmBtn">Удалить навсегда</button>
     </div>
   </div>
 
+  <div class="modal-overlay" id="accountNicknameOverlay">
+    <div class="modal-panel account-edit-modal">
+      <button type="button" class="modal-close" id="accountNicknameClose" aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+      <h3 class="modpack-title" data-i18n="settings.account.nickname">Никнейм</h3>
+      <div class="auth-form">
+        <label class="auth-field-label" for="cloudNickname" data-i18n="settings.account.newNickname">Новый никнейм</label>
+        <input type="text" class="auth-input" id="cloudNickname" maxlength="16" autocomplete="nickname" data-i18n-placeholder="settings.account.newNickname" placeholder="Новый никнейм">
+        <div class="auth-error" id="cloudNicknameMessage" role="status" aria-live="polite"></div>
+        <button class="auth-submit" id="cloudSaveNickname" type="button" data-i18n="settings.account.save">Сохранить</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="accountEmailOverlay">
+    <div class="modal-panel account-edit-modal">
+      <button type="button" class="modal-close" id="accountEmailClose" aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+      <h3 class="modpack-title" data-i18n="settings.account.email">Электронная почта</h3>
+      <p class="auth-desc" data-i18n="settings.account.sendConfirmation">Отправить подтверждение</p>
+      <div class="auth-form">
+        <label class="auth-field-label" for="cloudNewEmail" data-i18n="settings.account.newEmail">Новый адрес почты</label>
+        <input type="email" class="auth-input" id="cloudNewEmail" autocomplete="email" data-i18n-placeholder="settings.account.newEmail" placeholder="Новый адрес почты">
+        <div class="auth-error" id="cloudEmailMessage" role="status" aria-live="polite"></div>
+        <button class="auth-submit" id="cloudChangeEmail" type="button" data-i18n="settings.account.sendConfirmation">Отправить подтверждение</button>
+      </div>
+    </div>
+  </div>
   <div class="modal-overlay" id="accountChangePasswordOverlay">
     <div class="modal-panel">
       <button type="button" class="modal-close" id="accountChangePasswordClose" aria-label="Закрыть">
@@ -1122,9 +1288,21 @@
       <p class="auth-desc" data-i18n="account.changePasswordHint">Доступно только для Magma-аккаунтов</p>
       <div class="auth-form">
         <label class="auth-field-label" data-i18n="account.currentPasswordPlaceholder">Текущий пароль</label>
-        <input type="password" class="auth-input" id="accountCurrentPasswordInput" placeholder="••••••••">
+        <div class="auth-input-wrap">
+          <input type="password" class="auth-input" id="accountCurrentPasswordInput" placeholder="••••••••">
+          <button type="button" class="auth-eye-toggle" data-target="accountCurrentPasswordInput" tabindex="-1">
+            <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
+          </button>
+        </div>
         <label class="auth-field-label" data-i18n="account.newPasswordPlaceholder">Новый пароль</label>
-        <input type="password" class="auth-input" id="accountNewPasswordInput" placeholder="••••••••">
+        <div class="auth-input-wrap">
+          <input type="password" class="auth-input" id="accountNewPasswordInput" placeholder="••••••••">
+          <button type="button" class="auth-eye-toggle" data-target="accountNewPasswordInput" tabindex="-1">
+            <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
+          </button>
+        </div>
         <div class="auth-error" id="accountChangePasswordError"></div>
         <button class="auth-submit" id="accountChangePasswordBtn" data-i18n="account.changePasswordBtn">Сменить пароль</button>
       </div>
@@ -1166,7 +1344,13 @@
       </button>
       <h3 class="modpack-title" data-i18n="settings.privacy.launcherLock.setupTitle">Настройка PIN-кода</h3>
       <label class="auth-field-label" data-i18n="settings.privacy.launcherLock.newPinLabel">Новый PIN-код</label>
-      <input type="password" class="auth-input" id="launcherLockSetupInput" maxlength="12" inputmode="numeric">
+      <div class="auth-input-wrap">
+        <input type="password" class="auth-input" id="launcherLockSetupInput" maxlength="12" inputmode="numeric">
+        <button type="button" class="auth-eye-toggle" data-target="launcherLockSetupInput" tabindex="-1">
+          <svg class="eye-open" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.8M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/></svg>
+        </button>
+      </div>
       <div class="auth-error" id="launcherLockSetupError"></div>
       <button class="auth-submit" id="launcherLockSetupSaveBtn" data-i18n="settings.privacy.launcherLock.saveBtn">Сохранить</button>
     </div>
@@ -1176,6 +1360,7 @@
 <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
 <script src="../assets/skinview3d.bundle.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v=20261107-account-isolation2"></script>
+<script src="account-settings.js?v=20261107-account-isolation2"></script>
 </body>
 </html>

@@ -26,6 +26,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     fetch: fetchWithTimeout,
   },
 });
+window.supabaseClient = supabaseClient;
 
 function isTimeoutError(err) {
   return !!err && (err.name === 'AbortError' || /timed out|aborted/i.test(err.message || ''));
@@ -803,6 +804,24 @@ const LAUNCH_DETAIL_I18N = {
   ru: {'manifest.list':'Получение списка версий','manifest.version':'Подготовка версии Minecraft {value}','java.check':'Проверка Java','java.detect':'Поиск Java','java.files':'Проверка файлов Java','java.download':'Загрузка Java','client.download':'Загрузка клиента Minecraft','forge.prepare':'Подготовка Forge','forge.resolve':'Поиск версии Forge','forge.installer':'Загрузка установщика Forge','forge.installing':'Установка Forge','forge.profile':'Подготовка профиля Forge','neoforge.prepare':'Подготовка NeoForge','neoforge.resolve':'Поиск версии NeoForge','neoforge.installer':'Загрузка установщика NeoForge','neoforge.installing':'Установка NeoForge','neoforge.profile':'Подготовка профиля NeoForge','fabric.download':'Установка Fabric','quilt.download':'Установка Quilt','assets.index':'Подготовка игровых ресурсов','natives.extract':'Распаковка библиотек','launch.prepare':'Подготовка к запуску','launch.java':'Запуск Java','launch.started':'Игра запущена','modpack.findMr':'Поиск модпака на Modrinth','modpack.findCf':'Поиск модпака на CurseForge','modpack.download':'Загрузка модпака','modpack.done':'Модпак установлен','mods.downloading':'Загрузка мода: {value}'},
   en: {'manifest.list':'Fetching version list','manifest.version':'Preparing Minecraft {value}','java.check':'Checking Java','java.detect':'Detecting Java','java.files':'Checking Java files','java.download':'Downloading Java','client.download':'Downloading Minecraft client','forge.prepare':'Preparing Forge','forge.resolve':'Resolving Forge version','forge.installer':'Downloading Forge installer','forge.installing':'Installing Forge','forge.profile':'Preparing Forge profile','neoforge.prepare':'Preparing NeoForge','neoforge.resolve':'Resolving NeoForge version','neoforge.installer':'Downloading NeoForge installer','neoforge.installing':'Installing NeoForge','neoforge.profile':'Preparing NeoForge profile','fabric.download':'Installing Fabric','quilt.download':'Installing Quilt','assets.index':'Preparing game assets','natives.extract':'Extracting native libraries','launch.prepare':'Preparing to launch','launch.java':'Starting Java','launch.started':'Game launched','modpack.findMr':'Finding modpack on Modrinth','modpack.findCf':'Finding modpack on CurseForge','modpack.download':'Downloading modpack','modpack.done':'Modpack installed','mods.downloading':'Downloading mod: {value}'}
 };
+const MODPACK_DETAIL_PATCH = {
+  ru: {'modpack.unpack':'Распаковываем архив...','modpack.copy':'Копируем файлы сборки...','modpack.skip':'Пропускаем недоступный файл...','modpack.findMr':'Поиск модпака на Modrinth','modpack.findCf':'Поиск модпака на CurseForge','modpack.download':'Загрузка модпака','modpack.done':'Модпак установлен'},
+  en: {'modpack.unpack':'Extracting archive...','modpack.copy':'Copying pack files...','modpack.skip':'Skipping unavailable file...','modpack.findMr':'Finding modpack on Modrinth','modpack.findCf':'Finding modpack on CurseForge','modpack.download':'Downloading modpack','modpack.done':'Modpack installed'},
+  uk: {'modpack.unpack':'Розпаковуємо архів...','modpack.copy':'Копіюємо файли збірки...','modpack.skip':'Пропускаємо недоступний файл...','modpack.findMr':'Пошук модпака на Modrinth','modpack.findCf':'Пошук модпака на CurseForge','modpack.download':'Завантаження модпака','modpack.done':'Модпак встановлено'},
+  fr: {'modpack.unpack':"Extraction de l'archive...",'modpack.copy':'Copie des fichiers du pack...','modpack.skip':'Fichier indisponible ignoré...','modpack.findMr':'Recherche du modpack sur Modrinth','modpack.findCf':'Recherche du modpack sur CurseForge','modpack.download':'Téléchargement du modpack','modpack.done':'Modpack installé'},
+  de: {'modpack.unpack':'Archiv wird entpackt...','modpack.copy':'Pack-Dateien werden kopiert...','modpack.skip':'Nicht verfügbare Datei wird übersprungen...','modpack.findMr':'Modpack wird auf Modrinth gesucht','modpack.findCf':'Modpack wird auf CurseForge gesucht','modpack.download':'Modpack wird heruntergeladen','modpack.done':'Modpack installiert'},
+  es: {'modpack.unpack':'Extrayendo el archivo...','modpack.copy':'Copiando archivos del pack...','modpack.skip':'Omitiendo archivo no disponible...','modpack.findMr':'Buscando el modpack en Modrinth','modpack.findCf':'Buscando el modpack en CurseForge','modpack.download':'Descargando el modpack','modpack.done':'Modpack instalado'},
+  it: {'modpack.unpack':"Estrazione dell'archivio...",'modpack.copy':'Copia dei file del pack...','modpack.skip':'File non disponibile ignorato...','modpack.findMr':'Ricerca del modpack su Modrinth','modpack.findCf':'Ricerca del modpack su CurseForge','modpack.download':'Download del modpack','modpack.done':'Modpack installato'},
+  pt: {'modpack.unpack':'Extraindo o arquivo...','modpack.copy':'Copiando arquivos do pack...','modpack.skip':'Ignorando arquivo indisponível...','modpack.findMr':'Procurando o modpack no Modrinth','modpack.findCf':'Procurando o modpack no CurseForge','modpack.download':'Baixando o modpack','modpack.done':'Modpack instalado'},
+  ja: {'modpack.unpack':'アーカイブを展開中...','modpack.copy':'パックのファイルをコピー中...','modpack.skip':'利用できないファイルをスキップ中...','modpack.findMr':'Modrinthでモッドパックを検索中','modpack.findCf':'CurseForgeでモッドパックを検索中','modpack.download':'モッドパックをダウンロード中','modpack.done':'モッドパックをインストールしました'},
+  ko: {'modpack.unpack':'압축 파일 푸는 중...','modpack.copy':'팩 파일 복사 중...','modpack.skip':'사용할 수 없는 파일 건너뛰는 중...','modpack.findMr':'Modrinth에서 모드팩 검색 중','modpack.findCf':'CurseForge에서 모드팩 검색 중','modpack.download':'모드팩 다운로드 중','modpack.done':'모드팩 설치 완료'},
+  hi: {'modpack.unpack':'आर्काइव खोला जा रहा है...','modpack.copy':'पैक की फ़ाइलें कॉपी हो रही हैं...','modpack.skip':'अनुपलब्ध फ़ाइल छोड़ी जा रही है...','modpack.findMr':'Modrinth पर मॉडपैक खोजा जा रहा है','modpack.findCf':'CurseForge पर मॉडपैक खोजा जा रहा है','modpack.download':'मॉडपैक डाउनलोड हो रहा है','modpack.done':'मॉडपैक इंस्टॉल हो गया'},
+  id: {'modpack.unpack':'Mengekstrak arsip...','modpack.copy':'Menyalin file pack...','modpack.skip':'Melewati file yang tidak tersedia...','modpack.findMr':'Mencari modpack di Modrinth','modpack.findCf':'Mencari modpack di CurseForge','modpack.download':'Mengunduh modpack','modpack.done':'Modpack terinstal'},
+};
+Object.keys(MODPACK_DETAIL_PATCH).forEach(l => {
+  LAUNCH_DETAIL_I18N[l] = Object.assign(LAUNCH_DETAIL_I18N[l] || {}, MODPACK_DETAIL_PATCH[l]);
+});
+
 function translateLaunchDetail(detail) {
   if (typeof detail !== 'string' || !detail.startsWith('d:')) return detail || '';
   const raw = detail.slice(2), sep = raw.indexOf('|');
@@ -846,7 +865,7 @@ window.__launchDone = function (data) {
     setLaunchProgress(true, 0, t('launch.cancelled'), false, { showControls: false });
     setTimeout(() => setLaunchProgress(false, 0, ''), 1500);
   } else {
-    const fullError = data.error || t('auth.magma.genericError');
+    const fullError = translateBackendError(data.error) || t('auth.magma.genericError');
     const shortError = fullError.length > 90 ? fullError.slice(0, 90) + '…' : fullError;
 
     setLaunchProgress(true, 0, shortError, true, {
@@ -900,9 +919,6 @@ playBtn.addEventListener('click', async () => {
     windowHeight: launchRes.height,
   };
 
-  const skinInstanceRoot = selectedInstanceName ? `${params.gameDir}\\instances\\${selectedInstanceName}` : params.gameDir;
-  await ensureCustomSkinLoaderInstalled(currentSelectedLoader, selectedVersion, skinInstanceRoot + '\\mods', skinInstanceRoot);
-
   if (typeof window.launchGame !== 'function') {
     console.log('[MagmaLauncher] (dev-режим, бэкенд не подключен) launchGame недоступен');
     label.textContent = original;
@@ -913,6 +929,14 @@ playBtn.addEventListener('click', async () => {
   }
 
   try {
+    const gameDir = String(params.gameDir || '').replace(/[\\/]+$/, '');
+    const separator = /\\/.test(gameDir) ? '\\' : '/';
+    const instanceRootDir = params.instanceName
+      ? `${gameDir}${separator}instances${separator}${params.instanceName}`
+      : gameDir;
+    const modsDir = `${instanceRootDir}${separator}mods`;
+    await ensureCustomSkinLoaderInstalled(params.loader, params.version, modsDir, instanceRootDir);
+
     const raw = await window.launchGame(params);
     const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (!result.started) {
@@ -987,6 +1011,22 @@ const I18N = {
     'auth.guest.label': 'Никнейм', 'auth.guest.continue': 'Продолжить как гость',
     'auth.magma.emailLabel': 'Почта или ник', 'auth.magma.passwordLabel': 'Пароль', 'auth.magma.signIn': 'Войти',
     'auth.magma.signingIn': 'Входим...',
+    'auth.magma.resetSending': 'Отправляем ссылку...',
+    'auth.magma.resetSaving': 'Сохраняем пароль...',
+    'auth.magma.resetSent': 'Если аккаунт с такой почтой существует, ссылка для сброса отправлена.',
+    'auth.magma.resetFailed': 'Не удалось восстановить пароль. Попробуйте ещё раз.',
+    'auth.magma.resetInvalid': 'Ссылка недействительна или устарела. Запросите новую.',
+    'auth.magma.passwordTooShort': 'Пароль должен содержать минимум 6 символов.',
+    'auth.magma.passwordMismatch': 'Пароли не совпадают.',
+    'auth.magma.resetSuccess': 'Пароль изменён. Теперь можно войти с новым паролем.',
+    'auth.magma.emailOnly': 'Почта',
+    'auth.magma.forgotLink': 'Забыли пароль?',
+    'auth.magma.forgotDesc': 'Укажите почту, привязанную к Magma Account. Мы отправим ссылку для восстановления пароля.',
+    'auth.magma.sendResetLink': 'Отправить ссылку',
+    'auth.magma.resetDesc': 'Придумайте новый пароль для Magma Account.',
+    'auth.magma.newPassword': 'Новый пароль',
+    'auth.magma.confirmNewPassword': 'Повторите пароль',
+    'auth.magma.saveNewPassword': 'Сохранить пароль',
     'auth.magma.noAccount': 'Нет аккаунта?', 'auth.magma.createLink': 'Создать',
     'auth.magma.registerEmail': 'Почта', 'auth.magma.registerNick': 'Никнейм (логин)',
     'auth.magma.registerPassword': 'Пароль', 'auth.magma.registerConfirm': 'Повторите пароль',
@@ -1117,6 +1157,22 @@ const I18N = {
     'auth.guest.label': 'Nickname', 'auth.guest.continue': 'Continue as guest',
     'auth.magma.emailLabel': 'Email or nickname', 'auth.magma.passwordLabel': 'Password', 'auth.magma.signIn': 'Sign in',
     'auth.magma.signingIn': 'Signing in...',
+    'auth.magma.resetSending': 'Sending reset link...',
+    'auth.magma.resetSaving': 'Saving password...',
+    'auth.magma.resetSent': 'If an account exists for this email, a reset link has been sent.',
+    'auth.magma.resetFailed': 'Could not process the password reset. Please try again.',
+    'auth.magma.resetInvalid': 'This password-reset link is invalid or has expired. Request a new one.',
+    'auth.magma.passwordTooShort': 'Password must contain at least 6 characters.',
+    'auth.magma.passwordMismatch': 'Passwords do not match.',
+    'auth.magma.resetSuccess': 'Password changed. You can now sign in with your new password.',
+    'auth.magma.emailOnly': 'Email',
+    'auth.magma.forgotLink': 'Forgot password?',
+    'auth.magma.forgotDesc': 'Enter the email address linked to your Magma Account. We will send you a recovery link.',
+    'auth.magma.sendResetLink': 'Send recovery link',
+    'auth.magma.resetDesc': 'Choose a new password for your Magma Account.',
+    'auth.magma.newPassword': 'New password',
+    'auth.magma.confirmNewPassword': 'Confirm new password',
+    'auth.magma.saveNewPassword': 'Save new password',
     'auth.magma.noAccount': "Don't have an account?", 'auth.magma.createLink': 'Create one',
     'auth.magma.registerEmail': 'Email', 'auth.magma.registerNick': 'Nickname (login)',
     'auth.magma.registerPassword': 'Password', 'auth.magma.registerConfirm': 'Confirm password',
@@ -2749,6 +2805,9 @@ const I18N = {
 const ERROR_I18N = {
   ru: {
         ERR_NETWORK: 'Проблема с сетевым соединением',
+    ERR_DOWNLOAD_RESTART: 'Сервер не поддержал докачку файла',
+    ERR_EMPTY_DOWNLOAD: 'Сервер вернул пустой файл',
+    ERR_FILE_WRITE: 'Не удалось сохранить загруженный файл',
     ERR_UPDATE_LOOP: 'Обновление уже ставилось, но версия не выросла: у exe в архиве MAGMA_LAUNCHER_BUILD меньше, чем build в update.json. Пересоберите exe с нужным номером и обновите архив',
     ERR_UPDATE_APPLY: 'Не удалось применить обновление (изменения откатены). Подробности в %LOCALAPPDATA%\\MagmaLauncher\\update.log',
     ERR_HTTP_STATUS: 'Сервер ответил ошибкой',
@@ -2782,6 +2841,9 @@ const ERROR_I18N = {
   },
   en: {
     ERR_NETWORK: 'Network connection problem',
+    ERR_DOWNLOAD_RESTART: 'The server did not support resuming the download',
+    ERR_EMPTY_DOWNLOAD: 'The server returned an empty file',
+    ERR_FILE_WRITE: 'Could not save the downloaded file',
     ERR_HTTP_STATUS: 'The server responded with an error',
     ERR_JAVA_INDEX: 'Could not fetch the list of Java versions',
     ERR_JAVA_NO_BUILD: 'No auto-downloadable Java build exists for this version on Windows x64. Set the Java path manually in settings',
@@ -3073,6 +3135,25 @@ const ERROR_I18N = {
   },
 };
 
+const PACK_ERROR_PATCH = {
+  ru: {ERR_NOT_MODPACK:'Это не похоже на модпак (нет modrinth.index.json, manifest.json или mmc-pack.json)',ERR_PACK_NO_MC_VERSION:'Не удалось определить версию Minecraft из сборки',ERR_FILE_NOT_FOUND:'Файл не найден',ERR_PACK_PREPARE:'Не удалось подготовить файл к установке'},
+  en: {ERR_NOT_MODPACK:'This does not look like a modpack (no modrinth.index.json, manifest.json or mmc-pack.json)',ERR_PACK_NO_MC_VERSION:'Could not determine the Minecraft version from the pack',ERR_FILE_NOT_FOUND:'File not found',ERR_PACK_PREPARE:'Could not prepare the file for installation'},
+  uk: {ERR_NOT_MODPACK:'Це не схоже на модпак (немає modrinth.index.json, manifest.json або mmc-pack.json)',ERR_PACK_NO_MC_VERSION:'Не вдалося визначити версію Minecraft зі збірки',ERR_FILE_NOT_FOUND:'Файл не знайдено',ERR_PACK_PREPARE:'Не вдалося підготувати файл до встановлення'},
+  fr: {ERR_NOT_MODPACK:"Ce n'est pas un modpack (ni modrinth.index.json, ni manifest.json, ni mmc-pack.json)",ERR_PACK_NO_MC_VERSION:'Impossible de déterminer la version de Minecraft du pack',ERR_FILE_NOT_FOUND:'Fichier introuvable',ERR_PACK_PREPARE:"Impossible de préparer le fichier pour l'installation"},
+  de: {ERR_NOT_MODPACK:'Das sieht nicht nach einem Modpack aus (kein modrinth.index.json, manifest.json oder mmc-pack.json)',ERR_PACK_NO_MC_VERSION:'Die Minecraft-Version des Packs konnte nicht ermittelt werden',ERR_FILE_NOT_FOUND:'Datei nicht gefunden',ERR_PACK_PREPARE:'Die Datei konnte nicht für die Installation vorbereitet werden'},
+  es: {ERR_NOT_MODPACK:'No parece un modpack (falta modrinth.index.json, manifest.json o mmc-pack.json)',ERR_PACK_NO_MC_VERSION:'No se pudo determinar la versión de Minecraft del pack',ERR_FILE_NOT_FOUND:'Archivo no encontrado',ERR_PACK_PREPARE:'No se pudo preparar el archivo para la instalación'},
+  it: {ERR_NOT_MODPACK:'Non sembra un modpack (manca modrinth.index.json, manifest.json o mmc-pack.json)',ERR_PACK_NO_MC_VERSION:'Impossibile determinare la versione di Minecraft del pack',ERR_FILE_NOT_FOUND:'File non trovato',ERR_PACK_PREPARE:"Impossibile preparare il file per l'installazione"},
+  pt: {ERR_NOT_MODPACK:'Isto não parece um modpack (sem modrinth.index.json, manifest.json ou mmc-pack.json)',ERR_PACK_NO_MC_VERSION:'Não foi possível determinar a versão do Minecraft do pack',ERR_FILE_NOT_FOUND:'Arquivo não encontrado',ERR_PACK_PREPARE:'Não foi possível preparar o arquivo para a instalação'},
+  ja: {ERR_NOT_MODPACK:'モッドパックではないようです（modrinth.index.json、manifest.json、mmc-pack.jsonがありません）',ERR_PACK_NO_MC_VERSION:'パックからMinecraftのバージョンを特定できませんでした',ERR_FILE_NOT_FOUND:'ファイルが見つかりません',ERR_PACK_PREPARE:'インストール用にファイルを準備できませんでした'},
+  ko: {ERR_NOT_MODPACK:'모드팩이 아닌 것 같습니다 (modrinth.index.json, manifest.json, mmc-pack.json 없음)',ERR_PACK_NO_MC_VERSION:'팩에서 Minecraft 버전을 확인할 수 없습니다',ERR_FILE_NOT_FOUND:'파일을 찾을 수 없습니다',ERR_PACK_PREPARE:'설치를 위해 파일을 준비하지 못했습니다'},
+  hi: {ERR_NOT_MODPACK:'यह मॉडपैक जैसा नहीं लगता (modrinth.index.json, manifest.json या mmc-pack.json नहीं मिला)',ERR_PACK_NO_MC_VERSION:'पैक से Minecraft वर्शन पता नहीं चल सका',ERR_FILE_NOT_FOUND:'फ़ाइल नहीं मिली',ERR_PACK_PREPARE:'इंस्टॉल के लिए फ़ाइल तैयार नहीं हो सकी'},
+  id: {ERR_NOT_MODPACK:'Ini tidak terlihat seperti modpack (tidak ada modrinth.index.json, manifest.json, atau mmc-pack.json)',ERR_PACK_NO_MC_VERSION:'Tidak dapat menentukan versi Minecraft dari pack',ERR_FILE_NOT_FOUND:'File tidak ditemukan',ERR_PACK_PREPARE:'Tidak dapat menyiapkan file untuk instalasi'},
+};
+Object.keys(PACK_ERROR_PATCH).forEach(l => {
+  ERROR_I18N[l] = Object.assign(ERROR_I18N[l] || {}, PACK_ERROR_PATCH[l]);
+});
+ERROR_I18N['es-ES'] = ERROR_I18N.es;
+
 function translateBackendError(raw) {
   if (!raw || typeof raw !== 'string') return raw;
   const sepIndex = raw.indexOf('||');
@@ -3088,6 +3169,9 @@ function translateBackendError(raw) {
 // Spanish (Spain) reuses the Latin American strings.
 
 I18N['es-ES'] = I18N.es;
+const I18N_MAGMA_REGISTER_LAYOUT_PATCH = {"ru":{"auth.magma.registerStepDesc":"Сначала заполните профиль: никнейм, пароль и почту. Затем мы отправим код подтверждения."},"en":{"auth.magma.registerStepDesc":"Enter your nickname, password and email first. We'll then send you a verification code."},"uk":{"auth.magma.registerStepDesc":"Спочатку заповніть профіль: нікнейм, пароль і пошту. Потім ми надішлемо код підтвердження."},"fr":{"auth.magma.registerStepDesc":"Renseignez d’abord votre pseudo, votre mot de passe et votre e-mail. Nous vous enverrons ensuite un code de vérification."},"de":{"auth.magma.registerStepDesc":"Gib zuerst Nickname, Passwort und E-Mail ein. Anschließend senden wir dir einen Bestätigungscode."},"es":{"auth.magma.registerStepDesc":"Primero introduce tu apodo, contraseña y correo. Después te enviaremos un código de verificación."},"it":{"auth.magma.registerStepDesc":"Inserisci prima nickname, password ed email. Ti invieremo quindi un codice di verifica."},"pt":{"auth.magma.registerStepDesc":"Primeiro informe seu apelido, senha e e-mail. Em seguida, enviaremos um código de confirmação."},"ja":{"auth.magma.registerStepDesc":"最初にニックネーム、パスワード、メールアドレスを入力してください。その後、確認コードを送信します。"},"ko":{"auth.magma.registerStepDesc":"먼저 닉네임, 비밀번호 및 이메일을 입력하세요. 그러면 인증 코드를 보내드립니다."},"hi":{"auth.magma.registerStepDesc":"पहले अपना निकनेम, पासवर्ड और ईमेल दर्ज करें। फिर हम आपको सत्यापन कोड भेजेंगे।"},"id":{"auth.magma.registerStepDesc":"Masukkan nama panggilan, kata sandi, dan email terlebih dahulu. Setelah itu kami akan mengirim kode verifikasi."}};
+Object.keys(I18N_MAGMA_REGISTER_LAYOUT_PATCH).forEach(lang => Object.assign(I18N[lang], I18N_MAGMA_REGISTER_LAYOUT_PATCH[lang]));
+
 
 // Additional localization entries.
 
@@ -6342,15 +6426,6 @@ Object.keys(I18N_REOPEN_PATCH).forEach(lang => {
 });
 I18N['es-ES'] = I18N.es;
 
-const I18N_MAGMA_SOON_PATCH = {
-  ru: { 'auth.magma.comingSoonDesc': 'Вход через Magma Аккаунт временно отключён для альфа-версии — доступен только гостевой вход. Скоро вернём.' },
-  en: { 'auth.magma.comingSoonDesc': 'Magma Account sign-in is temporarily disabled in the alpha — only guest sign-in is available. It will be back soon.' },
-};
-Object.keys(I18N_MAGMA_SOON_PATCH).forEach(lang => {
-  if (!I18N[lang]) I18N[lang] = {};
-  Object.assign(I18N[lang], I18N_MAGMA_SOON_PATCH[lang]);
-});
-
 function renderUpdatesTimeline() {
   const container = document.getElementById('homeUpdatesTimeline');
   if (!container) return;
@@ -6420,6 +6495,10 @@ function applyLanguage(lang) {
 
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
     el.placeholder = t(el.dataset.i18nPlaceholder);
+  });
+
+  document.querySelectorAll('.modal-close').forEach(el => {
+    el.setAttribute('aria-label', t('a11y.close'));
   });
 
   document.querySelectorAll('[data-tooltip-i18n]').forEach(el => {
@@ -6543,24 +6622,13 @@ launcherCategoryTabs.forEach(tab => {
   tab.addEventListener('click', () => switchLauncherCategory(tab.dataset.launcherCategory));
 });
 
-// ============================================
-// Skin provider selection
-// ============================================
-const SKIN_SYSTEM_KEY = 'magma_skin_system';
-function getSkinSystemPref() { return localStorage.getItem(SKIN_SYSTEM_KEY) || 'elyby'; }
+function updateSkinChangeButton() {
+  const button = document.getElementById('skinChangeBtn');
+  if (!button) return;
+  button.hidden = currentAccountType() === 'magma' && getSkinSystemPref() !== 'elyby';
+}
 
-document.querySelectorAll('.skin-system-option').forEach(btn => {
-  if (btn.classList.contains('is-active') === false && btn.dataset.skinSystem === getSkinSystemPref() && !btn.classList.contains('is-disabled')) {
-    document.querySelectorAll('.skin-system-option').forEach(b => b.classList.remove('is-active'));
-    btn.classList.add('is-active');
-  }
-  btn.addEventListener('click', () => {
-    if (btn.classList.contains('is-disabled')) return;
-    document.querySelectorAll('.skin-system-option').forEach(b => b.classList.remove('is-active'));
-    btn.classList.add('is-active');
-    localStorage.setItem(SKIN_SYSTEM_KEY, btn.dataset.skinSystem);
-  });
-});
+updateSkinChangeButton();
 
 // ============================================
 // Change skin modal
@@ -6593,7 +6661,6 @@ const CUSTOM_SKIN_LOADER_SLUG = 'customskinloader';
 const SKIN_LOADER_ENABLED_LOADERS = ['fabric', 'forge', 'neoforge', 'quilt'];
 
 async function ensureCustomSkinLoaderInstalled(loader, version, modsDir, instanceRootDir) {
-  if (getSkinSystemPref() !== 'elyby') return;
   if (!SKIN_LOADER_ENABLED_LOADERS.includes(loader)) return;
   if (typeof window.listModsInDir !== 'function' || typeof window.installMod !== 'function') return;
 
@@ -6610,19 +6677,26 @@ async function ensureCustomSkinLoaderInstalled(loader, version, modsDir, instanc
   }
 
   if (typeof window.installLocalFile === 'function') {
+    const magmaSource = {
+      name: 'MagmaSkins',
+      type: 'CustomSkinAPI',
+      root: SUPABASE_URL + '/functions/v1/magma-skin-api/',
+    };
+    const elyBySource = { name: 'ElyBy', type: 'ElyByAPI' };
     const config = {
       enable: true,
-      loadlist: [
-        { name: 'ElyBy', type: 'ElyByAPI' },
-        { name: 'Mojang', type: 'MojangAPI' },
-      ],
+      loadlist: currentAccountType() === 'magma' && getSkinSystemPref() === 'magma'
+        ? [magmaSource, elyBySource, { name: 'Mojang', type: 'MojangAPI' }]
+        : [elyBySource, { name: 'Mojang', type: 'MojangAPI' }],
     };
     try {
       const base64 = btoa(unescape(encodeURIComponent(JSON.stringify(config, null, 2))));
+      const separator = /\\/.test(instanceRootDir) ? '\\' : '/';
+      const targetDir = instanceRootDir.replace(/[\\/]+$/, '') + separator + 'CustomSkinLoader';
       await window.installLocalFile({
         filename: 'CustomSkinLoader.json',
         dataBase64: base64,
-        targetDir: `${instanceRootDir}\\CustomSkinLoader`,
+        targetDir,
       });
     } catch (err) {
       console.error('[MagmaLauncher] Не удалось записать конфиг CustomSkinLoader:', err);
@@ -8057,6 +8131,151 @@ async function installCatalogModpack(hit, btn) {
   }
 }
 
+function findCatalogCardButton(uid) {
+  if (!instancesCatalogListEl) return null;
+  for (const card of instancesCatalogListEl.querySelectorAll('.mod-card')) {
+    if (card.dataset.uid === uid) return card.querySelector('.mod-install-btn');
+  }
+  return null;
+}
+
+function addCatalogInstallSlot(entry, btn) {
+  if (!btn) return;
+  entry.slots = entry.slots || [];
+  const old = entry.slots.find(s => s.btn === btn);
+  if (old) old.cancelBtn.remove();
+  entry.slots = entry.slots.filter(s => s.btn !== btn && s.btn.isConnected);
+
+  const isModal = btn.id === 'modDetailsInstallBtn';
+  btn.disabled = true;
+  btn.classList.remove('is-installed');
+  btn.classList.add('is-loading');
+  btn.textContent = entry.lastText || t('mods.installing');
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = (isModal ? 'ghost-btn catalog-cancel-modal ' : 'mod-cancel-btn ') + 'catalog-cancel-btn';
+  cancelBtn.textContent = t('launch.cancelBtn');
+  cancelBtn.disabled = !!entry.cancelled;
+  cancelBtn.addEventListener('click', (e) => { e.stopPropagation(); requestCancelCatalogInstall(entry.name); });
+  btn.insertAdjacentElement('afterend', cancelBtn); // карточка: справа, окно: под кнопкой
+  entry.slots.push({ btn, cancelBtn });
+}
+
+function syncModalInstallState(hit) {
+  modDetailsOverlay.querySelectorAll('.catalog-cancel-btn').forEach(b => b.remove());
+  activeCatalogInstalls.forEach(entry => {
+    if (entry.uid && entry.uid === hit.uid) addCatalogInstallSlot(entry, modDetailsInstallBtn);
+  });
+}
+
+function restoreCatalogInstallButtons() {
+  activeCatalogInstalls.forEach(entry => {
+    if (!entry.uid) return;
+    const b = findCatalogCardButton(entry.uid);
+    if (b) addCatalogInstallSlot(entry, b);
+  });
+}
+
+function requestCancelCatalogInstall(instanceName) {
+  const entry = activeCatalogInstalls.get(instanceName);
+  if (!entry || entry.cancelled) return;
+  entry.cancelled = true;
+  (entry.slots || []).forEach(s => {
+    s.cancelBtn.disabled = true;
+    if (s.btn.isConnected) s.btn.textContent = '…';
+  });
+  const send = () => { if (typeof window.cancelLaunch === 'function') window.cancelLaunch().catch(() => {}); };
+  send();
+  entry.cancelTimer = setInterval(send, 500);
+}
+
+function reportCatalogInstallProgress(data) {
+  const text = Math.round((data.progress || 0) * 100) + '%';
+  activeCatalogInstalls.forEach(entry => {
+    if (entry.cancelled) return;
+    entry.lastText = text;
+    (entry.slots || []).forEach(s => { if (s.btn.isConnected) s.btn.textContent = text; });
+  });
+}
+
+window.__catalogModpackDone = async function (data) {
+  const entry = activeCatalogInstalls.get(data.instanceName);
+  activeCatalogInstalls.delete(data.instanceName);
+  const statusEl = document.getElementById('importInstanceStatus');
+  const slots = (entry && entry.slots) || [];
+  if (entry && entry.cancelTimer) clearInterval(entry.cancelTimer);
+  slots.forEach(s => s.cancelBtn.remove());
+
+  const wasCancelled = !data.success && (data.error === 'CANCELLED' || (entry && entry.cancelled));
+  if (wasCancelled) {
+    if (typeof window.deleteInstance === 'function') {
+      try { await window.deleteInstance({ name: data.instanceName, gameDir: getGameDir() }); } catch {}
+    }
+    slots.forEach(s => { s.btn.disabled = false; s.btn.classList.remove('is-loading'); s.btn.textContent = t('mods.install'); });
+    if (statusEl) statusEl.textContent = '';
+    return;
+  }
+
+  if (data.success) {
+    saveModpack({
+      name: data.instanceName,
+      mcVersion: data.mcVersion || instancesCatalogVersion,
+      loader: data.loader || 'vanilla',
+      mods: [],
+      icon_url: (entry && entry.iconUrl) || '',
+    });
+    renderInstances();
+    slots.forEach(s => {
+      s.btn.disabled = true;
+      s.btn.classList.remove('is-loading');
+      s.btn.classList.add('is-installed');
+      s.btn.textContent = t('mods.added');
+    });
+    if (statusEl) statusEl.textContent = '';
+    return;
+  }
+
+  const msg = translateBackendError(data.error) || t('auth.magma.genericError');
+  console.error('[MagmaLauncher] Ошибка установки сборки:', data.error);
+  slots.forEach(s => { s.btn.classList.remove('is-loading'); s.btn.textContent = msg.slice(0, 60); });
+  setTimeout(() => slots.forEach(s => { s.btn.disabled = false; s.btn.textContent = t('mods.install'); }), 4000);
+  if (!slots.length && statusEl) statusEl.textContent = msg;
+};
+
+async function installCatalogModpack(hit, btn, fromModal) {
+  if (typeof window.installModpackFromCatalog !== 'function') { btn.textContent = t('mods.devOnlyExe'); return; }
+  const id = instancesCatalogSource === 'curseforge' ? String(hit.curseforgeId) : hit.modrinthSlug;
+  if (!id) return;
+
+  const instanceName = uniqueInstanceName(hit.title || 'Modpack');
+  const entry = {
+    name: instanceName, uid: hit.uid, iconUrl: hit.icon_url || '',
+    cancelled: false, cancelTimer: null, slots: [], lastText: t('mods.installing'),
+  };
+  activeCatalogInstalls.set(instanceName, entry);
+  addCatalogInstallSlot(entry, btn);
+  if (fromModal) addCatalogInstallSlot(entry, findCatalogCardButton(hit.uid));
+
+  try {
+    const raw = await window.installModpackFromCatalog({
+      source: instancesCatalogSource, id, version: instancesCatalogVersion,
+      instanceName, gameDir: getGameDir(),
+    });
+    const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!result.started) throw new Error(translateBackendError(result.error) || t('auth.magma.genericError'));
+  } catch (err) {
+    console.error('[MagmaLauncher] Ошибка установки сборки из каталога:', err);
+    activeCatalogInstalls.delete(instanceName);
+    entry.slots.forEach(s => {
+      s.cancelBtn.remove();
+      s.btn.disabled = false;
+      s.btn.classList.remove('is-loading');
+      s.btn.textContent = t('mods.install');
+    });
+  }
+}
+
 async function runInstancesCatalogSearch(page) {
   if (!instancesCatalogListEl) return;
   instancesCatalogPage = page;
@@ -8127,6 +8346,7 @@ async function runInstancesCatalogSearch(page) {
 
   const total = result.total || 0;
   const totalPages = Math.max(1, Math.ceil(total / INSTANCES_CATALOG_PAGE_SIZE));
+  restoreCatalogInstallButtons();
   instancesCatalogPage = Math.min(Math.max(1, page), totalPages);
 
   instancesCatalogPaginationEl.innerHTML = '';
@@ -8529,12 +8749,23 @@ function renderNewsFeed(language = currentLang) {
     return firstTranslation || '';
   };
 
-  const cardsHtml = newsFeedCache.slice(0, 6).map(item => `
-    <article class="news-card">
-      <span class="news-tag">${pick(item.tag)}</span>
-      <h3>${pick(item.title)}</h3>
-      <p>${pick(item.desc)}</p>
-    </article>`).join('');
+  const safeUrl = (u) => (typeof u === 'string' && /^https?:\/\//i.test(u.trim()))
+    ? u.trim().replace(/"/g, '&quot;') : '';
+
+  const cardsHtml = newsFeedCache.slice(0, 6).map(item => {
+    const img = safeUrl(pick(item.image));
+    const link = safeUrl(pick(item.link));
+    const tag = pick(item.tag), title = pick(item.title), desc = pick(item.desc);
+    const inner =
+      (img ? `<img class="news-card-img" src="${img}" alt="" loading="lazy" onerror="this.remove()">` : '') +
+      (tag ? `<span class="news-tag">${tag}</span>` : '') +
+      (title ? `<h3>${title}</h3>` : '') +
+      (desc ? `<p>${desc}</p>` : '');
+    const cls = 'news-card' + (img ? ' has-image' : '') + (link ? ' is-link' : '');
+    return link
+      ? `<a class="${cls}" href="${link}" draggable="false">${inner}</a>`
+      : `<article class="${cls}">${inner}</article>`;
+  }).join('');
 
   container.innerHTML = headHtml + cardsHtml;
 }
@@ -8724,7 +8955,7 @@ async function autoUpdateOnBoot() {
 
     window.__bootProgressLocked = true;
     if (bootTitleEl) {
-      bootTitleEl.innerHTML = (currentLang === 'ru' ? 'Загрузка обновления' : 'Downloading update') +
+      bootTitleEl.innerHTML = t('boot.updating') +
         '<span class="boot-title-accent">...</span>';
     }
     setBootProgress(0);
@@ -8792,7 +9023,7 @@ async function autoUpdateOnBootLegacy() {
     const bootTitleEl = document.querySelector('.boot-title');
 
     if (bootTitleEl) {
-      bootTitleEl.textContent = 'Загрузка обновления...';
+      bootTitleEl.textContent = t('boot.updating') + '...';
     }
 
     setBootProgress(0);
@@ -8825,7 +9056,7 @@ async function autoUpdateOnBootLegacy() {
     if (!outcome.success) {
       if (bootTitleEl) {
         bootTitleEl.textContent =
-          'Не удалось обновить лаунчер. Запускаем текущую версию...';
+          t('boot.updateFailed');
       }
 
       console.error(
@@ -9259,6 +9490,7 @@ function renderModCardsInto(container, hits, { installedUids = new Set(), uidToF
 
     const card = document.createElement('div');
     card.className = 'mod-card';
+    card.dataset.uid = uid;
 
    const iconFallbackChar = (hit.title || uid).charAt(0).toUpperCase();
 const iconHtml = hit.icon_url
@@ -9392,6 +9624,8 @@ async function openModDetails(hit, onInstall, alreadyInstalled) {
   modDetailsIcon.textContent = (hit.title || uid).charAt(0).toUpperCase();
   modDetailsInstallBtn.style.display = 'none';
 
+  modDetailsOverlay.querySelectorAll('.catalog-cancel-btn').forEach(b => b.remove());
+  modDetailsInstallBtn.classList.remove('is-loading');
   const myRequestId = ++modDetailsRequestId;
 
   const renderBody = (title, downloads, followers, iconUrl, bodyHtml) => {
@@ -9410,8 +9644,10 @@ async function openModDetails(hit, onInstall, alreadyInstalled) {
       modDetailsInstallBtn.style.display = 'block';
       modDetailsInstallBtn.textContent = t('mods.install');
       modDetailsInstallBtn.disabled = false;
+      queueMicrotask(() => syncModalInstallState(hit));
       modDetailsInstallBtn.onclick = () => {
-        onInstall(hit, modDetailsInstallBtn);
+      onInstall(hit, modDetailsInstallBtn, true);
+        return;
         modDetailsInstallBtn.textContent = t('mods.added');
         modDetailsInstallBtn.disabled = true;
       };
@@ -10561,11 +10797,11 @@ const modpackSubmit = document.getElementById('modpackSubmit');
 
 const DEFAULT_MODS_BY_LOADER = {
   fabric: [
-    { slug: 'fabric-api', label: 'Fabric API', desc: { ru: 'Библиотека, нужна почти всем модам на Fabric', en: 'Library required by almost every Fabric mod' }, checked: true },
-    { slug: 'sodium',     label: 'Sodium',     desc: { ru: 'Оптимизация рендеринга без потери качества картинки', en: 'Rendering optimization without sacrificing visual quality' }, checked: true },
+    { slug: 'fabric-api', label: 'Fabric API', descKey: 'mods.default.fabricApi', desc: { ru: 'Библиотека, нужна почти всем модам на Fabric', en: 'Library required by almost every Fabric mod' }, checked: true },
+    { slug: 'sodium',     label: 'Sodium',     descKey: 'mods.default.sodium', desc: { ru: 'Оптимизация рендеринга без потери качества картинки', en: 'Rendering optimization without sacrificing visual quality' }, checked: true },
   ],
   forge: [
-    { slug: 'cloth-config', label: 'Cloth Config API', desc: { ru: 'Библиотека настроек, нужна многим модам на Forge', en: 'Config library required by many Forge mods' }, checked: true },
+    { slug: 'cloth-config', label: 'Cloth Config API', descKey: 'mods.default.clothConfig', desc: { ru: 'Библиотека настроек, нужна многим модам на Forge', en: 'Config library required by many Forge mods' }, checked: true },
   ],
   neoforge: [],
   quilt: [
@@ -10601,7 +10837,7 @@ function renderModpackDefaultMods() {
       <input type="checkbox" data-slug="${mod.slug}" ${mod.checked ? 'checked' : ''}>
       <div>
         <div>${mod.label}</div>
-        <div class="mod-check-desc">${mod.desc[currentLang] || mod.desc.ru}</div>
+        <div class="mod-check-desc">${mod.descKey ? t(mod.descKey) : (mod.desc[currentLang] || mod.desc.en || mod.desc.ru)}</div>
       </div>
     `;
     modpackDefaultModsEl.appendChild(row);
@@ -10658,11 +10894,11 @@ modpackLoaderTabsEl?.querySelectorAll('.loader-tab').forEach(tab => {
 window.__modpackProgress = function (data) {
   modpackProgress.style.display = 'block';
   modpackProgressFill.style.width = Math.round((data.progress || 0) * 100) + '%';
-  modpackProgressLabel.textContent = data.detail || '';
+  modpackProgressLabel.textContent = translateLaunchDetail(data.detail || '');
   reportCatalogInstallProgress(data);
   const importStatusEl = document.getElementById('importInstanceStatus');
   if (importStatusEl && importStatusEl.textContent) {
-    importStatusEl.textContent = data.detail || t('instances.importing');
+    importStatusEl.textContent = translateLaunchDetail(data.detail || '') || t('instances.importing');
   }
 };
 
@@ -10724,9 +10960,6 @@ modpackSubmit?.addEventListener('click', async () => {
   }
 });
 
-// ============================================
-
-// ============================================
 const ramSlider = document.getElementById('ramSlider');
 const ramValue = document.getElementById('ramValue');
 const javaPathInputEl = document.getElementById('javaPathInput');
@@ -10770,9 +11003,6 @@ function updateRamValue() {
   ramValue.textContent = `${val} ${t('ram.unit')}`;
 }
 
-// ============================================
-
-// ============================================
 let resolutionMode = 'default';
 const RESOLUTION_LABEL_KEYS = { default: 'settings.resolution.default', custom: 'settings.resolution.custom' };
 
@@ -11159,9 +11389,6 @@ versionRefreshBtnEl?.addEventListener('click', async () => {
   }
 });
 
-// ============================================
-
-// ============================================
 const authOverlay = document.getElementById('authOverlay');
 const accountTrigger = document.getElementById('accountTrigger');
 const accountName = document.getElementById('accountName');
@@ -11169,11 +11396,9 @@ const authModalClose = document.getElementById('authModalClose');
 
 let isLoggedIn = false;
 
-// ============================================
-
-// ============================================
 const ACCOUNTS_KEY = 'magma_accounts';
 const ACTIVE_ACCOUNT_KEY = 'magma_active_account_id';
+let accountSessionQueue = Promise.resolve();
 
 function getAccounts() {
   try { return JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || '[]'); } catch { return []; }
@@ -11192,15 +11417,28 @@ function upsertActiveAccount(acc) {
   renderAccountsListPanel();
   updateSettingsAccountTab();
 }
-supabaseClient.auth.onAuthStateChange((_event, session) => {
-  if (!session) return;
-  const activeId = getActiveAccountId();
-  if (!activeId || activeId !== session.user.id) return;
-  const acc = getAccounts().find(a => a.id === activeId);
-  if (!acc || acc.type !== 'magma') return;
+function persistMagmaTokens(session) {
+  if (!session?.user?.id || !session.refresh_token) return;
+  const acc = getAccounts().find(a => a.id === session.user.id && a.type === 'magma');
+  if (!acc) return;
   const list = getAccounts().filter(a => a.id !== acc.id);
   list.unshift({ ...acc, accessToken: session.access_token, refreshToken: session.refresh_token });
   saveAccounts(list);
+}
+async function detachSupabaseSession() {
+  try {
+    const { data } = await supabaseClient.auth.getSession();
+    persistMagmaTokens(data?.session);
+  } catch {}
+  try {
+    Object.keys(localStorage)
+      .filter(k => /^sb-.+-auth-token/.test(k))
+      .forEach(k => localStorage.removeItem(k));
+  } catch {}
+}
+supabaseClient.auth.onAuthStateChange((_event, session) => {
+  if (!session) return;
+  persistMagmaTokens(session);
 });
 
 let magmaIconIdCounter = 0;
@@ -11343,18 +11581,91 @@ async function defaultSteveSkinBlobUrl() {
   }
 }
 
-async function loadSkinBlobUrl(nickname) {
-  if (typeof window.fetchSkinBytes !== 'function') return elyByHeadUrl(nickname);
+let accountSkinViewerModel = 'default';
+let accountSkinViewerCapeBlobUrl = null;
+
+const SKIN_SYSTEM_KEY = 'magma_skin_system_';
+function getSkinSystemPref(accountId = getActiveAccountId()) {
+ return accountId && localStorage.getItem(SKIN_SYSTEM_KEY + accountId) === 'magma' ? 'magma' : 'elyby';
+}
+function renderSkinSystemOptions() {
+  const accountId = getActiveAccountId();
+  const selected = currentAccountType() === 'magma' ? getSkinSystemPref(accountId) : 'elyby';
+  document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(button => {
+    button.classList.toggle('is-active', button.dataset.skinSystem === selected);
+  });
+}
+document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(button => {
+  button.addEventListener('click', () => {
+    if (currentAccountType() !== 'magma') return;
+    localStorage.setItem(SKIN_SYSTEM_KEY + getActiveAccountId(), button.dataset.skinSystem);
+    renderSkinSystemOptions();
+    accountSkinViewerLoadedAt = 0;
+    const nick = accountName?.textContent || '';
+    if (nick) refreshAccountSkinViewer(nick);
+  });
+});
+
+let accountSkinViewerCapeSourceUrl = null;
+function resetAccountSkinViewerForAccountSwitch() {
+  accountSkinViewerRequestId++;
+  accountSkinViewerLoadedAt = 0;
+  accountSkinViewerNick = null;
+  accountSkinViewerAccountId = null;
+  accountSkinViewerModel = 'default';
+  accountSkinViewerCapeSourceUrl = null;
+  releaseSkinBlobUrl(accountSkinViewerBlobUrl);
+  accountSkinViewerBlobUrl = null;
+  releaseSkinBlobUrl(accountSkinViewerCapeBlobUrl);
+  accountSkinViewerCapeBlobUrl = null;
+  if (accountSkinViewer) {
+    try {
+      accountSkinViewer.resetSkin();
+      accountSkinViewer.loadCape(null);
+    } catch (err) {
+      console.warn('[MagmaLauncher] Не удалось сбросить предпросмотр скина:', err);
+    }
+  }
+}
+async function loadMagmaSkinBlobUrl(nickname, expectedAccountId) {
+  const endpoint = SUPABASE_URL + '/functions/v1/magma-skin-api/' + encodeURIComponent(nickname) + '.json';
+  const response = await fetch(endpoint, { cache: 'no-store' });
+  if (!response.ok || getActiveAccountId() !== expectedAccountId) return await defaultSteveSkinBlobUrl();
+  const metadata = await response.json();
+  if (getActiveAccountId() !== expectedAccountId) return await defaultSteveSkinBlobUrl();
+  const root = SUPABASE_URL + '/functions/v1/magma-skin-api/textures/';
+  const bust = '?t=' + Date.now();
+  accountSkinViewerCapeSourceUrl = metadata.textures?.cape ? root + encodeURIComponent(metadata.textures.cape) + bust : null;
+  accountSkinViewerModel = (!metadata.textures?.default && metadata.textures?.slim) || window.magmaAccountSkinModel === 'slim' ? 'slim' : 'default';
+  const textureId = metadata.textures?.default || metadata.textures?.slim;
+  if (!textureId) return await defaultSteveSkinBlobUrl();
+  const skinUrl = root + encodeURIComponent(textureId) + bust;
+  const raw = await window.fetchSkinBytes({ url: skinUrl });
+  if (getActiveAccountId() !== expectedAccountId) return await defaultSteveSkinBlobUrl();
+  const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  if (!result.success) return await defaultSteveSkinBlobUrl();
+   return URL.createObjectURL(new Blob([base64ToUint8Array(result.dataBase64)], { type: 'image/png' }));
+}
+async function loadSkinBlobUrl(nickname, expectedAccountId) {
+  accountSkinViewerModel = 'default';
+  accountSkinViewerCapeSourceUrl = null;
+  if (currentAccountType() === 'magma' && getSkinSystemPref(expectedAccountId) === 'magma' && typeof window.fetchSkinBytes === 'function') {
+    try {
+      return await loadMagmaSkinBlobUrl(nickname, expectedAccountId);
+    } catch (err) {
+      console.warn('[MagmaLauncher] Не удалось загрузить MagmaSkin для предпросмотра:', err);
+      return await defaultSteveSkinBlobUrl();
+    }
+  }
+  if (typeof window.fetchSkinBytes !== 'function') return await defaultSteveSkinBlobUrl();
   try {
     const raw = await window.fetchSkinBytes({ url: elyBySkinUrl(nickname, true) });
     const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
-
     if (!result.success) return await defaultSteveSkinBlobUrl();
     const bytes = base64ToUint8Array(result.dataBase64);
-    const blob = new Blob([bytes], { type: 'image/png' });
-    return URL.createObjectURL(blob);
+    return URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
   } catch (err) {
-    console.error('[MagmaLauncher] Не удалось загрузить байты скина:', err);
+    console.error('[MagmaLauncher] Не удалось загрузить скин Ely.by:', err);
     return await defaultSteveSkinBlobUrl();
   }
 }
@@ -11363,6 +11674,7 @@ let accountSkinViewer = null;
 let accountSkinViewerBlobUrl = null;
 let accountSkinViewerRequestId = 0;
 let accountSkinViewerNick = null;
+let accountSkinViewerAccountId = null;
 let accountSkinViewerLoadedAt = 0;
 let accountSkinViewerPending = null;
 let accountSkinViewerContextLossBound = false;
@@ -11380,7 +11692,9 @@ function releaseSkinBlobUrl(url) {
 async function doRefreshAccountSkinViewer(nickname) {
   if (!nickname) return;
 
-  const nickChanged = accountSkinViewerNick !== nickname;
+  const activeAccountId = getActiveAccountId();
+  const accountChanged = accountSkinViewerAccountId !== activeAccountId;
+  const nickChanged = accountSkinViewerNick !== nickname || accountChanged;
 
   if (!nickChanged && accountSkinViewer && Date.now() - accountSkinViewerLoadedAt < 60000) return;
 
@@ -11400,11 +11714,12 @@ async function doRefreshAccountSkinViewer(nickname) {
 
   if (nickChanged) {
     viewer.resetSkin();
+    try { await viewer.loadCape(null); } catch {}
     accountSkinViewerNick = null;
     setSkinViewerHint('settings.account.viewerLoading');
   }
 
-  const blobUrl = await loadSkinBlobUrl(nickname);
+  const blobUrl = await loadSkinBlobUrl(nickname, activeAccountId);
   if (myRequestId !== accountSkinViewerRequestId) {
     releaseSkinBlobUrl(blobUrl);
     return;
@@ -11413,7 +11728,7 @@ async function doRefreshAccountSkinViewer(nickname) {
   let loaded = false;
   for (let attempt = 0; attempt < 3 && !loaded; attempt++) {
     try {
-      await viewer.loadSkin(blobUrl);
+      await viewer.loadSkin(blobUrl, { model: accountSkinViewerModel });
       loaded = true;
     } catch (err) {
       console.error('[MagmaLauncher] Не удалось загрузить модель скина:', err);
@@ -11427,10 +11742,44 @@ async function doRefreshAccountSkinViewer(nickname) {
     setSkinViewerHint('settings.account.viewerLoadError');
     return;
   }
+  if (myRequestId !== accountSkinViewerRequestId || getActiveAccountId() !== activeAccountId) {
+    releaseSkinBlobUrl(blobUrl);
+    return;
+  }
+
+  try {
+    if (accountSkinViewerCapeSourceUrl && typeof window.fetchSkinBytes === 'function') {
+      const rawCape = await window.fetchSkinBytes({ url: accountSkinViewerCapeSourceUrl });
+      if (myRequestId !== accountSkinViewerRequestId || getActiveAccountId() !== activeAccountId) {
+        releaseSkinBlobUrl(blobUrl);
+        return;
+      }
+      const capeResult = typeof rawCape === 'string' ? JSON.parse(rawCape) : rawCape;
+      if (capeResult.success) {
+        const capeBlob = URL.createObjectURL(new Blob([base64ToUint8Array(capeResult.dataBase64)], { type: 'image/png' }));
+        await viewer.loadCape(capeBlob);
+        releaseSkinBlobUrl(capeBlob);
+      } else {
+        await viewer.loadCape(null);
+      }
+    } else {
+      await viewer.loadCape(null);
+    }
+  } catch (err) {
+    console.warn('[MagmaLauncher] Не удалось обновить плащ в предпросмотре:', err);
+    await viewer.loadCape(null);
+  }
+  if (myRequestId !== accountSkinViewerRequestId || getActiveAccountId() !== activeAccountId) {
+    releaseSkinBlobUrl(blobUrl);
+    return;
+  }
+  releaseSkinBlobUrl(accountSkinViewerCapeBlobUrl);
+  accountSkinViewerCapeBlobUrl = null;
 
   releaseSkinBlobUrl(accountSkinViewerBlobUrl);
   accountSkinViewerBlobUrl = blobUrl;
   accountSkinViewerNick = nickname;
+  accountSkinViewerAccountId = activeAccountId;
   accountSkinViewerLoadedAt = Date.now();
   setSkinViewerHint('settings.account.rotateHint');
 }
@@ -11526,6 +11875,12 @@ function refreshAccountSkinViewer(nickname) {
   return task;
 }
 
+window.magmaRefreshAccountSkinViewer = (nickname) => {
+  accountSkinViewerLoadedAt = 0;
+  const nick = nickname || (accountName && accountName.textContent) || '';
+  return nick ? refreshAccountSkinViewer(nick) : Promise.resolve();
+};
+
 function isSkinViewerCanvasVisible() {
   const canvas = document.getElementById('accountSkinViewerCanvas');
   if (!canvas) return false;
@@ -11543,16 +11898,47 @@ function isSkinViewerCanvasVisible() {
   return rect.width > 0 && rect.height > 0;
 }
 
+window.addEventListener('magma:account-settings-updated', () => {
+  accountSkinViewerLoadedAt = 0;
+  const nick = (accountName && accountName.textContent) || '';
+  if (nick) refreshAccountSkinViewer(nick);
+});
+
 function updateSettingsAccountTab() {
   const nameEl = document.getElementById('settingsAccountName');
   const iconEl = document.getElementById('settingsAccountTypeIcon');
   const nick = (accountName && accountName.textContent) || '';
   if (nameEl) nameEl.textContent = nick;
-  if (iconEl) iconEl.innerHTML = accountTypeIconMarkup(currentAccountType());
+  const accountType = currentAccountType();
+  const isMagmaAccount = accountType === 'magma';
+  if (iconEl) iconEl.innerHTML = accountTypeIconMarkup(accountType);
+
+  const cloudSettings = document.getElementById('accountCloudSettings');
+  if (cloudSettings) cloudSettings.style.display = isMagmaAccount ? '' : 'none';
+  document.querySelectorAll('.magma-skin-option, .magma-account-only').forEach(el => {
+    el.hidden = !isMagmaAccount;
+    if (el.classList.contains('magma-account-only')) el.style.display = isMagmaAccount ? '' : 'none';
+  });
+
+  const skinChangeButton = document.getElementById('skinChangeBtn');
+  if (skinChangeButton) skinChangeButton.hidden = isMagmaAccount && getSkinSystemPref() !== 'elyby';
 
   const changePasswordBlock = document.getElementById('accountChangePasswordBlock');
-  if (changePasswordBlock) changePasswordBlock.style.display = currentAccountType() === 'magma' ? '' : 'none';
+  if (changePasswordBlock) changePasswordBlock.style.display = isMagmaAccount ? '' : 'none';
+const skinViewer = document.querySelector('.account-skin-viewer');
+  if (skinViewer) skinViewer.style.display = '';
+  const logoutButton = document.getElementById('accountLogoutBtn');
+  if (logoutButton) logoutButton.style.display = accountType === 'guest' ? 'none' : '';
+ ['accountSkinManager', 'accountChangePasswordBlock'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isMagmaAccount ? '' : 'none';
+  });
+  const skinManagerEl = document.getElementById('accountSkinManager');
+  if (skinManagerEl) skinManagerEl.hidden = !(isMagmaAccount && getSkinSystemPref() === 'magma');
+  const deleteButton = document.getElementById('accountDeleteBtn');
+  if (deleteButton) deleteButton.style.display = '';
 
+renderSkinSystemOptions();
   refreshAccountSkinViewer(nick);
 }
 
@@ -11652,32 +12038,76 @@ function renderAccountsListPanel() {
 
 async function switchToAccount(acc) {
   closeAccountListDropdown();
+  localStorage.setItem(ACTIVE_ACCOUNT_KEY, acc.id);
+  resetAccountSkinViewerForAccountSwitch();
+  accountName.textContent = acc.nickname;
+  renderAccountAvatar();
+  updateSettingsAccountTab();
+  window.dispatchEvent(new CustomEvent('magma:active-account-changed'));
   if (acc.type === 'guest') {
     saveGuestSession(acc.nickname);
-    localStorage.setItem(ACTIVE_ACCOUNT_KEY, acc.id);
+    accountSessionQueue = accountSessionQueue.catch(() => {}).then(async () => {
+      if (getActiveAccountId() !== acc.id) return;
+    await detachSupabaseSession();
+    });
+    try {
+      await accountSessionQueue;
+    } catch (err) {
+      console.warn('[MagmaLauncher] Не удалось очистить локальную сессию:', err);
+    }
+    if (getActiveAccountId() !== acc.id) return;
     finishLogin(acc.nickname);
     return;
   }
 
   if (acc.type === 'magma') {
-    localStorage.setItem(ACTIVE_ACCOUNT_KEY, acc.id);
-    finishLogin(acc.nickname);
+    if (!acc.accessToken || !acc.refreshToken) {
+      accountSessionQueue = accountSessionQueue.catch(() => {}).then(() => supabaseClient.auth.signOut({ scope: 'local' }));
+      try { await accountSessionQueue; } catch (err) { console.warn('[MagmaLauncher] Не удалось очистить предыдущую сессию:', err); }
+      if (getActiveAccountId() !== acc.id) return;
+      resetAuthModalForms();
+      authTabs.forEach(tb => tb.classList.toggle('is-active', tb.dataset.tab === 'magma'));
+      authPanes.forEach(p => p.classList.toggle('is-active', p.dataset.pane === 'magma'));
+      showMagmaStep('login');
+      const loginEmailEl = document.getElementById('magmaLoginEmail');
+      if (loginEmailEl) loginEmailEl.value = acc.identifier || acc.nickname;
+      updateModalCloseVisibility();
+      openAuthModal();
+      return;
+    }
 
-    if (acc.accessToken && acc.refreshToken) {
-      supabaseClient.auth.setSession({
+    accountSessionQueue = accountSessionQueue.catch(() => {}).then(async () => {
+      if (getActiveAccountId() !== acc.id) return null;
+      const { data, error } = await supabaseClient.auth.setSession({
         access_token: acc.accessToken,
-        refresh_token: acc.refreshToken,
-      }).then(({ data, error }) => {
-        if (!error && data.session) {
-          upsertActiveAccount({
-            ...acc,
-            accessToken: data.session.access_token,
-            refreshToken: data.session.refresh_token,
-          });
-        }
-      }).catch((err) => {
-        console.error('[MagmaLauncher] Не удалось обновить сессию аккаунта в фоне:', err);
+        refresh_token: acc.refreshToken
       });
+      if (error) throw error;
+      if (!data?.session || getActiveAccountId() !== acc.id) return null;
+      saveAccounts([
+        { ...acc, accessToken: data.session.access_token, refreshToken: data.session.refresh_token },
+        ...getAccounts().filter(a => a.id !== acc.id)
+      ]);
+      return data.session;
+    });
+
+    try {
+      const session = await accountSessionQueue;
+      if (!session || getActiveAccountId() !== acc.id) return;
+      finishLogin(acc.nickname);
+      window.dispatchEvent(new CustomEvent('magma:account-session-ready'));
+    } catch (err) {
+      console.error('[MagmaLauncher] Не удалось восстановить Magma Account:', err);
+      if (getActiveAccountId() !== acc.id) return;
+      accountSessionQueue = accountSessionQueue.catch(() => {}).then(() => supabaseClient.auth.signOut({ scope: 'local' }));
+      resetAuthModalForms();
+      authTabs.forEach(tb => tb.classList.toggle('is-active', tb.dataset.tab === 'magma'));
+      authPanes.forEach(p => p.classList.toggle('is-active', p.dataset.pane === 'magma'));
+      showMagmaStep('login');
+      const loginEmailEl = document.getElementById('magmaLoginEmail');
+      if (loginEmailEl) loginEmailEl.value = acc.identifier || acc.nickname;
+      updateModalCloseVisibility();
+      openAuthModal();
     }
     return;
   }
@@ -11759,55 +12189,52 @@ async function tryRestoreActiveAccount() {
   const activeId = getActiveAccountId();
   if (!activeId) return false;
   const acc = getAccounts().find(a => a.id === activeId);
-  if (!acc) return false;
+  if (!acc || !acc.nickname) return false;
+
+  resetAccountSkinViewerForAccountSwitch();
 
   if (acc.type === 'guest') {
-    if (!acc.nickname || !isValidMinecraftNick(acc.nickname)) return false;
+    if (!isValidMinecraftNick(acc.nickname)) return false;
     saveGuestSession(acc.nickname);
+    accountSessionQueue = accountSessionQueue.catch(() => {}).then(async () => {
+      if (getActiveAccountId() !== acc.id) return;
+  await detachSupabaseSession();
+    });
+    try { await accountSessionQueue; }
+    catch (err) { console.warn('[MagmaLauncher] Не удалось очистить локальную сессию:', err); }
+    if (getActiveAccountId() !== acc.id) return false;
     finishLogin(acc.nickname);
     updateModalCloseVisibility();
     return true;
   }
 
-  if (acc.type === 'magma') {
-
-    if (!acc.nickname) return false;
-
-    finishLogin(acc.nickname);
-    updateModalCloseVisibility();
-
-    (async () => {
-      try {
-        let session = null;
-        const { data: existing } = await supabaseClient.auth.getSession();
-        if (existing && existing.session && existing.session.user.id === acc.id) {
-          session = existing.session;
-        } else if (acc.accessToken && acc.refreshToken) {
-          const { data, error } = await supabaseClient.auth.setSession({
-            access_token: acc.accessToken,
-            refresh_token: acc.refreshToken,
-          });
-          if (!error && data.session) session = data.session;
-        }
-        if (!session) return;
-
-        const refreshedAcc = { ...acc, accessToken: session.access_token, refreshToken: session.refresh_token };
-        upsertActiveAccount(refreshedAcc);
-
-        const { profile, missing } = await fetchProfileWithRetry(session.user.id);
-        if (missing || !profile) return;
-
-        if (profile.nick !== acc.nickname) {
-          upsertActiveAccount({ ...refreshedAcc, nickname: profile.nick });
-          accountName.textContent = profile.nick;
-          renderAccountAvatar();
-        }
-      } catch (err) {
-        console.error('[MagmaLauncher] Не удалось освежить сессию аккаунта в фоне:', err);
-      }
-    })();
-
-    return true;
+  if (acc.type === 'magma' && acc.accessToken && acc.refreshToken) {
+    accountSessionQueue = accountSessionQueue.catch(() => {}).then(async () => {
+      if (getActiveAccountId() !== acc.id) return null;
+ await detachSupabaseSession();
+      const stored = getAccounts().find(a => a.id === acc.id) || acc;
+      const { data, error } = await supabaseClient.auth.setSession({
+        access_token: stored.accessToken,
+        refresh_token: stored.refreshToken
+      });
+      if (error) throw error;
+      if (!data?.session || getActiveAccountId() !== acc.id) return null;
+      saveAccounts([
+        { ...acc, accessToken: data.session.access_token, refreshToken: data.session.refresh_token },
+        ...getAccounts().filter(a => a.id !== acc.id)
+      ]);
+      return data.session;
+    });
+    try {
+      const session = await accountSessionQueue;
+      if (!session || getActiveAccountId() !== acc.id) return false;
+      finishLogin(acc.nickname);
+      updateModalCloseVisibility();
+      return true;
+    } catch (err) {
+      console.warn('[MagmaLauncher] Восстановление Magma Account не удалось:', err);
+      return false;
+    }
   }
 
   return false;
@@ -11846,12 +12273,13 @@ function showError(el, message) {
   if (!el) return;
   el.style.color = '';
   el.textContent = message;
+  el.classList.remove('is-success');
   el.classList.add('is-visible');
 }
 function hideError(el) {
   if (!el) return;
   el.textContent = '';
-  el.classList.remove('is-visible');
+  el.classList.remove('is-visible', 'is-success', 'is-error');
 }
 
 function setButtonLoading(button, loadingText) {
@@ -11898,7 +12326,7 @@ authTabs.forEach(tab => {
 
 const guestError = document.getElementById('guestError');
 
-document.getElementById('guestSubmit')?.addEventListener('click', () => {
+document.getElementById('guestSubmit')?.addEventListener('click', async () => {
   const nickname = document.getElementById('guestNickname').value.trim();
   hideError(guestError);
 
@@ -11910,6 +12338,14 @@ document.getElementById('guestSubmit')?.addEventListener('click', () => {
     showError(guestError, t('auth.magma.invalidNick'));
     return;
   }
+
+  accountSkinViewerRequestId++;
+  accountSkinViewerLoadedAt = 0;
+  accountSkinViewerNick = null;
+  accountSkinViewerAccountId = null;
+  accountSessionQueue = accountSessionQueue.then(() => detachSupabaseSession()).catch(err => {
+    console.warn('[MagmaLauncher] Не удалось очистить предыдущую сессию:', err);
+  });
 
   saveGuestSession(nickname);
   upsertActiveAccount({ id: 'guest:' + nickname.toLowerCase(), type: 'guest', nickname, identifier: '' });
@@ -11938,11 +12374,117 @@ const magmaRegisterError = document.getElementById('magmaRegisterError');
 const magmaGoogleSetupError = document.getElementById('magmaGoogleSetupError');
 const magmaGoogleSetupDesc = document.getElementById('magmaGoogleSetupDesc');
 
+const magmaForgotPasswordForm = document.getElementById('magmaForgotPasswordForm');
+const magmaResetPasswordForm = document.getElementById('magmaResetPasswordForm');
+
 function showMagmaStep(step) {
   if (magmaLoginForm) magmaLoginForm.style.display = step === 'login' ? 'flex' : 'none';
   if (magmaRegisterForm) magmaRegisterForm.style.display = step === 'register' ? 'flex' : 'none';
   if (magmaGoogleSetupForm) magmaGoogleSetupForm.style.display = step === 'google-setup' ? 'flex' : 'none';
+  if (magmaForgotPasswordForm) magmaForgotPasswordForm.style.display = step === 'forgot-password' ? 'flex' : 'none';
+  if (magmaResetPasswordForm) magmaResetPasswordForm.style.display = step === 'reset-password' ? 'flex' : 'none';
+  if (step === 'register') showRegStep(1);
+  else document.querySelector('.modal-panel')?.classList.remove('is-register-details');
 }
+
+async function requestMagmaPasswordReset() {
+  const email = document.getElementById('magmaForgotPasswordEmail').value.trim();
+  const errorBox = document.getElementById('magmaForgotPasswordError');
+  hideError(errorBox);
+  if (!isValidEmail(email)) {
+    showError(errorBox, t('auth.magma.invalidEmail'));
+    return;
+  }
+  const button = document.getElementById('magmaForgotPasswordSubmit');
+  setButtonLoading(button, t('auth.magma.resetSending'));
+  try {
+    const { error } = await withTimeout(supabaseClient.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://magmalauncher.space/pages/reset-password.html'
+    }));
+    if (error) throw error;
+    errorBox.textContent = t('auth.magma.resetSent');
+    errorBox.classList.add('is-visible');
+    errorBox.classList.remove('is-error');
+    errorBox.classList.add('is-success');
+  } catch (error) {
+    showError(errorBox, error.message || t('auth.magma.resetFailed'));
+  } finally {
+    restoreButton(button);
+  }
+}
+
+async function handleMagmaRecoveryUrl(rawUrl) {
+  authTabs.forEach(tab => tab.classList.toggle('is-active', tab.dataset.tab === 'magma'));
+  authPanes.forEach(pane => pane.classList.toggle('is-active', pane.dataset.pane === 'magma'));
+  updateModalCloseVisibility();
+  openAuthModal();
+  try {
+    const recoveryUrl = new URL(rawUrl);
+    const params = new URLSearchParams(recoveryUrl.hash.replace(/^#/, ''));
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    if (!accessToken || !refreshToken || params.get('type') !== 'recovery') {
+      throw new Error(t('auth.magma.resetInvalid'));
+    }
+    const { error } = await supabaseClient.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken
+    });
+    if (error) throw error;
+    document.getElementById('magmaResetPassword').value = '';
+    document.getElementById('magmaResetPasswordConfirm').value = '';
+    hideError(document.getElementById('magmaResetPasswordError'));
+    showMagmaStep('reset-password');
+    document.getElementById('magmaResetPassword').focus();
+  } catch (error) {
+    showMagmaStep('forgot-password');
+    showError(document.getElementById('magmaForgotPasswordError'), error.message || t('auth.magma.resetInvalid'));
+  }
+}
+
+window.addEventListener('magma-auth-url', event => {
+  if (event.detail) handleMagmaRecoveryUrl(event.detail);
+});
+if (window.magmaStartupAuthUrl) handleMagmaRecoveryUrl(window.magmaStartupAuthUrl);
+
+document.getElementById('showMagmaForgotPassword')?.addEventListener('click', event => {
+  event.preventDefault();
+  hideError(magmaLoginError);
+  hideError(document.getElementById('magmaForgotPasswordError'));
+  restoreButton(document.getElementById('magmaForgotPasswordSubmit'));
+  document.getElementById('magmaForgotPasswordEmail').value =
+    document.getElementById('magmaLoginEmail').value.includes('@')
+      ? document.getElementById('magmaLoginEmail').value.trim() : '';
+  showMagmaStep('forgot-password');
+});
+
+document.getElementById('magmaForgotPasswordBack')?.addEventListener('click', () => showMagmaStep('login'));
+document.getElementById('magmaForgotPasswordSubmit')?.addEventListener('click', requestMagmaPasswordReset);
+document.getElementById('magmaResetPasswordBack')?.addEventListener('click', () => showMagmaStep('login'));
+document.getElementById('magmaResetPasswordSubmit')?.addEventListener('click', async event => {
+  const password = document.getElementById('magmaResetPassword').value;
+  const confirmation = document.getElementById('magmaResetPasswordConfirm').value;
+  const errorBox = document.getElementById('magmaResetPasswordError');
+  hideError(errorBox);
+  if (password.length < 6) return showError(errorBox, t('auth.magma.passwordTooShort'));
+  if (password !== confirmation) return showError(errorBox, t('auth.magma.passwordMismatch'));
+  const button = event.currentTarget;
+  setButtonLoading(button, t('auth.magma.resetSaving'));
+  try {
+    const { error } = await withTimeout(supabaseClient.auth.updateUser({ password }));
+    if (error) throw error;
+    errorBox.textContent = t('auth.magma.resetSuccess');
+    errorBox.classList.add('is-visible', 'is-success');
+    document.getElementById('magmaResetPassword').value = '';
+    document.getElementById('magmaResetPasswordConfirm').value = '';
+    await supabaseClient.auth.signOut({ scope: 'local' });
+    setTimeout(() => showMagmaStep('login'), 1800);
+  } catch (error) {
+    showError(errorBox, error.message || t('auth.magma.resetFailed'));
+  } finally {
+    restoreButton(button);
+  }
+});
 
 document.getElementById('showMagmaRegister')?.addEventListener('click', (e) => {
   e.preventDefault();
@@ -12043,9 +12585,6 @@ document.getElementById('magmaLoginSubmit')?.addEventListener('click', async (e)
   }
 });
 
-// ============================================
-
-// ============================================
 let profileRepairUserId = null;
 
 async function runGoogleAuth() {
@@ -12117,7 +12656,239 @@ async function handleGoogleAuthClick(button) {
 document.getElementById('googleAuthSubmit')?.addEventListener('click', (e) => handleGoogleAuthClick(e.currentTarget));
 document.getElementById('googleRegisterSubmit')?.addEventListener('click', (e) => handleGoogleAuthClick(e.currentTarget));
 
+// ============================================
+// Регистрация Magma по коду из письма
+// ============================================
+let regEmail = '';
+let regUserId = null;
+let regResendTimer = null;
+
+function showRegStep(n, keepError = false) {
+  [1, 2].forEach(i => {
+    const el = document.getElementById('magmaRegStep' + i);
+    if (el) el.style.display = i === n ? 'flex' : 'none';
+  });
+  document.querySelector('.modal-panel')?.classList.toggle('is-register-details', n === 1);
+  if (!keepError) hideError(magmaRegisterError);
+}
+
+function resetRegisterFlow() {
+  clearInterval(regResendTimer);
+  regEmail = '';
+  regUserId = null;
+  ['magmaRegEmail', 'magmaRegCode', 'magmaRegNick', 'magmaRegPassword', 'magmaRegPasswordConfirm']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  showRegStep(1);
+}
+
+function startResendCooldown(seconds) {
+  const btn = document.getElementById('magmaRegisterResend');
+  if (!btn) return;
+  clearInterval(regResendTimer);
+  let left = seconds;
+  const tick = () => {
+    if (left > 0) {
+      btn.disabled = true;
+      btn.textContent = t('auth.magma.resendIn').replace('{s}', left);
+      left--;
+    } else {
+      clearInterval(regResendTimer);
+      btn.disabled = false;
+      btn.textContent = t('auth.magma.resend');
+    }
+  };
+  tick();
+  regResendTimer = setInterval(tick, 1000);
+}
+
+async function sendRegCode(email) {
+  const { data: taken } = await supabaseClient.rpc('email_registered', { check_email: email });
+  if (taken) return t('auth.magma.emailTaken');
+  const { error } = await supabaseClient.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+  if (error) {
+    console.error('[MagmaLauncher] Ошибка отправки кода:', error);
+    const limited = error.status === 429 || /rate|seconds|too many/i.test(error.message || '');
+    return limited ? t('auth.magma.tooManyRequests') : t('auth.magma.sendFailed');
+  }
+  return null;
+}
+
+document.getElementById('showMagmaRegister')?.addEventListener('click', resetRegisterFlow);
+
+document.getElementById('magmaRegisterSendCode')?.addEventListener('click', async (e) => {
+  const button = e.currentTarget;
+  const email = document.getElementById('magmaRegEmail').value.trim();
+  const nick = document.getElementById('magmaRegNick').value.trim();
+  const password = document.getElementById('magmaRegPassword').value;
+  const confirm = document.getElementById('magmaRegPasswordConfirm').value;
+  hideError(magmaRegisterError);
+
+  if (!nick || !password || !confirm || !email) { showError(magmaRegisterError, t('auth.magma.fillAll')); return; }
+  if (!isValidMinecraftNick(nick)) { showError(magmaRegisterError, t('auth.magma.invalidNick')); return; }
+  if (!isValidPassword(password)) { showError(magmaRegisterError, t('auth.magma.weakPassword')); return; }
+  if (password !== confirm) { showError(magmaRegisterError, t('auth.magma.passwordMismatch')); return; }
+  if (!isValidEmail(email)) { showError(magmaRegisterError, t('auth.magma.invalidEmail')); return; }
+
+  if (regUserId) {
+    const ok = await completeMagmaProfile(regUserId, regEmail, nick, password, confirm, magmaRegisterError, button);
+    if (ok) resetRegisterFlow();
+    return;
+  }
+
+  setButtonLoading(button, t('auth.magma.sending'));
+  try {
+    const err = await sendRegCode(email);
+    if (err) { showError(magmaRegisterError, err); return; }
+    regEmail = email;
+    document.getElementById('magmaRegCodeDesc').textContent = t('auth.magma.codeSent').replace('{email}', email);
+    document.getElementById('magmaRegCode').value = '';
+    showRegStep(2);
+    startResendCooldown(60);
+    document.getElementById('magmaRegCode').focus();
+  } catch (err) {
+    console.error('[MagmaLauncher] Ошибка отправки кода:', err);
+    showError(magmaRegisterError, t('auth.magma.sendFailed'));
+  } finally {
+    restoreButton(button);
+  }
+});
+
+document.getElementById('magmaRegisterResend')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  hideError(magmaRegisterError);
+  btn.disabled = true;
+  try {
+    const err = await sendRegCode(regEmail);
+    if (err) { showError(magmaRegisterError, err); btn.disabled = false; return; }
+    startResendCooldown(60);
+  } catch (err) {
+    console.error('[MagmaLauncher] Ошибка повторной отправки:', err);
+    showError(magmaRegisterError, t('auth.magma.sendFailed'));
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('magmaRegisterChangeEmail')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  clearInterval(regResendTimer);
+  showRegStep(1);
+});
+
+document.getElementById('magmaRegisterVerify')?.addEventListener('click', async (e) => {
+  const button = e.currentTarget;
+  const token = document.getElementById('magmaRegCode').value.trim();
+  hideError(magmaRegisterError);
+  if (!/^\d{6}$/.test(token)) { showError(magmaRegisterError, t('auth.magma.codeInvalid')); return; }
+
+  setButtonLoading(button, t('auth.magma.verifying'));
+  try {
+    const { data, error } = await supabaseClient.auth.verifyOtp({ email: regEmail, token, type: 'email' });
+    if (error || !data || !data.user) {
+      showError(magmaRegisterError, t('auth.magma.codeInvalid'));
+      return;
+    }
+    regUserId = data.user.id;
+    clearInterval(regResendTimer);
+    const ok = await completeMagmaProfile(
+      regUserId, regEmail,
+      document.getElementById('magmaRegNick').value.trim(),
+      document.getElementById('magmaRegPassword').value,
+      document.getElementById('magmaRegPasswordConfirm').value,
+      magmaRegisterError, button
+    );
+    if (ok) resetRegisterFlow();
+    else {
+      showRegStep(1, true);
+      document.getElementById('magmaRegNick').focus();
+    }
+  } catch (err) {
+    console.error('[MagmaLauncher] Ошибка проверки кода:', err);
+    showError(magmaRegisterError, t('auth.magma.genericError'));
+  } finally {
+    restoreButton(button);
+  }
+});
+
+async function completeMagmaProfile(userId, email, nick, password, confirm, errorEl, button) {
+  hideError(errorEl);
+
+  if (!nick || !password || !confirm) { showError(errorEl, t('auth.magma.fillAll')); return false; }
+  if (!isValidMinecraftNick(nick)) { showError(errorEl, t('auth.magma.invalidNick')); return false; }
+  if (!isValidPassword(password)) { showError(errorEl, t('auth.magma.weakPassword')); return false; }
+  if (password !== confirm) { showError(errorEl, t('auth.magma.passwordMismatch')); return false; }
+
+  setButtonLoading(button, t('auth.google.creatingAccount'));
+  try {
+    const { error: profileError } = await supabaseClient
+      .from('profiles')
+      .upsert({ id: userId, nick }, { onConflict: 'id' });
+
+    if (profileError) {
+      if (profileError.code === '23505') showError(errorEl, t('auth.magma.nickTaken'));
+      else {
+        console.error('[MagmaLauncher] Ошибка создания профиля:', profileError);
+        showError(errorEl, t('auth.magma.genericError'));
+      }
+      return false;
+    }
+
+    const { error: pwError } = await supabaseClient.auth.updateUser({ password });
+    if (pwError && pwError.code !== 'same_password') {
+      console.error('[MagmaLauncher] Ошибка установки пароля:', pwError);
+      showError(errorEl, t('auth.magma.genericError'));
+      return false;
+    }
+
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    const session = sessionData && sessionData.session;
+    upsertActiveAccount({
+      id: userId, type: 'magma', nickname: nick,
+      identifier: email || (session && session.user.email) || '',
+      accessToken: session && session.access_token,
+      refreshToken: session && session.refresh_token,
+    });
+    finishLogin(nick);
+    return true;
+  } catch (err) {
+    console.error('[MagmaLauncher] Ошибка завершения регистрации:', err);
+    showError(errorEl, t('auth.magma.genericError'));
+    return false;
+  } finally {
+    restoreButton(button);
+  }
+}
+
 document.getElementById('magmaGoogleSetupSubmit')?.addEventListener('click', async (e) => {
+  if (!profileRepairUserId) return;
+  const ok = await completeMagmaProfile(
+    profileRepairUserId, '',
+    document.getElementById('magmaGoogleNick').value.trim(),
+    document.getElementById('magmaGoogleSetupPassword').value,
+    document.getElementById('magmaGoogleSetupConfirm').value,
+    magmaGoogleSetupError, e.currentTarget
+  );
+  if (ok) {
+    profileRepairUserId = null;
+    ['magmaGoogleNick', 'magmaGoogleSetupPassword', 'magmaGoogleSetupConfirm']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  }
+});
+
+chainEnterKeys([
+  document.getElementById('magmaRegNick'),
+  document.getElementById('magmaRegPassword'),
+  document.getElementById('magmaRegPasswordConfirm'),
+  document.getElementById('magmaRegEmail'),
+  document.getElementById('magmaRegisterSendCode'),
+]);
+chainEnterKeys([document.getElementById('magmaRegCode'), document.getElementById('magmaRegisterVerify')]);
+chainEnterKeys([
+  document.getElementById('magmaGoogleSetupPassword'),
+  document.getElementById('magmaGoogleSetupConfirm'),
+  document.getElementById('magmaGoogleSetupSubmit'),
+]);
+
+document.getElementById('magmaGoogleSetupSubmitLegacy')?.addEventListener('click', async (e) => {
   hideError(magmaGoogleSetupError);
 
   if (!profileRepairUserId) return;
@@ -12229,9 +13000,6 @@ document.getElementById('msSubmit')?.addEventListener('click', async (e) => {
   }
 });
 
-// ============================================
-
-// ============================================
 function chainEnterKeys(elements) {
   for (let i = 0; i < elements.length - 1; i++) {
     const el = elements[i];
@@ -12266,9 +13034,6 @@ chainEnterKeys([
   document.getElementById('magmaGoogleSetupSubmit'),
 ]);
 
-// ============================================
-
-// ============================================
 const bootSplash = document.getElementById('bootSplash');
 const bootBarFill = document.getElementById('bootBarFill');
 
@@ -12406,9 +13171,6 @@ startVersionAutoRefresh();
   if (!restored) openAuthModal();
 }
 
-// ============================================
-
-// ============================================
 document.addEventListener('keydown', async (e) => {
   if (e.key !== 'F11') return;
   e.preventDefault();
@@ -12425,9 +13187,6 @@ document.addEventListener('keydown', async (e) => {
   }
 });
 
-// ============================================
-
-// ============================================
 const nativeWindowOpen = window.open ? window.open.bind(window) : null;
 const nativeOpenExternalUrl = typeof window.openExternalUrl === 'function' ? window.openExternalUrl : null;
 
@@ -12441,7 +13200,6 @@ async function openLinkInBrowser(url) {
   if (nativeWindowOpen) nativeWindowOpen(url, '_blank', 'noopener,noreferrer');
 }
 
-// ============================================
 
 window.open = function (url) {
   const href = typeof url === 'string' ? url : '';
@@ -13085,9 +13843,28 @@ const MANUAL_INSTALL_HINTS = {
   modpack: { ru: 'Перетащите .zip, .rar или .mrpack со сборкой.', en: 'Drop a .zip, .rar or .mrpack modpack file.' },
 };
 
+const MANUAL_HINT_I18N = {
+  ru: {mod:'Перетащите .jar моды или .zip/.rar-архив с несколькими модами.',content:'Перетащите .zip или .rar пак — распаковывать не нужно.',map:'Перетащите .zip или .rar с картой (копией мира) — лаунчер сам её распакует.',modpack:'Перетащите .zip, .rar или .mrpack со сборкой.'},
+  en: {mod:'Drop .jar mods, or a .zip/.rar archive with several mods.',content:'Drop a .zip or .rar pack — no need to unpack it.',map:'Drop a .zip or .rar world backup — the launcher will extract it for you.',modpack:'Drop a .zip, .rar or .mrpack modpack file.'},
+  uk: {mod:'Перетягніть .jar моди або .zip/.rar-архів з кількома модами.',content:'Перетягніть .zip або .rar пак — розпаковувати не потрібно.',map:'Перетягніть .zip або .rar з картою (копією світу) — лаунчер сам її розпакує.',modpack:'Перетягніть .zip, .rar або .mrpack зі збіркою.'},
+  fr: {mod:'Déposez des mods .jar ou une archive .zip/.rar contenant plusieurs mods.',content:'Déposez un pack .zip ou .rar — inutile de le décompresser.',map:"Déposez une sauvegarde de monde .zip ou .rar — le launcher l'extraira pour vous.",modpack:'Déposez un fichier de modpack .zip, .rar ou .mrpack.'},
+  de: {mod:'Lege .jar-Mods oder ein .zip/.rar-Archiv mit mehreren Mods ab.',content:'Lege ein .zip- oder .rar-Pack ab — Entpacken ist nicht nötig.',map:'Lege ein .zip- oder .rar-Weltbackup ab — der Launcher entpackt es für dich.',modpack:'Lege eine .zip-, .rar- oder .mrpack-Modpack-Datei ab.'},
+  es: {mod:'Suelta mods .jar o un archivo .zip/.rar con varios mods.',content:'Suelta un pack .zip o .rar — no hace falta descomprimirlo.',map:'Suelta una copia de mundo .zip o .rar — el launcher la extraerá por ti.',modpack:'Suelta un archivo de modpack .zip, .rar o .mrpack.'},
+  it: {mod:'Trascina mod .jar o un archivio .zip/.rar con più mod.',content:'Trascina un pack .zip o .rar — non serve estrarlo.',map:'Trascina un backup del mondo .zip o .rar — il launcher lo estrarrà per te.',modpack:'Trascina un file modpack .zip, .rar o .mrpack.'},
+  pt: {mod:'Solte mods .jar ou um arquivo .zip/.rar com vários mods.',content:'Solte um pack .zip ou .rar — não precisa extrair.',map:'Solte um backup de mundo .zip ou .rar — o launcher extrai para você.',modpack:'Solte um arquivo de modpack .zip, .rar ou .mrpack.'},
+  ja: {mod:'.jar形式のMOD、または複数のMODを含む.zip/.rarをドロップしてください。',content:'.zipまたは.rarのパックをドロップしてください。展開は不要です。',map:'.zipまたは.rarのワールドバックアップをドロップすると、ランチャーが自動で展開します。',modpack:'.zip、.rar、.mrpack形式のモッドパックをドロップしてください。'},
+  ko: {mod:'.jar 모드 또는 여러 모드가 든 .zip/.rar 압축 파일을 끌어다 놓으세요.',content:'.zip 또는 .rar 팩을 끌어다 놓으세요 — 압축을 풀 필요 없습니다.',map:'.zip 또는 .rar 월드 백업을 끌어다 놓으면 런처가 알아서 풉니다.',modpack:'.zip, .rar 또는 .mrpack 모드팩 파일을 끌어다 놓으세요.'},
+  hi: {mod:'.jar मॉड्स या कई मॉड्स वाला .zip/.rar आर्काइव यहाँ डालें।',content:'.zip या .rar पैक यहाँ डालें — खोलने की ज़रूरत नहीं।',map:'.zip या .rar वर्ल्ड बैकअप डालें — लॉन्चर खुद खोल देगा।',modpack:'.zip, .rar या .mrpack मॉडपैक फ़ाइल यहाँ डालें।'},
+  id: {mod:'Letakkan mod .jar, atau arsip .zip/.rar berisi beberapa mod.',content:'Letakkan pack .zip atau .rar — tidak perlu diekstrak.',map:'Letakkan cadangan dunia .zip atau .rar — launcher akan mengekstraknya.',modpack:'Letakkan file modpack .zip, .rar, atau .mrpack.'},
+};
+MANUAL_HINT_I18N['es-ES'] = MANUAL_HINT_I18N.es;
+
 function manualInstallHintText(kind) {
-  const entry = MANUAL_INSTALL_HINTS[kind] || MANUAL_INSTALL_HINTS.mod;
-  return entry[currentLang] || entry.ru || entry.en;
+  const group = (kind === 'mod' || kind === 'instanceMod') ? 'mod'
+    : (kind === 'resourcepack' || kind === 'shader') ? 'content'
+    : kind === 'map' ? 'map' : 'modpack';
+  const table = MANUAL_HINT_I18N[currentLang] || MANUAL_HINT_I18N.en;
+  return table[group] || MANUAL_HINT_I18N.en[group];
 }
 
 function openManualInstallModal(kind, targetDir, onDone) {
@@ -13181,6 +13958,7 @@ async function processManualInstallFiles(files) {
       if (ext === 'zip' || ext === 'mrpack' || ext === 'rar') {
         await importModpackFile(file);
         addManualInstallRow(file.name, t('instances.importing'), false);
+        setTimeout(closeManualInstallModal, 600);
       } else {
         addManualInstallRow(file.name, t('mods.badZipFile'), true);
       }
@@ -13189,6 +13967,110 @@ async function processManualInstallFiles(files) {
 
   if (anySuccess && manualInstallOnDone) manualInstallOnDone();
 }
+
+// ===== Chunked upload: больше никаких гигантских base64-сообщений =====
+async function uploadFileInChunks(file) {
+  const uploadId = 'u' + Date.now() + Math.floor(Math.random() * 1e6);
+  const CHUNK = 768 * 1024;
+  for (let offset = 0, i = 0; offset < file.size || i === 0; offset += CHUNK, i++) {
+    const buf = await file.slice(offset, offset + CHUNK).arrayBuffer();
+    const raw = await window.uploadChunk({ uploadId, first: i === 0, dataBase64: arrayBufferToBase64(buf) });
+    const res = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!res.success) throw new Error(res.error || t('auth.magma.genericError'));
+  }
+  return uploadId;
+}
+
+async function installViaUpload(file, kind, targetDir) {
+  if (typeof window.uploadChunk !== 'function' || typeof window.installFromUpload !== 'function') {
+    return { success: false, error: t('mods.devModeHint') };
+  }
+  try {
+    const uploadId = await uploadFileInChunks(file);
+    const raw = await window.installFromUpload({ uploadId, kind, filename: file.name, targetDir });
+    const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!result.success) return { success: false, error: translateBackendError(result.error) || t('auth.magma.genericError') };
+    return { success: true, count: result.count || 0, filename: result.filename };
+  } catch (err) {
+    return { success: false, error: String(err.message || err) };
+  }
+}
+
+async function installArchiveModsToDir(file, targetDir) { return installViaUpload(file, 'mods', targetDir); }
+async function installArchiveMapToDir(file, targetDir) { return installViaUpload(file, 'map', targetDir); }
+async function installArchiveContentToDir(file, targetDir) { return installViaUpload(file, 'content', targetDir); }
+
+async function uploadLocalFilesToDir(files, targetDir) {
+  let ok = 0, lastError = '';
+  for (const file of files) {
+    const r = await installViaUpload(file, 'local', targetDir);
+    if (r.success) ok++; else lastError = r.error;
+  }
+  return { success: ok > 0, error: lastError, count: ok };
+}
+
+async function importModpackFile(file) {
+  const statusEl = document.getElementById('importInstanceStatus');
+  if (typeof window.uploadChunk !== 'function' || typeof window.installFromUpload !== 'function') return;
+  const instanceName = uniqueInstanceName(file.name.replace(/\.(zip|mrpack|rar)$/i, ''));
+  if (statusEl) statusEl.textContent = t('instances.importing');
+  activeCatalogInstalls.set(instanceName, { name: instanceName, slots: [], cancelled: false });
+  try {
+    const uploadId = await uploadFileInChunks(file);
+    const raw = await window.installFromUpload({ uploadId, kind: 'modpack', filename: file.name, instanceName, gameDir: getGameDir() });
+    const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!result.started) throw new Error(translateBackendError(result.error) || t('auth.magma.genericError'));
+  } catch (err) {
+    console.error('[MagmaLauncher] Ошибка импорта сборки:', err);
+    activeCatalogInstalls.delete(instanceName);
+    if (statusEl) statusEl.textContent = String(err.message || err);
+  }
+}
+
+function manualDropContext() {
+  if (instanceModsOverlay && instanceModsOverlay.classList.contains('is-open') && currentInstanceModsPack) {
+    const pack = currentInstanceModsPack, cat = instanceModsCategory;
+    return {
+      kind: cat === 'mod' ? 'instanceMod' : cat,
+      dir: instanceContentDir(pack, cat),
+      onDone: () => loadInstanceModsList(pack),
+    };
+  }
+  if (isAnyModalOpen()) return null;
+  if (currentActiveView === 'instances') return { kind: 'modpack', dir: '', onDone: null };
+  if (currentActiveView === 'mods') {
+    if (isModpackScopeActive() && !modsTargetInstanceName) return null;
+    return {
+      kind: modsActiveCategory,
+      dir: currentContentDir(),
+      onDone: () => {
+        modsSubtabs.forEach(tb => tb.classList.toggle('is-active', tb.dataset.subtab === 'installed'));
+        modsSubviews.forEach(v => v.classList.toggle('is-active', v.dataset.subview === 'installed'));
+        loadInstalledMods();
+      },
+    };
+  }
+  return null;
+}
+
+function dragHasFiles(e) {
+  return !!(e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files'));
+}
+
+document.addEventListener('dragover', (e) => { if (dragHasFiles(e)) e.preventDefault(); }, true);
+
+document.addEventListener('drop', async (e) => {
+  if (!dragHasFiles(e)) return;
+  e.preventDefault(); 
+  if (manualInstallOverlay && manualInstallOverlay.classList.contains('is-open')) return;
+  e.stopPropagation();
+  document.querySelectorAll('.is-drop-target').forEach(el => el.classList.remove('is-drop-target'));
+  const ctx = manualDropContext();
+  if (!ctx) return;
+  const files = await collectFilesFromDataTransfer(e.dataTransfer);
+  openManualInstallModal(ctx.kind, ctx.dir, ctx.onDone);
+  if (files.length) await processManualInstallFiles(files);
+}, true);
 
 const accountChangePasswordBtn = document.getElementById('accountChangePasswordBtn');
 const accountChangePasswordError = document.getElementById('accountChangePasswordError');
@@ -13274,6 +14156,15 @@ async function endSessionAndPickNext(currentId) {
   }
 }
 
+window.handleMagmaAccountDeleted = async function() {
+  const currentId = getActiveAccountId();
+  const list = getAccounts().filter(a => a.id !== currentId);
+  saveAccounts(list);
+  localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
+  localStorage.removeItem(GUEST_SESSION_KEY);
+  await endSessionAndPickNext(currentId);
+};
+
 const accountLogoutOverlay = document.getElementById('accountLogoutOverlay');
 const accountLogoutBtn = document.getElementById('accountLogoutBtn');
 const accountLogoutClose = document.getElementById('accountLogoutClose');
@@ -13309,7 +14200,11 @@ const accountDeleteError = document.getElementById('accountDeleteError');
 
 accountDeleteBtn?.addEventListener('click', () => {
   hideError(accountDeleteError);
-  accountDeleteOverlay?.classList.add('is-open');
+  const acc = getAccounts().find(a => a.id === getActiveAccountId());
+  const desc = document.getElementById('accountDeleteDesc');
+  if (desc) desc.textContent = acc?.type === 'guest' ? t('account.deleteGuestDesc') : t('account.deleteConfirmDesc');
+  accountDeleteOverlay?.classList.add('is-open');applyActiveTheme();
+restoreLastSelection();
 });
 accountDeleteClose?.addEventListener('click', () => accountDeleteOverlay?.classList.remove('is-open'));
 accountDeleteOverlay?.addEventListener('click', (e) => { if (e.target === accountDeleteOverlay) accountDeleteOverlay.classList.remove('is-open'); });
@@ -13323,9 +14218,23 @@ accountDeleteConfirmBtn?.addEventListener('click', async () => {
   setButtonLoading(accountDeleteConfirmBtn, t('account.deleting'));
   try {
     if (acc.type === 'magma') {
+      const { data: cur } = await supabaseClient.auth.getSession();
+      if (cur?.session?.user?.id !== acc.id) {
+        if (!acc.accessToken || !acc.refreshToken) throw new Error('Session expired, sign in again');
+        const { data: restored, error: restoreError } = await supabaseClient.auth.setSession({
+          access_token: acc.accessToken,
+          refresh_token: acc.refreshToken
+        });
+        if (restoreError || restored?.session?.user?.id !== acc.id) throw restoreError || new Error('Session mismatch');
+      }
+      try {
+        await supabaseClient.storage.from('magma-skins').remove([acc.id + '/skin.png', acc.id + '/cape.png']);
+      } catch (storageError) {
+        console.warn('[MagmaLauncher] Не удалось удалить текстуры:', storageError);
+      }
       const { error } = await supabaseClient.rpc('delete_own_account');
       if (error) throw error;
-      await supabaseClient.auth.signOut();
+      await supabaseClient.auth.signOut({ scope: 'local' });
     }
 
     const list = getAccounts().filter(a => a.id !== currentId);
@@ -13337,7 +14246,7 @@ accountDeleteConfirmBtn?.addEventListener('click', async () => {
     await endSessionAndPickNext(currentId);
   } catch (err) {
     console.error('[MagmaLauncher] Ошибка удаления аккаунта:', err);
-    showError(accountDeleteError, t('auth.magma.genericError'));
+    showError(accountDeleteError, (acc.type === 'magma' && err && err.message) ? err.message : t('auth.magma.genericError'));
   } finally {
     restoreButton(accountDeleteConfirmBtn);
   }
@@ -13359,6 +14268,692 @@ const I18N_UPDATES_SETTINGS_PATCH = {
 Object.keys(I18N_UPDATES_SETTINGS_PATCH).forEach(lang => {
   if (!I18N[lang]) I18N[lang] = {};
   Object.assign(I18N[lang], I18N_UPDATES_SETTINGS_PATCH[lang]);
+});
+I18N['es-ES'] = I18N.es;
+
+const I18N_MAGMA_CODE_PATCH = {
+  ru: {
+    'auth.magma.emailStepDesc': 'Введите почту — мы отправим на неё 6-значный код подтверждения.',
+    'auth.magma.sendCode': 'Получить код',
+    'auth.magma.sending': 'Отправляем...',
+    'auth.magma.codeSent': 'Мы отправили 6-значный код на {email}. Проверьте также папку «Спам».',
+    'auth.magma.codeLabel': 'Код из письма',
+    'auth.magma.verifyCode': 'Подтвердить',
+    'auth.magma.verifying': 'Проверяем...',
+    'auth.magma.resend': 'Отправить код ещё раз',
+    'auth.magma.resendIn': 'Отправить ещё раз через {s} с',
+    'auth.magma.changeEmail': 'Изменить почту',
+    'auth.magma.codeInvalid': 'Неверный или просроченный код',
+    'auth.magma.sendFailed': 'Не удалось отправить письмо. Проверьте почту и попробуйте ещё раз.',
+    'auth.magma.tooManyRequests': 'Слишком много попыток. Подождите немного и повторите.',
+    'auth.magma.finishStepDesc': 'Почта подтверждена! Придумайте никнейм и пароль.',
+  },
+  en: {
+    'auth.magma.emailStepDesc': "Enter your email — we'll send a 6-digit confirmation code.",
+    'auth.magma.sendCode': 'Get code',
+    'auth.magma.sending': 'Sending...',
+    'auth.magma.codeSent': 'We sent a 6-digit code to {email}. Check your spam folder too.',
+    'auth.magma.codeLabel': 'Code from the email',
+    'auth.magma.verifyCode': 'Confirm',
+    'auth.magma.verifying': 'Checking...',
+    'auth.magma.resend': 'Resend code',
+    'auth.magma.resendIn': 'Resend in {s}s',
+    'auth.magma.changeEmail': 'Change email',
+    'auth.magma.codeInvalid': 'Invalid or expired code',
+    'auth.magma.sendFailed': "Couldn't send the email. Check the address and try again.",
+    'auth.magma.tooManyRequests': 'Too many attempts. Wait a bit and try again.',
+    'auth.magma.finishStepDesc': 'Email confirmed! Pick a nickname and a password.',
+  },
+};
+Object.keys(I18N_MAGMA_CODE_PATCH).forEach(lang => Object.assign(I18N[lang], I18N_MAGMA_CODE_PATCH[lang]));
+
+const I18N_MAGMA_CODE_PATCH_2 = {
+  uk: {
+    'auth.magma.emailStepDesc': 'Введіть пошту — ми надішлемо на неї 6-значний код підтвердження.',
+    'auth.magma.sendCode': 'Отримати код',
+    'auth.magma.sending': 'Надсилаємо...',
+    'auth.magma.codeSent': 'Ми надіслали 6-значний код на {email}. Перевірте також папку «Спам».',
+    'auth.magma.codeLabel': 'Код з листа',
+    'auth.magma.verifyCode': 'Підтвердити',
+    'auth.magma.verifying': 'Перевіряємо...',
+    'auth.magma.resend': 'Надіслати код ще раз',
+    'auth.magma.resendIn': 'Надіслати ще раз через {s} с',
+    'auth.magma.changeEmail': 'Змінити пошту',
+    'auth.magma.codeInvalid': 'Невірний або прострочений код',
+    'auth.magma.sendFailed': 'Не вдалося надіслати лист. Перевірте пошту та спробуйте ще раз.',
+    'auth.magma.tooManyRequests': 'Забагато спроб. Зачекайте трохи й повторіть.',
+    'auth.magma.finishStepDesc': 'Пошту підтверджено! Придумайте нікнейм і пароль.',
+    'auth.google.repairDesc': 'Придумайте нікнейм і пароль, щоб завершити реєстрацію.',
+  },
+  fr: {
+    'auth.magma.emailStepDesc': 'Saisissez votre email — nous y enverrons un code de confirmation à 6 chiffres.',
+    'auth.magma.sendCode': 'Recevoir le code',
+    'auth.magma.sending': 'Envoi...',
+    'auth.magma.codeSent': 'Nous avons envoyé un code à 6 chiffres à {email}. Vérifiez aussi vos spams.',
+    'auth.magma.codeLabel': "Code reçu par email",
+    'auth.magma.verifyCode': 'Confirmer',
+    'auth.magma.verifying': 'Vérification...',
+    'auth.magma.resend': 'Renvoyer le code',
+    'auth.magma.resendIn': 'Renvoyer dans {s} s',
+    'auth.magma.changeEmail': "Changer d'email",
+    'auth.magma.codeInvalid': 'Code invalide ou expiré',
+    'auth.magma.sendFailed': "Impossible d'envoyer l'email. Vérifiez l'adresse et réessayez.",
+    'auth.magma.tooManyRequests': 'Trop de tentatives. Patientez un peu et réessayez.',
+    'auth.magma.finishStepDesc': 'Email confirmé ! Choisissez un pseudo et un mot de passe.',
+    'auth.google.repairDesc': 'Choisissez un pseudo et un mot de passe pour terminer l’inscription.',
+  },
+  de: {
+    'auth.magma.emailStepDesc': 'Gib deine E-Mail ein — wir senden dir einen 6-stelligen Bestätigungscode.',
+    'auth.magma.sendCode': 'Code erhalten',
+    'auth.magma.sending': 'Wird gesendet...',
+    'auth.magma.codeSent': 'Wir haben einen 6-stelligen Code an {email} gesendet. Schau auch im Spam-Ordner nach.',
+    'auth.magma.codeLabel': 'Code aus der E-Mail',
+    'auth.magma.verifyCode': 'Bestätigen',
+    'auth.magma.verifying': 'Wird geprüft...',
+    'auth.magma.resend': 'Code erneut senden',
+    'auth.magma.resendIn': 'Erneut senden in {s} s',
+    'auth.magma.changeEmail': 'E-Mail ändern',
+    'auth.magma.codeInvalid': 'Ungültiger oder abgelaufener Code',
+    'auth.magma.sendFailed': 'E-Mail konnte nicht gesendet werden. Prüfe die Adresse und versuche es erneut.',
+    'auth.magma.tooManyRequests': 'Zu viele Versuche. Warte einen Moment und versuche es erneut.',
+    'auth.magma.finishStepDesc': 'E-Mail bestätigt! Wähle einen Nickname und ein Passwort.',
+    'auth.google.repairDesc': 'Wähle einen Nickname und ein Passwort, um die Registrierung abzuschließen.',
+  },
+  es: {
+    'auth.magma.emailStepDesc': 'Introduce tu correo — te enviaremos un código de confirmación de 6 dígitos.',
+    'auth.magma.sendCode': 'Obtener código',
+    'auth.magma.sending': 'Enviando...',
+    'auth.magma.codeSent': 'Hemos enviado un código de 6 dígitos a {email}. Revisa también la carpeta de spam.',
+    'auth.magma.codeLabel': 'Código del correo',
+    'auth.magma.verifyCode': 'Confirmar',
+    'auth.magma.verifying': 'Comprobando...',
+    'auth.magma.resend': 'Reenviar código',
+    'auth.magma.resendIn': 'Reenviar en {s} s',
+    'auth.magma.changeEmail': 'Cambiar correo',
+    'auth.magma.codeInvalid': 'Código incorrecto o caducado',
+    'auth.magma.sendFailed': 'No se pudo enviar el correo. Revisa la dirección e inténtalo de nuevo.',
+    'auth.magma.tooManyRequests': 'Demasiados intentos. Espera un poco e inténtalo de nuevo.',
+    'auth.magma.finishStepDesc': '¡Correo confirmado! Elige un apodo y una contraseña.',
+    'auth.google.repairDesc': 'Elige un apodo y una contraseña para terminar el registro.',
+  },
+  it: {
+    'auth.magma.emailStepDesc': 'Inserisci la tua email — ti invieremo un codice di conferma a 6 cifre.',
+    'auth.magma.sendCode': 'Ricevi il codice',
+    'auth.magma.sending': 'Invio in corso...',
+    'auth.magma.codeSent': 'Abbiamo inviato un codice a 6 cifre a {email}. Controlla anche la cartella spam.',
+    'auth.magma.codeLabel': "Codice dell'email",
+    'auth.magma.verifyCode': 'Conferma',
+    'auth.magma.verifying': 'Verifica in corso...',
+    'auth.magma.resend': 'Invia di nuovo il codice',
+    'auth.magma.resendIn': 'Invia di nuovo tra {s} s',
+    'auth.magma.changeEmail': 'Cambia email',
+    'auth.magma.codeInvalid': 'Codice errato o scaduto',
+    'auth.magma.sendFailed': "Impossibile inviare l'email. Controlla l'indirizzo e riprova.",
+    'auth.magma.tooManyRequests': 'Troppi tentativi. Attendi un po’ e riprova.',
+    'auth.magma.finishStepDesc': 'Email confermata! Scegli un nickname e una password.',
+    'auth.google.repairDesc': 'Scegli un nickname e una password per completare la registrazione.',
+  },
+  pt: {
+    'auth.magma.emailStepDesc': 'Digite seu email — enviaremos um código de confirmação de 6 dígitos.',
+    'auth.magma.sendCode': 'Receber código',
+    'auth.magma.sending': 'Enviando...',
+    'auth.magma.codeSent': 'Enviamos um código de 6 dígitos para {email}. Verifique também a pasta de spam.',
+    'auth.magma.codeLabel': 'Código do email',
+    'auth.magma.verifyCode': 'Confirmar',
+    'auth.magma.verifying': 'Verificando...',
+    'auth.magma.resend': 'Reenviar código',
+    'auth.magma.resendIn': 'Reenviar em {s} s',
+    'auth.magma.changeEmail': 'Alterar email',
+    'auth.magma.codeInvalid': 'Código inválido ou expirado',
+    'auth.magma.sendFailed': 'Não foi possível enviar o email. Verifique o endereço e tente novamente.',
+    'auth.magma.tooManyRequests': 'Muitas tentativas. Aguarde um pouco e tente novamente.',
+    'auth.magma.finishStepDesc': 'Email confirmado! Escolha um nickname e uma senha.',
+    'auth.google.repairDesc': 'Escolha um nickname e uma senha para concluir o cadastro.',
+  },
+  ja: {
+    'auth.magma.emailStepDesc': 'メールアドレスを入力してください。6桁の確認コードを送信します。',
+    'auth.magma.sendCode': 'コードを取得',
+    'auth.magma.sending': '送信中...',
+    'auth.magma.codeSent': '{email} に6桁のコードを送信しました。迷惑メールフォルダもご確認ください。',
+    'auth.magma.codeLabel': 'メールに記載のコード',
+    'auth.magma.verifyCode': '確認',
+    'auth.magma.verifying': '確認中...',
+    'auth.magma.resend': 'コードを再送信',
+    'auth.magma.resendIn': '{s}秒後に再送信できます',
+    'auth.magma.changeEmail': 'メールアドレスを変更',
+    'auth.magma.codeInvalid': 'コードが正しくないか、期限切れです',
+    'auth.magma.sendFailed': 'メールを送信できませんでした。アドレスを確認してもう一度お試しください。',
+    'auth.magma.tooManyRequests': '試行回数が多すぎます。しばらく待ってからもう一度お試しください。',
+    'auth.magma.finishStepDesc': 'メールアドレスを確認しました。ニックネームとパスワードを設定してください。',
+    'auth.google.repairDesc': '登録を完了するため、ニックネームとパスワードを設定してください。',
+  },
+  ko: {
+    'auth.magma.emailStepDesc': '이메일을 입력하세요. 6자리 인증 코드를 보내드립니다.',
+    'auth.magma.sendCode': '코드 받기',
+    'auth.magma.sending': '전송 중...',
+    'auth.magma.codeSent': '{email}(으)로 6자리 코드를 보냈습니다. 스팸 폴더도 확인해 주세요.',
+    'auth.magma.codeLabel': '메일로 받은 코드',
+    'auth.magma.verifyCode': '확인',
+    'auth.magma.verifying': '확인 중...',
+    'auth.magma.resend': '코드 다시 보내기',
+    'auth.magma.resendIn': '{s}초 후 다시 보내기',
+    'auth.magma.changeEmail': '이메일 변경',
+    'auth.magma.codeInvalid': '코드가 올바르지 않거나 만료되었습니다',
+    'auth.magma.sendFailed': '메일을 보낼 수 없습니다. 주소를 확인하고 다시 시도해 주세요.',
+    'auth.magma.tooManyRequests': '시도 횟수가 너무 많습니다. 잠시 후 다시 시도해 주세요.',
+    'auth.magma.finishStepDesc': '이메일이 확인되었습니다! 닉네임과 비밀번호를 정해 주세요.',
+    'auth.google.repairDesc': '가입을 완료하려면 닉네임과 비밀번호를 정해 주세요.',
+  },
+  hi: {
+    'auth.magma.emailStepDesc': 'अपना ईमेल दर्ज करें — हम उस पर 6 अंकों का पुष्टि कोड भेजेंगे।',
+    'auth.magma.sendCode': 'कोड प्राप्त करें',
+    'auth.magma.sending': 'भेजा जा रहा है...',
+    'auth.magma.codeSent': 'हमने {email} पर 6 अंकों का कोड भेजा है। स्पैम फ़ोल्डर भी देखें।',
+    'auth.magma.codeLabel': 'ईमेल से मिला कोड',
+    'auth.magma.verifyCode': 'पुष्टि करें',
+    'auth.magma.verifying': 'जांच हो रही है...',
+    'auth.magma.resend': 'कोड दोबारा भेजें',
+    'auth.magma.resendIn': '{s} सेकंड में दोबारा भेजें',
+    'auth.magma.changeEmail': 'ईमेल बदलें',
+    'auth.magma.codeInvalid': 'कोड गलत है या समाप्त हो चुका है',
+    'auth.magma.sendFailed': 'ईमेल नहीं भेजा जा सका। पता जांचें और फिर कोशिश करें।',
+    'auth.magma.tooManyRequests': 'बहुत ज़्यादा प्रयास। थोड़ा रुककर फिर कोशिश करें।',
+    'auth.magma.finishStepDesc': 'ईमेल की पुष्टि हो गई! निकनेम और पासवर्ड चुनें।',
+    'auth.google.repairDesc': 'रजिस्ट्रेशन पूरा करने के लिए निकनेम और पासवर्ड चुनें।',
+  },
+  id: {
+    'auth.magma.emailStepDesc': 'Masukkan email Anda — kami akan mengirim kode konfirmasi 6 digit.',
+    'auth.magma.sendCode': 'Dapatkan kode',
+    'auth.magma.sending': 'Mengirim...',
+    'auth.magma.codeSent': 'Kami mengirim kode 6 digit ke {email}. Periksa juga folder spam.',
+    'auth.magma.codeLabel': 'Kode dari email',
+    'auth.magma.verifyCode': 'Konfirmasi',
+    'auth.magma.verifying': 'Memeriksa...',
+    'auth.magma.resend': 'Kirim ulang kode',
+    'auth.magma.resendIn': 'Kirim ulang dalam {s} dtk',
+    'auth.magma.changeEmail': 'Ganti email',
+    'auth.magma.codeInvalid': 'Kode salah atau kedaluwarsa',
+    'auth.magma.sendFailed': 'Gagal mengirim email. Periksa alamat dan coba lagi.',
+    'auth.magma.tooManyRequests': 'Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.',
+    'auth.magma.finishStepDesc': 'Email terkonfirmasi! Pilih nickname dan kata sandi.',
+    'auth.google.repairDesc': 'Pilih nickname dan kata sandi untuk menyelesaikan pendaftaran.',
+  },
+  ru: { 'auth.google.repairDesc': 'Придумайте никнейм и пароль, чтобы завершить регистрацию.' },
+  en: { 'auth.google.repairDesc': 'Pick a nickname and a password to finish signing up.' },
+};
+Object.keys(I18N_MAGMA_CODE_PATCH_2).forEach(lang => {
+  if (!I18N[lang]) I18N[lang] = {};
+  Object.assign(I18N[lang], I18N_MAGMA_CODE_PATCH_2[lang]);
+});
+I18N['es-ES'] = I18N.es;
+
+
+const I18N_PASSWORD_RESET_PATCH = {
+  uk: {
+    'auth.magma.resetSending': 'Надсилаємо посилання...',
+    'auth.magma.resetSaving': 'Зберігаємо пароль...',
+    'auth.magma.resetSent': 'Якщо обліковий запис із такою поштою існує, посилання для скидання надіслано.',
+    'auth.magma.resetFailed': 'Не вдалося відновити пароль. Спробуйте ще раз.',
+    'auth.magma.resetInvalid': 'Посилання недійсне або застаріле. Запросіть нове.',
+    'auth.magma.passwordTooShort': 'Пароль має містити щонайменше 6 символів.',
+    'auth.magma.passwordMismatch': 'Паролі не збігаються.',
+    'auth.magma.resetSuccess': 'Пароль змінено. Тепер можна увійти з новим паролем.',
+    'auth.magma.emailOnly': 'Пошта',
+    'auth.magma.forgotLink': 'Забули пароль?',
+    'auth.magma.forgotDesc': 'Вкажіть пошту, прив’язану до Magma Account. Ми надішлемо посилання для відновлення пароля.',
+    'auth.magma.sendResetLink': 'Надіслати посилання',
+    'auth.magma.resetDesc': 'Придумайте новий пароль для Magma Account.',
+    'auth.magma.newPassword': 'Новий пароль',
+    'auth.magma.confirmNewPassword': 'Повторіть пароль',
+    'auth.magma.saveNewPassword': 'Зберегти пароль',
+  },
+  fr: {
+    'auth.magma.resetSending': 'Envoi du lien...',
+    'auth.magma.resetSaving': 'Enregistrement du mot de passe...',
+    'auth.magma.resetSent': 'Si un compte associé à cette adresse existe, un lien de réinitialisation a été envoyé.',
+    'auth.magma.resetFailed': 'Impossible de réinitialiser le mot de passe. Réessayez.',
+    'auth.magma.resetInvalid': 'Ce lien est invalide ou a expiré. Demandez-en un nouveau.',
+    'auth.magma.passwordTooShort': 'Le mot de passe doit contenir au moins 6 caractères.',
+    'auth.magma.passwordMismatch': 'Les mots de passe ne correspondent pas.',
+    'auth.magma.resetSuccess': 'Mot de passe modifié. Vous pouvez maintenant vous connecter.',
+    'auth.magma.emailOnly': 'E-mail',
+    'auth.magma.forgotLink': 'Mot de passe oublié ?',
+    'auth.magma.forgotDesc': 'Saisissez l’adresse e-mail associée à votre Magma Account. Nous vous enverrons un lien de récupération.',
+    'auth.magma.sendResetLink': 'Envoyer le lien',
+    'auth.magma.resetDesc': 'Choisissez un nouveau mot de passe pour votre Magma Account.',
+    'auth.magma.newPassword': 'Nouveau mot de passe',
+    'auth.magma.confirmNewPassword': 'Confirmer le mot de passe',
+    'auth.magma.saveNewPassword': 'Enregistrer le mot de passe',
+  },
+  de: {
+    'auth.magma.resetSending': 'Wiederherstellungslink wird gesendet...',
+    'auth.magma.resetSaving': 'Passwort wird gespeichert...',
+    'auth.magma.resetSent': 'Falls ein Konto mit dieser E-Mail-Adresse existiert, wurde ein Link zum Zurücksetzen gesendet.',
+    'auth.magma.resetFailed': 'Das Passwort konnte nicht zurückgesetzt werden. Bitte erneut versuchen.',
+    'auth.magma.resetInvalid': 'Dieser Link ist ungültig oder abgelaufen. Fordere einen neuen an.',
+    'auth.magma.passwordTooShort': 'Das Passwort muss mindestens 6 Zeichen lang sein.',
+    'auth.magma.passwordMismatch': 'Die Passwörter stimmen nicht überein.',
+    'auth.magma.resetSuccess': 'Passwort geändert. Du kannst dich jetzt mit dem neuen Passwort anmelden.',
+    'auth.magma.emailOnly': 'E-Mail',
+    'auth.magma.forgotLink': 'Passwort vergessen?',
+    'auth.magma.forgotDesc': 'Gib die E-Mail-Adresse deines Magma Accounts ein. Wir senden dir einen Wiederherstellungslink.',
+    'auth.magma.sendResetLink': 'Link senden',
+    'auth.magma.resetDesc': 'Lege ein neues Passwort für deinen Magma Account fest.',
+    'auth.magma.newPassword': 'Neues Passwort',
+    'auth.magma.confirmNewPassword': 'Passwort bestätigen',
+    'auth.magma.saveNewPassword': 'Passwort speichern',
+  },
+  es: {
+    'auth.magma.resetSending': 'Enviando enlace...',
+    'auth.magma.resetSaving': 'Guardando contraseña...',
+    'auth.magma.resetSent': 'Si existe una cuenta con este correo, se ha enviado un enlace para restablecer la contraseña.',
+    'auth.magma.resetFailed': 'No se pudo restablecer la contraseña. Inténtalo de nuevo.',
+    'auth.magma.resetInvalid': 'Este enlace no es válido o ha caducado. Solicita uno nuevo.',
+    'auth.magma.passwordTooShort': 'La contraseña debe tener al menos 6 caracteres.',
+    'auth.magma.passwordMismatch': 'Las contraseñas no coinciden.',
+    'auth.magma.resetSuccess': 'Contraseña cambiada. Ya puedes iniciar sesión con la nueva contraseña.',
+    'auth.magma.emailOnly': 'Correo electrónico',
+    'auth.magma.forgotLink': '¿Olvidaste tu contraseña?',
+    'auth.magma.forgotDesc': 'Introduce el correo asociado a tu Magma Account. Te enviaremos un enlace de recuperación.',
+    'auth.magma.sendResetLink': 'Enviar enlace',
+    'auth.magma.resetDesc': 'Elige una nueva contraseña para tu Magma Account.',
+    'auth.magma.newPassword': 'Nueva contraseña',
+    'auth.magma.confirmNewPassword': 'Confirmar contraseña',
+    'auth.magma.saveNewPassword': 'Guardar contraseña',
+  },
+  it: {
+    'auth.magma.resetSending': 'Invio del link...',
+    'auth.magma.resetSaving': 'Salvataggio della password...',
+    'auth.magma.resetSent': 'Se esiste un account con questa email, è stato inviato un link per reimpostare la password.',
+    'auth.magma.resetFailed': 'Impossibile reimpostare la password. Riprova.',
+    'auth.magma.resetInvalid': 'Questo link non è valido o è scaduto. Richiedine uno nuovo.',
+    'auth.magma.passwordTooShort': 'La password deve contenere almeno 6 caratteri.',
+    'auth.magma.passwordMismatch': 'Le password non corrispondono.',
+    'auth.magma.resetSuccess': 'Password modificata. Ora puoi accedere con la nuova password.',
+    'auth.magma.emailOnly': 'Email',
+    'auth.magma.forgotLink': 'Password dimenticata?',
+    'auth.magma.forgotDesc': 'Inserisci l’email collegata al tuo Magma Account. Ti invieremo un link di recupero.',
+    'auth.magma.sendResetLink': 'Invia link',
+    'auth.magma.resetDesc': 'Scegli una nuova password per il tuo Magma Account.',
+    'auth.magma.newPassword': 'Nuova password',
+    'auth.magma.confirmNewPassword': 'Conferma password',
+    'auth.magma.saveNewPassword': 'Salva password',
+  },
+  pt: {
+    'auth.magma.resetSending': 'Enviando link...',
+    'auth.magma.resetSaving': 'Salvando senha...',
+    'auth.magma.resetSent': 'Se existir uma conta com este e-mail, um link para redefinir a senha foi enviado.',
+    'auth.magma.resetFailed': 'Não foi possível redefinir a senha. Tente novamente.',
+    'auth.magma.resetInvalid': 'Este link é inválido ou expirou. Solicite um novo.',
+    'auth.magma.passwordTooShort': 'A senha deve ter pelo menos 6 caracteres.',
+    'auth.magma.passwordMismatch': 'As senhas não coincidem.',
+    'auth.magma.resetSuccess': 'Senha alterada. Agora você pode entrar com a nova senha.',
+    'auth.magma.emailOnly': 'E-mail',
+    'auth.magma.forgotLink': 'Esqueceu a senha?',
+    'auth.magma.forgotDesc': 'Digite o e-mail vinculado à sua Magma Account. Enviaremos um link de recuperação.',
+    'auth.magma.sendResetLink': 'Enviar link',
+    'auth.magma.resetDesc': 'Escolha uma nova senha para sua Magma Account.',
+    'auth.magma.newPassword': 'Nova senha',
+    'auth.magma.confirmNewPassword': 'Confirmar senha',
+    'auth.magma.saveNewPassword': 'Salvar senha',
+  },
+  ja: {
+    'auth.magma.resetSending': '再設定リンクを送信中...',
+    'auth.magma.resetSaving': 'パスワードを保存中...',
+    'auth.magma.resetSent': 'このメールアドレスのアカウントが存在する場合、パスワード再設定リンクを送信しました。',
+    'auth.magma.resetFailed': 'パスワードを再設定できませんでした。もう一度お試しください。',
+    'auth.magma.resetInvalid': 'このリンクは無効か、有効期限が切れています。新しいリンクをリクエストしてください。',
+    'auth.magma.passwordTooShort': 'パスワードは6文字以上にしてください。',
+    'auth.magma.passwordMismatch': 'パスワードが一致しません。',
+    'auth.magma.resetSuccess': 'パスワードを変更しました。新しいパスワードでログインできます。',
+    'auth.magma.emailOnly': 'メールアドレス',
+    'auth.magma.forgotLink': 'パスワードをお忘れですか？',
+    'auth.magma.forgotDesc': 'Magma Accountに登録したメールアドレスを入力してください。再設定リンクを送信します。',
+    'auth.magma.sendResetLink': 'リンクを送信',
+    'auth.magma.resetDesc': 'Magma Accountの新しいパスワードを設定してください。',
+    'auth.magma.newPassword': '新しいパスワード',
+    'auth.magma.confirmNewPassword': 'パスワードを確認',
+    'auth.magma.saveNewPassword': 'パスワードを保存',
+  },
+  ko: {
+    'auth.magma.resetSending': '재설정 링크 보내는 중...',
+    'auth.magma.resetSaving': '비밀번호 저장 중...',
+    'auth.magma.resetSent': '이 이메일의 계정이 존재하면 비밀번호 재설정 링크를 보냈습니다.',
+    'auth.magma.resetFailed': '비밀번호를 재설정하지 못했습니다. 다시 시도해 주세요.',
+    'auth.magma.resetInvalid': '링크가 유효하지 않거나 만료되었습니다. 새 링크를 요청하세요.',
+    'auth.magma.passwordTooShort': '비밀번호는 6자 이상이어야 합니다.',
+    'auth.magma.passwordMismatch': '비밀번호가 일치하지 않습니다.',
+    'auth.magma.resetSuccess': '비밀번호가 변경되었습니다. 새 비밀번호로 로그인할 수 있습니다.',
+    'auth.magma.emailOnly': '이메일',
+    'auth.magma.forgotLink': '비밀번호를 잊으셨나요?',
+    'auth.magma.forgotDesc': 'Magma Account에 연결된 이메일을 입력하면 재설정 링크를 보내드립니다.',
+    'auth.magma.sendResetLink': '링크 보내기',
+    'auth.magma.resetDesc': 'Magma Account의 새 비밀번호를 설정하세요.',
+    'auth.magma.newPassword': '새 비밀번호',
+    'auth.magma.confirmNewPassword': '비밀번호 확인',
+    'auth.magma.saveNewPassword': '비밀번호 저장',
+  },
+  hi: {
+    'auth.magma.resetSending': 'रीसेट लिंक भेजा जा रहा है...',
+    'auth.magma.resetSaving': 'पासवर्ड सहेजा जा रहा है...',
+    'auth.magma.resetSent': 'यदि इस ईमेल से कोई खाता मौजूद है, तो पासवर्ड रीसेट लिंक भेज दिया गया है।',
+    'auth.magma.resetFailed': 'पासवर्ड रीसेट नहीं हो सका। कृपया फिर कोशिश करें।',
+    'auth.magma.resetInvalid': 'यह लिंक अमान्य है या समाप्त हो गया है। नया लिंक मांगें।',
+    'auth.magma.passwordTooShort': 'पासवर्ड कम से कम 6 अक्षरों का होना चाहिए।',
+    'auth.magma.passwordMismatch': 'पासवर्ड मेल नहीं खाते।',
+    'auth.magma.resetSuccess': 'पासवर्ड बदल दिया गया है। अब आप नए पासवर्ड से साइन इन कर सकते हैं।',
+    'auth.magma.emailOnly': 'ईमेल',
+    'auth.magma.forgotLink': 'पासवर्ड भूल गए?',
+    'auth.magma.forgotDesc': 'अपने Magma Account से जुड़ा ईमेल दर्ज करें। हम आपको रिकवरी लिंक भेजेंगे।',
+    'auth.magma.sendResetLink': 'लिंक भेजें',
+    'auth.magma.resetDesc': 'अपने Magma Account के लिए नया पासवर्ड चुनें।',
+    'auth.magma.newPassword': 'नया पासवर्ड',
+    'auth.magma.confirmNewPassword': 'पासवर्ड की पुष्टि करें',
+    'auth.magma.saveNewPassword': 'पासवर्ड सहेजें',
+  },
+  id: {
+    'auth.magma.resetSending': 'Mengirim tautan reset...',
+    'auth.magma.resetSaving': 'Menyimpan kata sandi...',
+    'auth.magma.resetSent': 'Jika akun dengan email ini ada, tautan reset kata sandi telah dikirim.',
+    'auth.magma.resetFailed': 'Tidak dapat mengatur ulang kata sandi. Silakan coba lagi.',
+    'auth.magma.resetInvalid': 'Tautan ini tidak valid atau sudah kedaluwarsa. Minta tautan baru.',
+    'auth.magma.passwordTooShort': 'Kata sandi harus terdiri dari minimal 6 karakter.',
+    'auth.magma.passwordMismatch': 'Kata sandi tidak cocok.',
+    'auth.magma.resetSuccess': 'Kata sandi berhasil diubah. Anda sekarang dapat masuk dengan kata sandi baru.',
+    'auth.magma.emailOnly': 'Email',
+    'auth.magma.forgotLink': 'Lupa kata sandi?',
+    'auth.magma.forgotDesc': 'Masukkan email yang terhubung ke Magma Account. Kami akan mengirim tautan pemulihan.',
+    'auth.magma.sendResetLink': 'Kirim tautan',
+    'auth.magma.resetDesc': 'Pilih kata sandi baru untuk Magma Account Anda.',
+    'auth.magma.newPassword': 'Kata sandi baru',
+    'auth.magma.confirmNewPassword': 'Konfirmasi kata sandi',
+    'auth.magma.saveNewPassword': 'Simpan kata sandi',
+  },
+};
+Object.keys(I18N_PASSWORD_RESET_PATCH).forEach(lang => {
+  if (!I18N[lang]) I18N[lang] = {};
+  Object.assign(I18N[lang], I18N_PASSWORD_RESET_PATCH[lang]);
+});
+I18N['es-ES'] = I18N.es;
+
+
+const I18N_ACCOUNT_SETTINGS_PATCH = {
+  ru: {
+    'settings.account.parameters':'Параметры аккаунта','settings.account.nickname':'Никнейм','settings.account.email':'Электронная почта','settings.account.edit':'Изменить','settings.account.newNickname':'Новый никнейм','settings.account.newEmail':'Новый адрес почты','settings.account.save':'Сохранить','settings.account.cancel':'Отмена','settings.account.sendConfirmation':'Отправить подтверждение','settings.account.skinSystem':'Система скинов','settings.account.skinSystemHint':'Выберите сервис, из которого Minecraft будет загружать скины и плащи.','settings.account.skinManager':'Скин и плащ','settings.account.skinManagerHint':'Управляйте скином и плащом аккаунта Magma. Изменения синхронизируются с сайтом.','settings.account.skin':'Скин','settings.account.cape':'Плащ','settings.account.uploadSkin':'Изменить скин','settings.account.removeSkin':'Удалить','settings.account.uploadCape':'Изменить плащ','settings.account.removeCape':'Удалить','settings.account.skinFormat':'PNG · 64×64 или 64×32 · до 2 МБ','settings.account.capeFormat':'PNG · 64×32 · до 2 МБ','settings.account.playerModel':'Модель игрока','settings.account.classic':'Классическая (Steve)','settings.account.slim':'Тонкая (Alex)','settings.account.privacy':'Приватность и уведомления','settings.account.hideEmail':'Скрывать почту в профиле','settings.account.hideEmailHint':'Адрес почты не будет отображаться в обзоре аккаунта на сайте','settings.account.productUpdates':'Новости и обновления продукта','settings.account.productUpdatesHint':'Получать новости о продукте и обновлениях','settings.account.savePreferences':'Сохранить настройки','settings.account.sessions':'Активные сеансы','settings.account.sessionsHint':'Завершить другие сеансы этого аккаунта. Текущий сеанс останется активным.','settings.account.signOutOther':'Выйти из других сеансов','settings.account.signInRequired':'Войдите в аккаунт','settings.account.notSet':'Не задан','settings.account.synced':'Синхронизировано','settings.account.syncFailed':'Ошибка синхронизации','settings.account.nicknameInvalid':'Ник должен содержать 3–16 латинских букв, цифр или _.','settings.account.nicknameTaken':'Этот ник уже занят.','settings.account.nicknameSaved':'Никнейм сохранён.','settings.account.nicknameFailed':'Не удалось сохранить никнейм.','settings.account.emailInvalid':'Введите корректный адрес почты.','settings.account.emailSame':'Это уже текущий адрес.','settings.account.emailSent':'Письмо подтверждения отправлено. Новый адрес вступит в силу после подтверждения.','settings.account.emailFailed':'Не удалось изменить почту.','settings.account.pngOnly':'Выберите PNG-файл.','settings.account.imageTooLarge':'Размер изображения не должен превышать 2 МБ.','settings.account.skinDimensions':'Размер скина должен быть 64×64 или 64×32 пикселя.','settings.account.capeDimensions':'Размер плаща должен быть 64×32 пикселя.','settings.account.imageReadFailed':'Не удалось прочитать PNG-файл.','settings.account.textureSaved':'Изменения сохранены.','settings.account.textureRemoved':'Текстура удалена.','settings.account.textureFailed':'Не удалось изменить текстуру.','settings.account.preferencesSaved':'Настройки сохранены.','settings.account.preferencesFailed':'Не удалось сохранить настройки.','settings.account.sessionsSignedOut':'Другие сеансы завершены. Текущий сеанс остался активным.','settings.account.sessionsFailed':'Не удалось завершить другие сеансы.','settings.account.modelFailed':'Не удалось сохранить модель игрока.','settings.updates.link.website.title':'Официальный сайт','settings.updates.link.website.desc':'Сайт Magma Launcher'
+  },
+  en: {
+    'settings.account.parameters':'Account settings','settings.account.nickname':'Nickname','settings.account.email':'Email address','settings.account.edit':'Edit','settings.account.newNickname':'New nickname','settings.account.newEmail':'New email address','settings.account.save':'Save','settings.account.cancel':'Cancel','settings.account.sendConfirmation':'Send confirmation','settings.account.skinSystem':'Skin system','settings.account.skinSystemHint':'Choose which service Minecraft uses to load skins and capes.','settings.account.skinManager':'Skin and cape','settings.account.skinManagerHint':'Manage your Magma Account skin and cape. Changes sync with the website.','settings.account.skin':'Skin','settings.account.cape':'Cape','settings.account.uploadSkin':'Change skin','settings.account.removeSkin':'Remove','settings.account.uploadCape':'Change cape','settings.account.removeCape':'Remove','settings.account.skinFormat':'PNG · 64×64 or 64×32 · up to 2 MB','settings.account.capeFormat':'PNG · 64×32 · up to 2 MB','settings.account.playerModel':'Player model','settings.account.classic':'Classic (Steve)','settings.account.slim':'Slim (Alex)','settings.account.privacy':'Privacy and notifications','settings.account.hideEmail':'Hide email on profile','settings.account.hideEmailHint':'Your email will not appear in your account overview on the website','settings.account.productUpdates':'Product news and updates','settings.account.productUpdatesHint':'Receive product news and update announcements','settings.account.savePreferences':'Save preferences','settings.account.sessions':'Active sessions','settings.account.sessionsHint':'Sign out of other sessions on this account. This session will stay active.','settings.account.signOutOther':'Sign out other sessions','settings.account.signInRequired':'Sign in to your account','settings.account.notSet':'Not set','settings.account.synced':'Synced','settings.account.syncFailed':'Sync error','settings.account.nicknameInvalid':'Nickname must be 3–16 Latin letters, numbers, or underscores.','settings.account.nicknameTaken':'This nickname is already taken.','settings.account.nicknameSaved':'Nickname saved.','settings.account.nicknameFailed':'Could not save nickname.','settings.account.emailInvalid':'Enter a valid email address.','settings.account.emailSame':'This is already your current address.','settings.account.emailSent':'Confirmation email sent. The new address takes effect after verification.','settings.account.emailFailed':'Could not change email.','settings.account.pngOnly':'Choose a PNG file.','settings.account.imageTooLarge':'Image must be no larger than 2 MB.','settings.account.skinDimensions':'Skin dimensions must be 64×64 or 64×32 pixels.','settings.account.capeDimensions':'Cape dimensions must be 64×32 pixels.','settings.account.imageReadFailed':'Could not read the PNG file.','settings.account.textureSaved':'Changes saved.','settings.account.textureRemoved':'Texture removed.','settings.account.textureFailed':'Could not update the texture.','settings.account.preferencesSaved':'Preferences saved.','settings.account.preferencesFailed':'Could not save preferences.','settings.account.sessionsSignedOut':'Other sessions were signed out. This session remains active.','settings.account.sessionsFailed':'Could not sign out other sessions.','settings.account.modelFailed':'Could not save the player model.','settings.updates.link.website.title':'Official website','settings.updates.link.website.desc':'Magma Launcher website'
+  },
+  uk: {
+    'settings.account.parameters':'Параметри облікового запису','settings.account.nickname':'Нікнейм','settings.account.email':'Електронна пошта','settings.account.edit':'Змінити','settings.account.newNickname':'Новий нікнейм','settings.account.newEmail':'Нова адреса пошти','settings.account.save':'Зберегти','settings.account.cancel':'Скасувати','settings.account.sendConfirmation':'Надіслати підтвердження','settings.account.skinSystem':'Система скінів','settings.account.skinSystemHint':'Оберіть сервіс, з якого Minecraft завантажуватиме скіни та плащі.','settings.account.skinManager':'Скін і плащ','settings.account.skinManagerHint':'Керуйте скіном і плащем Magma Account. Зміни синхронізуються із сайтом.','settings.account.skin':'Скін','settings.account.cape':'Плащ','settings.account.uploadSkin':'Змінити скін','settings.account.removeSkin':'Видалити','settings.account.uploadCape':'Змінити плащ','settings.account.removeCape':'Видалити','settings.account.skinFormat':'PNG · 64×64 або 64×32 · до 2 МБ','settings.account.capeFormat':'PNG · 64×32 · до 2 МБ','settings.account.playerModel':'Модель гравця','settings.account.classic':'Класична (Steve)','settings.account.slim':'Тонка (Alex)','settings.account.privacy':'Приватність і сповіщення','settings.account.hideEmail':'Приховувати пошту в профілі','settings.account.hideEmailHint':'Адреса пошти не відображатиметься в огляді акаунта на сайті','settings.account.productUpdates':'Новини та оновлення продукту','settings.account.productUpdatesHint':'Отримувати новини про продукт та оновлення','settings.account.savePreferences':'Зберегти налаштування','settings.account.sessions':'Активні сеанси','settings.account.sessionsHint':'Завершити інші сеанси цього акаунта. Поточний сеанс залишиться активним.','settings.account.signOutOther':'Вийти з інших сеансів','settings.account.signInRequired':'Увійдіть в акаунт','settings.account.notSet':'Не задано','settings.account.synced':'Синхронізовано','settings.account.syncFailed':'Помилка синхронізації','settings.account.nicknameInvalid':'Нік має містити 3–16 латинських літер, цифр або _.','settings.account.nicknameTaken':'Цей нік уже зайнятий.','settings.account.nicknameSaved':'Нікнейм збережено.','settings.account.nicknameFailed':'Не вдалося зберегти нікнейм.','settings.account.emailInvalid':'Введіть коректну адресу пошти.','settings.account.emailSame':'Це вже поточна адреса.','settings.account.emailSent':'Лист підтвердження надіслано. Нова адреса діятиме після підтвердження.','settings.account.emailFailed':'Не вдалося змінити пошту.','settings.account.pngOnly':'Оберіть PNG-файл.','settings.account.imageTooLarge':'Розмір зображення не має перевищувати 2 МБ.','settings.account.skinDimensions':'Розмір скіна має бути 64×64 або 64×32 пікселів.','settings.account.capeDimensions':'Розмір плаща має бути 64×32 пікселів.','settings.account.imageReadFailed':'Не вдалося прочитати PNG-файл.','settings.account.textureSaved':'Зміни збережено.','settings.account.textureRemoved':'Текстуру видалено.','settings.account.textureFailed':'Не вдалося змінити текстуру.','settings.account.preferencesSaved':'Налаштування збережено.','settings.account.preferencesFailed':'Не вдалося зберегти налаштування.','settings.account.sessionsSignedOut':'Інші сеанси завершено. Поточний сеанс активний.','settings.account.sessionsFailed':'Не вдалося завершити інші сеанси.','settings.account.modelFailed':'Не вдалося зберегти модель гравця.','settings.updates.link.website.title':'Офіційний сайт','settings.updates.link.website.desc':'Сайт Magma Launcher'
+  },
+  fr: {
+    'settings.account.parameters':'Paramètres du compte','settings.account.nickname':'Pseudo','settings.account.email':'Adresse e-mail','settings.account.edit':'Modifier','settings.account.newNickname':'Nouveau pseudo','settings.account.newEmail':'Nouvelle adresse e-mail','settings.account.save':'Enregistrer','settings.account.cancel':'Annuler','settings.account.sendConfirmation':'Envoyer la confirmation','settings.account.skinSystem':'Système de skins','settings.account.skinSystemHint':'Choisissez le service utilisé par Minecraft pour charger les skins et les capes.','settings.account.skinManager':'Skin et cape','settings.account.skinManagerHint':'Gérez le skin et la cape de votre compte Magma. Les modifications sont synchronisées avec le site.','settings.account.skin':'Skin','settings.account.cape':'Cape','settings.account.uploadSkin':'Changer le skin','settings.account.removeSkin':'Supprimer','settings.account.uploadCape':'Changer la cape','settings.account.removeCape':'Supprimer','settings.account.skinFormat':'PNG · 64×64 ou 64×32 · 2 Mo max.','settings.account.capeFormat':'PNG · 64×32 · 2 Mo max.','settings.account.playerModel':'Modèle du joueur','settings.account.classic':'Classique (Steve)','settings.account.slim':'Fin (Alex)','settings.account.privacy':'Confidentialité et notifications','settings.account.hideEmail':'Masquer l’e-mail sur le profil','settings.account.hideEmailHint':'Votre e-mail ne sera pas affiché dans l’aperçu du compte sur le site','settings.account.productUpdates':'Actualités et mises à jour du produit','settings.account.productUpdatesHint':'Recevoir les actualités et annonces de mises à jour','settings.account.savePreferences':'Enregistrer les préférences','settings.account.sessions':'Sessions actives','settings.account.sessionsHint':'Déconnecter les autres sessions. Cette session restera active.','settings.account.signOutOther':'Déconnecter les autres sessions','settings.account.signInRequired':'Connectez-vous à votre compte','settings.account.notSet':'Non défini','settings.account.synced':'Synchronisé','settings.account.syncFailed':'Erreur de synchronisation','settings.account.nicknameInvalid':'Le pseudo doit contenir 3 à 16 lettres latines, chiffres ou _.','settings.account.nicknameTaken':'Ce pseudo est déjà utilisé.','settings.account.nicknameSaved':'Pseudo enregistré.','settings.account.nicknameFailed':'Impossible d’enregistrer le pseudo.','settings.account.emailInvalid':'Saisissez une adresse e-mail valide.','settings.account.emailSame':'C’est déjà votre adresse actuelle.','settings.account.emailSent':'E-mail de confirmation envoyé. La nouvelle adresse sera active après vérification.','settings.account.emailFailed':'Impossible de modifier l’e-mail.','settings.account.pngOnly':'Choisissez un fichier PNG.','settings.account.imageTooLarge':'L’image ne doit pas dépasser 2 Mo.','settings.account.skinDimensions':'Le skin doit mesurer 64×64 ou 64×32 pixels.','settings.account.capeDimensions':'La cape doit mesurer 64×32 pixels.','settings.account.imageReadFailed':'Impossible de lire le fichier PNG.','settings.account.textureSaved':'Modifications enregistrées.','settings.account.textureRemoved':'Texture supprimée.','settings.account.textureFailed':'Impossible de modifier la texture.','settings.account.preferencesSaved':'Préférences enregistrées.','settings.account.preferencesFailed':'Impossible d’enregistrer les préférences.','settings.account.sessionsSignedOut':'Les autres sessions ont été déconnectées. Cette session reste active.','settings.account.sessionsFailed':'Impossible de déconnecter les autres sessions.','settings.account.modelFailed':'Impossible d’enregistrer le modèle du joueur.','settings.updates.link.website.title':'Site officiel','settings.updates.link.website.desc':'Site de Magma Launcher'
+  },
+  de: {
+    'settings.account.parameters':'Kontoeinstellungen','settings.account.nickname':'Nickname','settings.account.email':'E-Mail-Adresse','settings.account.edit':'Ändern','settings.account.newNickname':'Neuer Nickname','settings.account.newEmail':'Neue E-Mail-Adresse','settings.account.save':'Speichern','settings.account.cancel':'Abbrechen','settings.account.sendConfirmation':'Bestätigung senden','settings.account.skinSystem':'Skin-System','settings.account.skinSystemHint':'Wähle den Dienst, von dem Minecraft Skins und Capes lädt.','settings.account.skinManager':'Skin und Cape','settings.account.skinManagerHint':'Verwalte Skin und Cape deines Magma-Kontos. Änderungen werden mit der Website synchronisiert.','settings.account.skin':'Skin','settings.account.cape':'Cape','settings.account.uploadSkin':'Skin ändern','settings.account.removeSkin':'Entfernen','settings.account.uploadCape':'Cape ändern','settings.account.removeCape':'Entfernen','settings.account.skinFormat':'PNG · 64×64 oder 64×32 · max. 2 MB','settings.account.capeFormat':'PNG · 64×32 · max. 2 MB','settings.account.playerModel':'Spielermodell','settings.account.classic':'Klassisch (Steve)','settings.account.slim':'Schmal (Alex)','settings.account.privacy':'Datenschutz und Benachrichtigungen','settings.account.hideEmail':'E-Mail im Profil verbergen','settings.account.hideEmailHint':'Deine E-Mail wird in der Kontoübersicht auf der Website nicht angezeigt','settings.account.productUpdates':'Produktneuigkeiten und Updates','settings.account.productUpdatesHint':'Neuigkeiten und Update-Ankündigungen erhalten','settings.account.savePreferences':'Einstellungen speichern','settings.account.sessions':'Aktive Sitzungen','settings.account.sessionsHint':'Andere Sitzungen dieses Kontos abmelden. Diese Sitzung bleibt aktiv.','settings.account.signOutOther':'Andere Sitzungen abmelden','settings.account.signInRequired':'Melde dich bei deinem Konto an','settings.account.notSet':'Nicht festgelegt','settings.account.synced':'Synchronisiert','settings.account.syncFailed':'Synchronisierungsfehler','settings.account.nicknameInvalid':'Der Nickname muss 3–16 lateinische Buchstaben, Zahlen oder _ enthalten.','settings.account.nicknameTaken':'Dieser Nickname ist bereits vergeben.','settings.account.nicknameSaved':'Nickname gespeichert.','settings.account.nicknameFailed':'Nickname konnte nicht gespeichert werden.','settings.account.emailInvalid':'Gib eine gültige E-Mail-Adresse ein.','settings.account.emailSame':'Das ist bereits deine aktuelle Adresse.','settings.account.emailSent':'Bestätigungs-E-Mail gesendet. Die neue Adresse gilt nach der Bestätigung.','settings.account.emailFailed':'E-Mail konnte nicht geändert werden.','settings.account.pngOnly':'Wähle eine PNG-Datei.','settings.account.imageTooLarge':'Das Bild darf höchstens 2 MB groß sein.','settings.account.skinDimensions':'Der Skin muss 64×64 oder 64×32 Pixel groß sein.','settings.account.capeDimensions':'Das Cape muss 64×32 Pixel groß sein.','settings.account.imageReadFailed':'PNG-Datei konnte nicht gelesen werden.','settings.account.textureSaved':'Änderungen gespeichert.','settings.account.textureRemoved':'Textur entfernt.','settings.account.textureFailed':'Textur konnte nicht geändert werden.','settings.account.preferencesSaved':'Einstellungen gespeichert.','settings.account.preferencesFailed':'Einstellungen konnten nicht gespeichert werden.','settings.account.sessionsSignedOut':'Andere Sitzungen wurden abgemeldet. Diese Sitzung bleibt aktiv.','settings.account.sessionsFailed':'Andere Sitzungen konnten nicht abgemeldet werden.','settings.account.modelFailed':'Spielermodell konnte nicht gespeichert werden.','settings.updates.link.website.title':'Offizielle Website','settings.updates.link.website.desc':'Magma Launcher Website'
+  },
+  es: {
+    'settings.account.parameters':'Ajustes de la cuenta','settings.account.nickname':'Apodo','settings.account.email':'Correo electrónico','settings.account.edit':'Cambiar','settings.account.newNickname':'Nuevo apodo','settings.account.newEmail':'Nuevo correo','settings.account.save':'Guardar','settings.account.cancel':'Cancelar','settings.account.sendConfirmation':'Enviar confirmación','settings.account.skinSystem':'Sistema de skins','settings.account.skinSystemHint':'Elige el servicio que Minecraft usará para cargar skins y capas.','settings.account.skinManager':'Skin y capa','settings.account.skinManagerHint':'Administra el skin y la capa de tu cuenta Magma. Los cambios se sincronizan con el sitio web.','settings.account.skin':'Skin','settings.account.cape':'Capa','settings.account.uploadSkin':'Cambiar skin','settings.account.removeSkin':'Eliminar','settings.account.uploadCape':'Cambiar capa','settings.account.removeCape':'Eliminar','settings.account.skinFormat':'PNG · 64×64 o 64×32 · hasta 2 MB','settings.account.capeFormat':'PNG · 64×32 · hasta 2 MB','settings.account.playerModel':'Modelo del jugador','settings.account.classic':'Clásico (Steve)','settings.account.slim':'Delgado (Alex)','settings.account.privacy':'Privacidad y notificaciones','settings.account.hideEmail':'Ocultar correo en el perfil','settings.account.hideEmailHint':'Tu correo no aparecerá en el resumen de cuenta del sitio','settings.account.productUpdates':'Noticias y actualizaciones del producto','settings.account.productUpdatesHint':'Recibir noticias y anuncios de actualizaciones','settings.account.savePreferences':'Guardar preferencias','settings.account.sessions':'Sesiones activas','settings.account.sessionsHint':'Cerrar las demás sesiones. Esta sesión seguirá activa.','settings.account.signOutOther':'Cerrar otras sesiones','settings.account.signInRequired':'Inicia sesión en tu cuenta','settings.account.notSet':'Sin definir','settings.account.synced':'Sincronizado','settings.account.syncFailed':'Error de sincronización','settings.account.nicknameInvalid':'El apodo debe tener 3–16 letras latinas, números o _.','settings.account.nicknameTaken':'Este apodo ya está en uso.','settings.account.nicknameSaved':'Apodo guardado.','settings.account.nicknameFailed':'No se pudo guardar el apodo.','settings.account.emailInvalid':'Introduce un correo válido.','settings.account.emailSame':'Esta ya es tu dirección actual.','settings.account.emailSent':'Se envió el correo de confirmación. La nueva dirección se activará tras verificarla.','settings.account.emailFailed':'No se pudo cambiar el correo.','settings.account.pngOnly':'Elige un archivo PNG.','settings.account.imageTooLarge':'La imagen no debe superar los 2 MB.','settings.account.skinDimensions':'El skin debe medir 64×64 o 64×32 píxeles.','settings.account.capeDimensions':'La capa debe medir 64×32 píxeles.','settings.account.imageReadFailed':'No se pudo leer el PNG.','settings.account.textureSaved':'Cambios guardados.','settings.account.textureRemoved':'Textura eliminada.','settings.account.textureFailed':'No se pudo cambiar la textura.','settings.account.preferencesSaved':'Preferencias guardadas.','settings.account.preferencesFailed':'No se pudieron guardar las preferencias.','settings.account.sessionsSignedOut':'Se cerraron las demás sesiones. Esta sesión sigue activa.','settings.account.sessionsFailed':'No se pudieron cerrar las demás sesiones.','settings.account.modelFailed':'No se pudo guardar el modelo del jugador.','settings.updates.link.website.title':'Sitio oficial','settings.updates.link.website.desc':'Sitio web de Magma Launcher'
+  },
+  it: {
+    'settings.account.parameters':'Impostazioni account','settings.account.nickname':'Nickname','settings.account.email':'Indirizzo email','settings.account.edit':'Modifica','settings.account.newNickname':'Nuovo nickname','settings.account.newEmail':'Nuovo indirizzo email','settings.account.save':'Salva','settings.account.cancel':'Annulla','settings.account.sendConfirmation':'Invia conferma','settings.account.skinSystem':'Sistema skin','settings.account.skinSystemHint':'Scegli il servizio da cui Minecraft caricherà skin e mantelli.','settings.account.skinManager':'Skin e mantello','settings.account.skinManagerHint':'Gestisci skin e mantello del tuo account Magma. Le modifiche vengono sincronizzate con il sito.','settings.account.skin':'Skin','settings.account.cape':'Mantello','settings.account.uploadSkin':'Cambia skin','settings.account.removeSkin':'Rimuovi','settings.account.uploadCape':'Cambia mantello','settings.account.removeCape':'Rimuovi','settings.account.skinFormat':'PNG · 64×64 o 64×32 · fino a 2 MB','settings.account.capeFormat':'PNG · 64×32 · fino a 2 MB','settings.account.playerModel':'Modello giocatore','settings.account.classic':'Classico (Steve)','settings.account.slim':'Snello (Alex)','settings.account.privacy':'Privacy e notifiche','settings.account.hideEmail':'Nascondi email nel profilo','settings.account.hideEmailHint':'La tua email non apparirà nel riepilogo account sul sito','settings.account.productUpdates':'Novità e aggiornamenti del prodotto','settings.account.productUpdatesHint':'Ricevi notizie e annunci sugli aggiornamenti','settings.account.savePreferences':'Salva preferenze','settings.account.sessions':'Sessioni attive','settings.account.sessionsHint':'Disconnetti le altre sessioni. Questa sessione resterà attiva.','settings.account.signOutOther':'Disconnetti le altre sessioni','settings.account.signInRequired':'Accedi al tuo account','settings.account.notSet':'Non impostato','settings.account.synced':'Sincronizzato','settings.account.syncFailed':'Errore di sincronizzazione','settings.account.nicknameInvalid':'Il nickname deve contenere 3–16 lettere latine, numeri o _.','settings.account.nicknameTaken':'Questo nickname è già utilizzato.','settings.account.nicknameSaved':'Nickname salvato.','settings.account.nicknameFailed':'Impossibile salvare il nickname.','settings.account.emailInvalid':'Inserisci un indirizzo email valido.','settings.account.emailSame':'Questo è già il tuo indirizzo attuale.','settings.account.emailSent':'Email di conferma inviata. Il nuovo indirizzo sarà attivo dopo la verifica.','settings.account.emailFailed':'Impossibile cambiare email.','settings.account.pngOnly':'Scegli un file PNG.','settings.account.imageTooLarge':'L’immagine non deve superare 2 MB.','settings.account.skinDimensions':'La skin deve essere 64×64 o 64×32 pixel.','settings.account.capeDimensions':'Il mantello deve essere 64×32 pixel.','settings.account.imageReadFailed':'Impossibile leggere il file PNG.','settings.account.textureSaved':'Modifiche salvate.','settings.account.textureRemoved':'Texture rimossa.','settings.account.textureFailed':'Impossibile modificare la texture.','settings.account.preferencesSaved':'Preferenze salvate.','settings.account.preferencesFailed':'Impossibile salvare le preferenze.','settings.account.sessionsSignedOut':'Le altre sessioni sono state disconnesse. Questa sessione resta attiva.','settings.account.sessionsFailed':'Impossibile disconnettere le altre sessioni.','settings.account.modelFailed':'Impossibile salvare il modello del giocatore.','settings.updates.link.website.title':'Sito ufficiale','settings.updates.link.website.desc':'Sito web di Magma Launcher'
+  },
+  pt: {
+    'settings.account.parameters':'Configurações da conta','settings.account.nickname':'Apelido','settings.account.email':'Endereço de e-mail','settings.account.edit':'Alterar','settings.account.newNickname':'Novo apelido','settings.account.newEmail':'Novo e-mail','settings.account.save':'Salvar','settings.account.cancel':'Cancelar','settings.account.sendConfirmation':'Enviar confirmação','settings.account.skinSystem':'Sistema de skins','settings.account.skinSystemHint':'Escolha o serviço que o Minecraft usará para carregar skins e capas.','settings.account.skinManager':'Skin e capa','settings.account.skinManagerHint':'Gerencie a skin e a capa da sua conta Magma. As alterações são sincronizadas com o site.','settings.account.skin':'Skin','settings.account.cape':'Capa','settings.account.uploadSkin':'Alterar skin','settings.account.removeSkin':'Remover','settings.account.uploadCape':'Alterar capa','settings.account.removeCape':'Remover','settings.account.skinFormat':'PNG · 64×64 ou 64×32 · até 2 MB','settings.account.capeFormat':'PNG · 64×32 · até 2 MB','settings.account.playerModel':'Modelo do jogador','settings.account.classic':'Clássico (Steve)','settings.account.slim':'Fino (Alex)','settings.account.privacy':'Privacidade e notificações','settings.account.hideEmail':'Ocultar e-mail no perfil','settings.account.hideEmailHint':'Seu e-mail não aparecerá na visão geral da conta no site','settings.account.productUpdates':'Novidades e atualizações do produto','settings.account.productUpdatesHint':'Receber notícias e avisos de atualização','settings.account.savePreferences':'Salvar preferências','settings.account.sessions':'Sessões ativas','settings.account.sessionsHint':'Encerrar outras sessões. Esta sessão continuará ativa.','settings.account.signOutOther':'Encerrar outras sessões','settings.account.signInRequired':'Entre na sua conta','settings.account.notSet':'Não definido','settings.account.synced':'Sincronizado','settings.account.syncFailed':'Erro de sincronização','settings.account.nicknameInvalid':'O apelido deve ter de 3 a 16 letras latinas, números ou _.','settings.account.nicknameTaken':'Este apelido já está em uso.','settings.account.nicknameSaved':'Apelido salvo.','settings.account.nicknameFailed':'Não foi possível salvar o apelido.','settings.account.emailInvalid':'Digite um endereço de e-mail válido.','settings.account.emailSame':'Este já é seu endereço atual.','settings.account.emailSent':'E-mail de confirmação enviado. O novo endereço será ativado após a confirmação.','settings.account.emailFailed':'Não foi possível alterar o e-mail.','settings.account.pngOnly':'Escolha um arquivo PNG.','settings.account.imageTooLarge':'A imagem não pode ultrapassar 2 MB.','settings.account.skinDimensions':'A skin deve ter 64×64 ou 64×32 pixels.','settings.account.capeDimensions':'A capa deve ter 64×32 pixels.','settings.account.imageReadFailed':'Não foi possível ler o PNG.','settings.account.textureSaved':'Alterações salvas.','settings.account.textureRemoved':'Textura removida.','settings.account.textureFailed':'Não foi possível alterar a textura.','settings.account.preferencesSaved':'Preferências salvas.','settings.account.preferencesFailed':'Não foi possível salvar as preferências.','settings.account.sessionsSignedOut':'As outras sessões foram encerradas. Esta sessão continua ativa.','settings.account.sessionsFailed':'Não foi possível encerrar as outras sessões.','settings.account.modelFailed':'Não foi possível salvar o modelo do jogador.','settings.updates.link.website.title':'Site oficial','settings.updates.link.website.desc':'Site do Magma Launcher'
+  },
+  ja: {
+    'settings.account.parameters':'アカウント設定','settings.account.nickname':'ニックネーム','settings.account.email':'メールアドレス','settings.account.edit':'変更','settings.account.newNickname':'新しいニックネーム','settings.account.newEmail':'新しいメールアドレス','settings.account.save':'保存','settings.account.cancel':'キャンセル','settings.account.sendConfirmation':'確認メールを送信','settings.account.skinSystem':'スキンシステム','settings.account.skinSystemHint':'Minecraftがスキンとマントを読み込むサービスを選択してください。','settings.account.skinManager':'スキンとマント','settings.account.skinManagerHint':'Magma Accountのスキンとマントを管理できます。変更内容はウェブサイトと同期されます。','settings.account.skin':'スキン','settings.account.cape':'マント','settings.account.uploadSkin':'スキンを変更','settings.account.removeSkin':'削除','settings.account.uploadCape':'マントを変更','settings.account.removeCape':'削除','settings.account.skinFormat':'PNG · 64×64または64×32 · 最大2MB','settings.account.capeFormat':'PNG · 64×32 · 最大2MB','settings.account.playerModel':'プレイヤーモデル','settings.account.classic':'クラシック (Steve)','settings.account.slim':'スリム (Alex)','settings.account.privacy':'プライバシーと通知','settings.account.hideEmail':'プロフィールでメールを非表示','settings.account.hideEmailHint':'サイトのアカウント概要にメールアドレスを表示しません','settings.account.productUpdates':'製品ニュースと更新情報','settings.account.productUpdatesHint':'製品ニュースや更新のお知らせを受け取る','settings.account.savePreferences':'設定を保存','settings.account.sessions':'アクティブなセッション','settings.account.sessionsHint':'他のセッションからサインアウトします。このセッションは維持されます。','settings.account.signOutOther':'他のセッションからサインアウト','settings.account.signInRequired':'アカウントにログインしてください','settings.account.notSet':'未設定','settings.account.synced':'同期済み','settings.account.syncFailed':'同期エラー','settings.account.nicknameInvalid':'ニックネームは英数字と_で3～16文字にしてください。','settings.account.nicknameTaken':'このニックネームは既に使用されています。','settings.account.nicknameSaved':'ニックネームを保存しました。','settings.account.nicknameFailed':'ニックネームを保存できませんでした。','settings.account.emailInvalid':'有効なメールアドレスを入力してください。','settings.account.emailSame':'現在のメールアドレスと同じです。','settings.account.emailSent':'確認メールを送信しました。確認後に新しいアドレスが有効になります。','settings.account.emailFailed':'メールアドレスを変更できませんでした。','settings.account.pngOnly':'PNGファイルを選択してください。','settings.account.imageTooLarge':'画像は2MB以下にしてください。','settings.account.skinDimensions':'スキンは64×64または64×32ピクセルである必要があります。','settings.account.capeDimensions':'マントは64×32ピクセルである必要があります。','settings.account.imageReadFailed':'PNGファイルを読み込めませんでした。','settings.account.textureSaved':'変更を保存しました。','settings.account.textureRemoved':'テクスチャを削除しました。','settings.account.textureFailed':'テクスチャを変更できませんでした。','settings.account.preferencesSaved':'設定を保存しました。','settings.account.preferencesFailed':'設定を保存できませんでした。','settings.account.sessionsSignedOut':'他のセッションからサインアウトしました。このセッションは有効です。','settings.account.sessionsFailed':'他のセッションからサインアウトできませんでした。','settings.account.modelFailed':'プレイヤーモデルを保存できませんでした。','settings.updates.link.website.title':'公式サイト','settings.updates.link.website.desc':'Magma Launcherのウェブサイト'
+  },
+  ko: {
+    'settings.account.parameters':'계정 설정','settings.account.nickname':'닉네임','settings.account.email':'이메일 주소','settings.account.edit':'변경','settings.account.newNickname':'새 닉네임','settings.account.newEmail':'새 이메일 주소','settings.account.save':'저장','settings.account.cancel':'취소','settings.account.sendConfirmation':'확인 메일 보내기','settings.account.skinSystem':'스킨 시스템','settings.account.skinSystemHint':'Minecraft에서 스킨과 망토를 불러올 서비스를 선택하세요.','settings.account.skinManager':'스킨 및 망토','settings.account.skinManagerHint':'Magma Account의 스킨과 망토를 관리하세요. 변경 사항은 웹사이트와 동기화됩니다.','settings.account.skin':'스킨','settings.account.cape':'망토','settings.account.uploadSkin':'스킨 변경','settings.account.removeSkin':'삭제','settings.account.uploadCape':'망토 변경','settings.account.removeCape':'삭제','settings.account.skinFormat':'PNG · 64×64 또는 64×32 · 최대 2MB','settings.account.capeFormat':'PNG · 64×32 · 최대 2MB','settings.account.playerModel':'플레이어 모델','settings.account.classic':'클래식 (Steve)','settings.account.slim':'슬림 (Alex)','settings.account.privacy':'개인정보 및 알림','settings.account.hideEmail':'프로필에서 이메일 숨기기','settings.account.hideEmailHint':'사이트 계정 개요에 이메일이 표시되지 않습니다','settings.account.productUpdates':'제품 소식 및 업데이트','settings.account.productUpdatesHint':'제품 소식과 업데이트 알림 받기','settings.account.savePreferences':'환경설정 저장','settings.account.sessions':'활성 세션','settings.account.sessionsHint':'다른 세션에서 로그아웃합니다. 현재 세션은 유지됩니다.','settings.account.signOutOther':'다른 세션 로그아웃','settings.account.signInRequired':'계정에 로그인하세요','settings.account.notSet':'설정되지 않음','settings.account.synced':'동기화됨','settings.account.syncFailed':'동기화 오류','settings.account.nicknameInvalid':'닉네임은 영문자, 숫자, _로 3~16자여야 합니다.','settings.account.nicknameTaken':'이미 사용 중인 닉네임입니다.','settings.account.nicknameSaved':'닉네임을 저장했습니다.','settings.account.nicknameFailed':'닉네임을 저장할 수 없습니다.','settings.account.emailInvalid':'올바른 이메일 주소를 입력하세요.','settings.account.emailSame':'현재 이메일 주소와 같습니다.','settings.account.emailSent':'확인 이메일을 보냈습니다. 확인 후 새 주소가 적용됩니다.','settings.account.emailFailed':'이메일을 변경할 수 없습니다.','settings.account.pngOnly':'PNG 파일을 선택하세요.','settings.account.imageTooLarge':'이미지는 2MB 이하여야 합니다.','settings.account.skinDimensions':'스킨 크기는 64×64 또는 64×32 픽셀이어야 합니다.','settings.account.capeDimensions':'망토 크기는 64×32 픽셀이어야 합니다.','settings.account.imageReadFailed':'PNG 파일을 읽을 수 없습니다.','settings.account.textureSaved':'변경 사항을 저장했습니다.','settings.account.textureRemoved':'텍스처를 삭제했습니다.','settings.account.textureFailed':'텍스처를 변경할 수 없습니다.','settings.account.preferencesSaved':'설정을 저장했습니다.','settings.account.preferencesFailed':'설정을 저장할 수 없습니다.','settings.account.sessionsSignedOut':'다른 세션에서 로그아웃했습니다. 현재 세션은 활성 상태입니다.','settings.account.sessionsFailed':'다른 세션에서 로그아웃할 수 없습니다.','settings.account.modelFailed':'플레이어 모델을 저장할 수 없습니다.','settings.updates.link.website.title':'공식 웹사이트','settings.updates.link.website.desc':'Magma Launcher 웹사이트'
+  },
+  hi: {
+    'settings.account.parameters':'खाता सेटिंग्स','settings.account.nickname':'निकनेम','settings.account.email':'ईमेल पता','settings.account.edit':'बदलें','settings.account.newNickname':'नया निकनेम','settings.account.newEmail':'नया ईमेल पता','settings.account.save':'सहेजें','settings.account.cancel':'रद्द करें','settings.account.sendConfirmation':'पुष्टि भेजें','settings.account.skinSystem':'स्किन सिस्टम','settings.account.skinSystemHint':'Minecraft में स्किन और केप लोड करने वाली सेवा चुनें।','settings.account.skinManager':'स्किन और केप','settings.account.skinManagerHint':'अपने Magma Account की स्किन और केप प्रबंधित करें। बदलाव वेबसाइट के साथ सिंक होंगे।','settings.account.skin':'स्किन','settings.account.cape':'केप','settings.account.uploadSkin':'स्किन बदलें','settings.account.removeSkin':'हटाएँ','settings.account.uploadCape':'केप बदलें','settings.account.removeCape':'हटाएँ','settings.account.skinFormat':'PNG · 64×64 या 64×32 · अधिकतम 2 MB','settings.account.capeFormat':'PNG · 64×32 · अधिकतम 2 MB','settings.account.playerModel':'प्लेयर मॉडल','settings.account.classic':'क्लासिक (Steve)','settings.account.slim':'स्लिम (Alex)','settings.account.privacy':'गोपनीयता और सूचनाएँ','settings.account.hideEmail':'प्रोफ़ाइल पर ईमेल छिपाएँ','settings.account.hideEmailHint':'वेबसाइट पर खाता अवलोकन में आपका ईमेल नहीं दिखेगा','settings.account.productUpdates':'उत्पाद समाचार और अपडेट','settings.account.productUpdatesHint':'उत्पाद समाचार और अपडेट सूचनाएँ प्राप्त करें','settings.account.savePreferences':'प्राथमिकताएँ सहेजें','settings.account.sessions':'सक्रिय सत्र','settings.account.sessionsHint':'अन्य सत्रों से साइन आउट करें। यह सत्र सक्रिय रहेगा।','settings.account.signOutOther':'अन्य सत्रों से साइन आउट','settings.account.signInRequired':'अपने खाते में साइन इन करें','settings.account.notSet':'सेट नहीं है','settings.account.synced':'सिंक हो गया','settings.account.syncFailed':'सिंक त्रुटि','settings.account.nicknameInvalid':'निकनेम में 3–16 लैटिन अक्षर, अंक या _ होने चाहिए।','settings.account.nicknameTaken':'यह निकनेम पहले से उपयोग में है।','settings.account.nicknameSaved':'निकनेम सहेजा गया।','settings.account.nicknameFailed':'निकनेम सहेजा नहीं जा सका।','settings.account.emailInvalid':'मान्य ईमेल पता दर्ज करें।','settings.account.emailSame':'यह आपका वर्तमान पता ही है।','settings.account.emailSent':'पुष्टि ईमेल भेजा गया। पुष्टि के बाद नया पता लागू होगा।','settings.account.emailFailed':'ईमेल नहीं बदला जा सका।','settings.account.pngOnly':'PNG फ़ाइल चुनें।','settings.account.imageTooLarge':'छवि 2 MB से बड़ी नहीं होनी चाहिए।','settings.account.skinDimensions':'स्किन का आकार 64×64 या 64×32 पिक्सेल होना चाहिए।','settings.account.capeDimensions':'केप का आकार 64×32 पिक्सेल होना चाहिए।','settings.account.imageReadFailed':'PNG फ़ाइल पढ़ी नहीं जा सकी।','settings.account.textureSaved':'बदलाव सहेजे गए।','settings.account.textureRemoved':'टेक्सचर हटा दिया गया।','settings.account.textureFailed':'टेक्सचर अपडेट नहीं हो सका।','settings.account.preferencesSaved':'प्राथमिकताएँ सहेजी गईं।','settings.account.preferencesFailed':'प्राथमिकताएँ सहेजी नहीं जा सकीं।','settings.account.sessionsSignedOut':'अन्य सत्रों से साइन आउट किया गया। यह सत्र सक्रिय है।','settings.account.sessionsFailed':'अन्य सत्रों से साइन आउट नहीं हो सका।','settings.account.modelFailed':'प्लेयर मॉडल सहेजा नहीं जा सका।','settings.updates.link.website.title':'आधिकारिक वेबसाइट','settings.updates.link.website.desc':'Magma Launcher वेबसाइट'
+  },
+  id: {
+    'settings.account.parameters':'Pengaturan akun','settings.account.nickname':'Nama panggilan','settings.account.email':'Alamat email','settings.account.edit':'Ubah','settings.account.newNickname':'Nama panggilan baru','settings.account.newEmail':'Alamat email baru','settings.account.save':'Simpan','settings.account.cancel':'Batal','settings.account.sendConfirmation':'Kirim konfirmasi','settings.account.skinSystem':'Sistem skin','settings.account.skinSystemHint':'Pilih layanan yang akan digunakan Minecraft untuk memuat skin dan cape.','settings.account.skinManager':'Skin dan cape','settings.account.skinManagerHint':'Kelola skin dan cape Magma Account Anda. Perubahan akan disinkronkan dengan situs web.','settings.account.skin':'Skin','settings.account.cape':'Cape','settings.account.uploadSkin':'Ubah skin','settings.account.removeSkin':'Hapus','settings.account.uploadCape':'Ubah cape','settings.account.removeCape':'Hapus','settings.account.skinFormat':'PNG · 64×64 atau 64×32 · maks. 2 MB','settings.account.capeFormat':'PNG · 64×32 · maks. 2 MB','settings.account.playerModel':'Model pemain','settings.account.classic':'Klasik (Steve)','settings.account.slim':'Ramping (Alex)','settings.account.privacy':'Privasi dan notifikasi','settings.account.hideEmail':'Sembunyikan email di profil','settings.account.hideEmailHint':'Email Anda tidak akan ditampilkan di ringkasan akun situs','settings.account.productUpdates':'Berita dan pembaruan produk','settings.account.productUpdatesHint':'Terima berita produk dan pengumuman pembaruan','settings.account.savePreferences':'Simpan preferensi','settings.account.sessions':'Sesi aktif','settings.account.sessionsHint':'Keluar dari sesi lain. Sesi ini akan tetap aktif.','settings.account.signOutOther':'Keluar dari sesi lain','settings.account.signInRequired':'Masuk ke akun Anda','settings.account.notSet':'Belum diatur','settings.account.synced':'Tersinkron','settings.account.syncFailed':'Kesalahan sinkronisasi','settings.account.nicknameInvalid':'Nama panggilan harus 3–16 huruf Latin, angka, atau _.','settings.account.nicknameTaken':'Nama panggilan ini sudah digunakan.','settings.account.nicknameSaved':'Nama panggilan disimpan.','settings.account.nicknameFailed':'Tidak dapat menyimpan nama panggilan.','settings.account.emailInvalid':'Masukkan alamat email yang valid.','settings.account.emailSame':'Ini sudah alamat Anda saat ini.','settings.account.emailSent':'Email konfirmasi dikirim. Alamat baru berlaku setelah diverifikasi.','settings.account.emailFailed':'Tidak dapat mengubah email.','settings.account.pngOnly':'Pilih file PNG.','settings.account.imageTooLarge':'Gambar tidak boleh lebih dari 2 MB.','settings.account.skinDimensions':'Ukuran skin harus 64×64 atau 64×32 piksel.','settings.account.capeDimensions':'Ukuran cape harus 64×32 piksel.','settings.account.imageReadFailed':'File PNG tidak dapat dibaca.','settings.account.textureSaved':'Perubahan disimpan.','settings.account.textureRemoved':'Tekstur dihapus.','settings.account.textureFailed':'Tidak dapat mengubah tekstur.','settings.account.preferencesSaved':'Preferensi disimpan.','settings.account.preferencesFailed':'Tidak dapat menyimpan preferensi.','settings.account.sessionsSignedOut':'Sesi lain telah dikeluarkan. Sesi ini tetap aktif.','settings.account.sessionsFailed':'Tidak dapat mengeluarkan sesi lain.','settings.account.modelFailed':'Tidak dapat menyimpan model pemain.','settings.updates.link.website.title':'Situs resmi','settings.updates.link.website.desc':'Situs web Magma Launcher'
+  }
+};
+Object.keys(I18N_ACCOUNT_SETTINGS_PATCH).forEach(lang => {
+  if (!I18N[lang]) I18N[lang] = {};
+  Object.assign(I18N[lang], I18N_ACCOUNT_SETTINGS_PATCH[lang]);
+});
+I18N['es-ES'] = I18N.es;
+
+const I18N_ACCOUNT_EXTRA_PATCH = {
+  ru: { 'settings.account.checking':'Проверка аккаунта…', 'account.deleteGuestDesc':'Гостевой профиль будет удалён только из этого лаунчера.' },
+  en: { 'settings.account.checking':'Checking account…', 'account.deleteGuestDesc':'The guest profile will only be removed from this launcher.' },
+  uk: { 'settings.account.checking':'Перевірка облікового запису…', 'account.deleteGuestDesc':'Гостьовий профіль буде видалено лише з цього лаунчера.' },
+  fr: { 'settings.account.checking':'Vérification du compte…', 'account.deleteGuestDesc':'Le profil invité sera supprimé uniquement de ce launcher.' },
+  de: { 'settings.account.checking':'Konto wird geprüft…', 'account.deleteGuestDesc':'Das Gastprofil wird nur aus diesem Launcher entfernt.' },
+  es: { 'settings.account.checking':'Comprobando la cuenta…', 'account.deleteGuestDesc':'El perfil de invitado solo se eliminará de este launcher.' },
+  it: { 'settings.account.checking':'Controllo dell’account…', 'account.deleteGuestDesc':'Il profilo ospite verrà rimosso solo da questo launcher.' },
+  pt: { 'settings.account.checking':'Verificando a conta…', 'account.deleteGuestDesc':'O perfil de convidado será removido apenas deste launcher.' },
+  ja: { 'settings.account.checking':'アカウントを確認中…', 'account.deleteGuestDesc':'ゲストプロフィールはこのランチャーからのみ削除されます。' },
+  ko: { 'settings.account.checking':'계정 확인 중…', 'account.deleteGuestDesc':'게스트 프로필은 이 런처에서만 삭제됩니다.' },
+  hi: { 'settings.account.checking':'खाते की जाँच हो रही है…', 'account.deleteGuestDesc':'अतिथि प्रोफ़ाइल केवल इस लॉन्चर से हटाई जाएगी।' },
+  id: { 'settings.account.checking':'Memeriksa akun…', 'account.deleteGuestDesc':'Profil tamu hanya akan dihapus dari launcher ini.' }
+};
+Object.keys(I18N_ACCOUNT_EXTRA_PATCH).forEach(lang => {
+  if (!I18N[lang]) I18N[lang] = {};
+  Object.assign(I18N[lang], I18N_ACCOUNT_EXTRA_PATCH[lang]);
+});
+I18N['es-ES'] = I18N.es;
+
+const I18N_COMPLETE_PATCH = {
+  ru: {
+    "a11y.close": "Закрыть",
+    "boot.updating": "Загрузка обновления",
+    "boot.updateFailed": "Не удалось обновить лаунчер. Запускаем текущую версию...",
+    "mods.default.fabricApi": "Библиотека, нужна почти всем модам на Fabric",
+    "mods.default.sodium": "Оптимизация рендеринга без потери качества картинки",
+    "mods.default.clothConfig": "Библиотека настроек, нужна многим модам на Forge",
+    "mods.default.qsl": "Библиотека, нужна многим модам на Quilt"
+  },
+  en: {
+    "a11y.close": "Close",
+    "boot.updating": "Downloading update",
+    "boot.updateFailed": "Could not update the launcher. Starting the current version...",
+    "mods.default.fabricApi": "Library required by almost every Fabric mod",
+    "mods.default.sodium": "Rendering optimization without sacrificing visual quality",
+    "mods.default.clothConfig": "Config library required by many Forge mods",
+    "mods.default.qsl": "Library required by many Quilt mods"
+  },
+  uk: {
+    "servers.licenseRequired": "Потрібна ліцензія Minecraft",
+    "servers.licenseFree": "Без ліцензії (можна зайти гостем)",
+    "discord.playing": "Грає в Minecraft",
+    "discord.inLauncher": "У лаунчері MagmaLauncher",
+    "mods.category.datapacks": "Дата-паки",
+    "mods.category.servers": "Сервери",
+    "servers.tectonicNetwork.desc": "Технічний Forge-сервер з автоматизацією та промисловими модами.",
+    "servers.magmaCreative.desc": "Творчий хаб для будівництва — плоский світ, WorldEdit і спільні міста гравців.",
+    "servers.magmaSurvival.desc": "Ванільне виживання з плавним економічним прогресом і без донату на силу.",
+    "mods.datapackHint": "Дата-паки встановлюються не в загальну теку гри, а всередину конкретного світу. Завантажений файл з’явиться в теці datapacks_downloads — перенесіть його в теку datapacks вашого світу вручну.",
+    "a11y.close": "Закрити",
+    "boot.updating": "Завантаження оновлення",
+    "boot.updateFailed": "Не вдалося оновити лаунчер. Запускаємо поточну версію...",
+    "mods.default.fabricApi": "Бібліотека, потрібна майже всім модам на Fabric",
+    "mods.default.sodium": "Оптимізація рендерингу без втрати якості картинки",
+    "mods.default.clothConfig": "Бібліотека налаштувань, потрібна багатьом модам на Forge",
+    "mods.default.qsl": "Бібліотека, потрібна багатьом модам на Quilt"
+  },
+  fr: {
+    "servers.licenseRequired": "Licence Minecraft requise",
+    "servers.licenseFree": "Sans licence (connexion en invité possible)",
+    "discord.playing": "Joue à Minecraft",
+    "discord.inLauncher": "Dans MagmaLauncher",
+    "mods.category.datapacks": "Packs de données",
+    "mods.category.servers": "Serveurs",
+    "servers.tectonicNetwork.desc": "Un serveur Forge technique avec automatisation et mods industriels.",
+    "servers.magmaCreative.desc": "Un hub créatif pour construire — monde plat, WorldEdit et villes partagées par les joueurs.",
+    "servers.magmaSurvival.desc": "Survie vanilla avec une économie fluide et sans pay-to-win.",
+    "mods.datapackHint": "Les data packs s’installent dans un monde précis, et non dans le dossier de jeu commun. Le fichier téléchargé arrive dans le dossier datapacks_downloads : déplacez-le vous-même dans le dossier datapacks de votre monde.",
+    "a11y.close": "Fermer",
+    "boot.updating": "Téléchargement de la mise à jour",
+    "boot.updateFailed": "Impossible de mettre à jour le launcher. Lancement de la version actuelle...",
+    "mods.default.fabricApi": "Bibliothèque requise par presque tous les mods Fabric",
+    "mods.default.sodium": "Optimisation du rendu sans perte de qualité visuelle",
+    "mods.default.clothConfig": "Bibliothèque de configuration requise par de nombreux mods Forge",
+    "mods.default.qsl": "Bibliothèque requise par de nombreux mods Quilt"
+  },
+  de: {
+    "servers.licenseRequired": "Minecraft-Lizenz erforderlich",
+    "servers.licenseFree": "Keine Lizenz nötig (Beitritt als Gast möglich)",
+    "discord.playing": "Spielt Minecraft",
+    "discord.inLauncher": "Im MagmaLauncher",
+    "mods.category.datapacks": "Datapacks",
+    "mods.category.servers": "Server",
+    "servers.tectonicNetwork.desc": "Ein technischer Forge-Server mit Automatisierung und Industrie-Mods.",
+    "servers.magmaCreative.desc": "Ein kreativer Bau-Hub – flache Welt, WorldEdit und gemeinsame Spielerstädte.",
+    "servers.magmaSurvival.desc": "Vanilla-Survival mit ausgewogener Wirtschaft und ohne Pay-to-Win.",
+    "mods.datapackHint": "Datapacks werden nicht im gemeinsamen Spielordner, sondern in einer bestimmten Welt installiert. Die heruntergeladene Datei landet im Ordner datapacks_downloads – verschiebe sie selbst in den Ordner datapacks deiner Welt.",
+    "a11y.close": "Schließen",
+    "boot.updating": "Update wird heruntergeladen",
+    "boot.updateFailed": "Der Launcher konnte nicht aktualisiert werden. Die aktuelle Version wird gestartet...",
+    "mods.default.fabricApi": "Bibliothek, die fast jede Fabric-Mod benötigt",
+    "mods.default.sodium": "Render-Optimierung ohne Verlust der Bildqualität",
+    "mods.default.clothConfig": "Konfigurationsbibliothek, die viele Forge-Mods benötigen",
+    "mods.default.qsl": "Bibliothek, die viele Quilt-Mods benötigen"
+  },
+  es: {
+    "servers.licenseRequired": "Requiere licencia de Minecraft",
+    "servers.licenseFree": "Sin licencia (puedes entrar como invitado)",
+    "discord.playing": "Jugando a Minecraft",
+    "discord.inLauncher": "En MagmaLauncher",
+    "mods.category.datapacks": "Paquetes de datos",
+    "mods.category.servers": "Servidores",
+    "servers.tectonicNetwork.desc": "Un servidor técnico de Forge con automatización y mods industriales.",
+    "servers.magmaCreative.desc": "Un centro creativo para construir: mundo plano, WorldEdit y ciudades compartidas de jugadores.",
+    "servers.magmaSurvival.desc": "Supervivencia vanilla con una economía fluida y sin pay-to-win.",
+    "mods.datapackHint": "Los paquetes de datos se instalan en un mundo concreto, no en la carpeta común del juego. El archivo descargado queda en la carpeta datapacks_downloads: muévelo tú mismo a la carpeta datapacks de tu mundo.",
+    "a11y.close": "Cerrar",
+    "boot.updating": "Descargando actualización",
+    "boot.updateFailed": "No se pudo actualizar el launcher. Iniciando la versión actual...",
+    "mods.default.fabricApi": "Biblioteca necesaria para casi todos los mods de Fabric",
+    "mods.default.sodium": "Optimización del renderizado sin perder calidad visual",
+    "mods.default.clothConfig": "Biblioteca de configuración necesaria para muchos mods de Forge",
+    "mods.default.qsl": "Biblioteca necesaria para muchos mods de Quilt"
+  },
+  it: {
+    "servers.licenseRequired": "Richiede una licenza di Minecraft",
+    "servers.licenseFree": "Nessuna licenza richiesta (accesso come ospite)",
+    "discord.playing": "Sta giocando a Minecraft",
+    "discord.inLauncher": "In MagmaLauncher",
+    "mods.category.datapacks": "Data pack",
+    "mods.category.servers": "Server",
+    "servers.tectonicNetwork.desc": "Un server Forge tecnico con automazione e mod industriali.",
+    "servers.magmaCreative.desc": "Un hub creativo per costruire: mondo piatto, WorldEdit e città condivise dei giocatori.",
+    "servers.magmaSurvival.desc": "Survival vanilla con un'economia equilibrata e senza pay-to-win.",
+    "mods.datapackHint": "I data pack si installano in un mondo specifico, non nella cartella comune del gioco. Il file scaricato finisce nella cartella datapacks_downloads: spostalo manualmente nella cartella datapacks del tuo mondo.",
+    "a11y.close": "Chiudi",
+    "boot.updating": "Download dell’aggiornamento",
+    "boot.updateFailed": "Impossibile aggiornare il launcher. Avvio della versione attuale...",
+    "mods.default.fabricApi": "Libreria richiesta da quasi tutte le mod Fabric",
+    "mods.default.sodium": "Ottimizzazione del rendering senza perdere qualità visiva",
+    "mods.default.clothConfig": "Libreria di configurazione richiesta da molte mod Forge",
+    "mods.default.qsl": "Libreria richiesta da molte mod Quilt"
+  },
+  pt: {
+    "servers.licenseRequired": "Requer licença do Minecraft",
+    "servers.licenseFree": "Sem licença (entre como convidado)",
+    "discord.playing": "Jogando Minecraft",
+    "discord.inLauncher": "No MagmaLauncher",
+    "mods.category.datapacks": "Pacotes de dados",
+    "mods.category.servers": "Servidores",
+    "servers.tectonicNetwork.desc": "Um servidor Forge técnico com automação e mods industriais.",
+    "servers.magmaCreative.desc": "Um hub criativo para construir — mundo plano, WorldEdit e cidades compartilhadas pelos jogadores.",
+    "servers.magmaSurvival.desc": "Sobrevivência vanilla com economia equilibrada e sem pay-to-win.",
+    "mods.datapackHint": "Os pacotes de dados são instalados em um mundo específico, e não na pasta comum do jogo. O arquivo baixado fica na pasta datapacks_downloads — mova-o você mesmo para a pasta datapacks do seu mundo.",
+    "a11y.close": "Fechar",
+    "boot.updating": "Baixando atualização",
+    "boot.updateFailed": "Não foi possível atualizar o launcher. Iniciando a versão atual...",
+    "mods.default.fabricApi": "Biblioteca necessária para quase todos os mods do Fabric",
+    "mods.default.sodium": "Otimização de renderização sem perder qualidade visual",
+    "mods.default.clothConfig": "Biblioteca de configuração necessária para muitos mods do Forge",
+    "mods.default.qsl": "Biblioteca necessária para muitos mods do Quilt"
+  },
+  ja: {
+    "servers.licenseRequired": "Minecraftのライセンスが必要です",
+    "servers.licenseFree": "ライセンス不要（ゲストで参加可能）",
+    "discord.playing": "Minecraftをプレイ中",
+    "discord.inLauncher": "MagmaLauncherを閲覧中",
+    "mods.category.datapacks": "データパック",
+    "mods.category.servers": "サーバー",
+    "servers.tectonicNetwork.desc": "オートメーションと産業系MODを備えた技術系Forgeサーバー。",
+    "servers.magmaCreative.desc": "建築のためのクリエイティブハブ。フラットワールド、WorldEdit、プレイヤー共有の街。",
+    "servers.magmaSurvival.desc": "スムーズな経済システムを備えた、課金有利なしのバニラサバイバル。",
+    "mods.datapackHint": "データパックは共通のゲームフォルダではなく、特定のワールドの中にインストールします。ダウンロードしたファイルは datapacks_downloads フォルダに保存されるので、ワールドの datapacks フォルダへ手動で移動してください。",
+    "a11y.close": "閉じる",
+    "boot.updating": "アップデートをダウンロード中",
+    "boot.updateFailed": "ランチャーを更新できませんでした。現在のバージョンを起動します...",
+    "mods.default.fabricApi": "ほぼすべてのFabric MODに必要なライブラリ",
+    "mods.default.sodium": "画質を損なわないレンダリング最適化",
+    "mods.default.clothConfig": "多くのForge MODに必要な設定ライブラリ",
+    "mods.default.qsl": "多くのQuilt MODに必要なライブラリ"
+  },
+  ko: {
+    "servers.licenseRequired": "Minecraft 라이선스가 필요합니다",
+    "servers.licenseFree": "라이선스 불필요 (게스트로 접속 가능)",
+    "discord.playing": "Minecraft 플레이 중",
+    "discord.inLauncher": "MagmaLauncher 둘러보는 중",
+    "mods.category.datapacks": "데이터 팩",
+    "mods.category.servers": "서버",
+    "servers.tectonicNetwork.desc": "자동화와 산업 모드를 갖춘 기술형 Forge 서버입니다.",
+    "servers.magmaCreative.desc": "건축을 위한 창작 허브 — 평지 월드, WorldEdit, 플레이어들의 공동 도시.",
+    "servers.magmaSurvival.desc": "원활한 경제 시스템을 갖춘 페이투윈 없는 바닐라 서바이벌.",
+    "mods.datapackHint": "데이터 팩은 공용 게임 폴더가 아니라 특정 월드 안에 설치됩니다. 다운로드한 파일은 datapacks_downloads 폴더에 저장되며, 직접 월드의 datapacks 폴더로 옮겨야 합니다.",
+    "a11y.close": "닫기",
+    "boot.updating": "업데이트 다운로드 중",
+    "boot.updateFailed": "런처를 업데이트하지 못했습니다. 현재 버전을 실행합니다...",
+    "mods.default.fabricApi": "거의 모든 Fabric 모드에 필요한 라이브러리",
+    "mods.default.sodium": "화질 저하 없는 렌더링 최적화",
+    "mods.default.clothConfig": "많은 Forge 모드에 필요한 설정 라이브러리",
+    "mods.default.qsl": "많은 Quilt 모드에 필요한 라이브러리"
+  },
+  hi: {
+    "servers.licenseRequired": "Minecraft लाइसेंस आवश्यक है",
+    "servers.licenseFree": "लाइसेंस की ज़रूरत नहीं (अतिथि के रूप में जुड़ें)",
+    "discord.playing": "Minecraft खेल रहा है",
+    "discord.inLauncher": "MagmaLauncher में ब्राउज़ कर रहा है",
+    "mods.category.datapacks": "डेटा पैक",
+    "mods.category.servers": "सर्वर",
+    "servers.tectonicNetwork.desc": "ऑटोमेशन और इंडस्ट्रियल मॉड्स वाला तकनीकी Forge सर्वर।",
+    "servers.magmaCreative.desc": "निर्माण के लिए क्रिएटिव हब — समतल दुनिया, WorldEdit और खिलाड़ियों के साझा शहर।",
+    "servers.magmaSurvival.desc": "सहज अर्थव्यवस्था वाला वैनिला सर्वाइवल, बिना पे-टू-विन के।",
+    "mods.datapackHint": "डेटा पैक साझा गेम फ़ोल्डर में नहीं, बल्कि किसी विशेष वर्ल्ड के अंदर इंस्टॉल होते हैं। डाउनलोड की गई फ़ाइल datapacks_downloads फ़ोल्डर में आएगी — उसे खुद अपने वर्ल्ड के datapacks फ़ोल्डर में ले जाएँ।",
+    "a11y.close": "बंद करें",
+    "boot.updating": "अपडेट डाउनलोड हो रहा है",
+    "boot.updateFailed": "लॉन्चर अपडेट नहीं हो सका। मौजूदा संस्करण शुरू किया जा रहा है...",
+    "mods.default.fabricApi": "लगभग हर Fabric मॉड के लिए आवश्यक लाइब्रेरी",
+    "mods.default.sodium": "दृश्य गुणवत्ता घटाए बिना रेंडरिंग ऑप्टिमाइज़ेशन",
+    "mods.default.clothConfig": "कई Forge मॉड्स के लिए आवश्यक कॉन्फ़िग लाइब्रेरी",
+    "mods.default.qsl": "कई Quilt मॉड्स के लिए आवश्यक लाइब्रेरी"
+  },
+  id: {
+    "servers.licenseRequired": "Memerlukan lisensi Minecraft",
+    "servers.licenseFree": "Tanpa lisensi (bisa masuk sebagai tamu)",
+    "discord.playing": "Bermain Minecraft",
+    "discord.inLauncher": "Menjelajahi MagmaLauncher",
+    "mods.category.datapacks": "Data Pack",
+    "mods.category.servers": "Server",
+    "servers.tectonicNetwork.desc": "Server Forge teknis dengan otomatisasi dan mod industri.",
+    "servers.magmaCreative.desc": "Hub kreatif untuk membangun — dunia datar, WorldEdit, dan kota bersama para pemain.",
+    "servers.magmaSurvival.desc": "Survival vanilla dengan ekonomi yang mulus dan tanpa pay-to-win.",
+    "mods.datapackHint": "Data pack dipasang di dunia tertentu, bukan di folder game bersama. File yang diunduh berada di folder datapacks_downloads — pindahkan sendiri ke folder datapacks dunia Anda.",
+    "a11y.close": "Tutup",
+    "boot.updating": "Mengunduh pembaruan",
+    "boot.updateFailed": "Gagal memperbarui launcher. Menjalankan versi saat ini...",
+    "mods.default.fabricApi": "Pustaka yang dibutuhkan hampir semua mod Fabric",
+    "mods.default.sodium": "Optimalisasi rendering tanpa mengurangi kualitas visual",
+    "mods.default.clothConfig": "Pustaka konfigurasi yang dibutuhkan banyak mod Forge",
+    "mods.default.qsl": "Pustaka yang dibutuhkan banyak mod Quilt"
+  }
+};
+Object.keys(I18N_COMPLETE_PATCH).forEach(lang => {
+  if (!I18N[lang]) I18N[lang] = {};
+  Object.assign(I18N[lang], I18N_COMPLETE_PATCH[lang]);
 });
 I18N['es-ES'] = I18N.es;
 

@@ -7,6 +7,11 @@
 #include <shellapi.h>
 #else
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/select.h>
 #include <codecvt>
 #include <locale>
 #include "include/views/cef_browser_view.h"
@@ -54,6 +59,42 @@
 
 using json = nlohmann::json;
 using Callback = CefMessageRouterBrowserSide::Callback;
+static std::string g_startupAuthUrl;
+
+static void captureMagmaAuthUrl(int argc, char* argv[]) {
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i] ? argv[i] : "";
+        if (arg.rfind("magma://", 0) == 0) {
+            g_startupAuthUrl = std::move(arg);
+            return;
+        }
+        if (arg.rfind("--magma-auth-url=", 0) == 0) {
+            g_startupAuthUrl = arg.substr(17);
+            return;
+        }
+    }
+}
+
+#ifdef _WIN32
+static CefRefPtr<CefBrowser> g_authBrowser;
+static WNDPROC g_originalMagmaWndProc = nullptr;
+
+static LRESULT CALLBACK MagmaAuthWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    if (message == WM_COPYDATA) {
+        const COPYDATASTRUCT* data = reinterpret_cast<const COPYDATASTRUCT*>(lParam);
+        if (data && data->dwData == 0x4D41474D && data->lpData && data->cbData > 1 && g_authBrowser && g_authBrowser->GetMainFrame()) {
+            std::string url(static_cast<const char*>(data->lpData));
+            std::string encodedUrl = json(url).dump();
+            std::string js = "window.magmaStartupAuthUrl=" + encodedUrl + ";window.dispatchEvent(new CustomEvent('magma-auth-url',{detail:" + encodedUrl + "}));";
+            g_authBrowser->GetMainFrame()->ExecuteJavaScript(js, g_authBrowser->GetMainFrame()->GetURL(), 0);
+            return TRUE;
+        }
+    }
+    return g_originalMagmaWndProc
+        ? CallWindowProc(g_originalMagmaWndProc, hwnd, message, wParam, lParam)
+        : DefWindowProc(hwnd, message, wParam, lParam);
+}
+#endif
 
 #ifndef _WIN32
 using HWND = cef_window_handle_t;
@@ -198,8 +239,12 @@ static std::filesystem::path getFrontendDir() {
 }
 
 static std::filesystem::path getUpdateGuardPath() {
+#ifdef _WIN32
     const char* base = std::getenv("LOCALAPPDATA");
     std::filesystem::path dir = base ? (std::filesystem::path(base) / "MagmaLauncher") : getExeDir();
+#else
+    std::filesystem::path dir = platform::userDataDir();
+#endif
     std::error_code ec;
     std::filesystem::create_directories(dir, ec);
     return dir / "update_attempt.txt";
@@ -338,7 +383,125 @@ static bool httpGetBinary(const std::string& url, std::string& out, std::string&
 }
 
 #ifndef _WIN32
-bool waitForGoogleAuthCode(std::string&, std::string& errorOut) { errorOut = "Google OAuth: только Windows"; return false; }
+bool waitForGoogleAuthCode(std::string& authCode, std::string& errorOut) {
+    CURL* curlTmp = curl_easy_init();
+    if (!curlTmp) { errorOut = "curl_easy_init failed"; return false; }
+
+    std::string redirectUri = "http://127.0.0.1:" + std::to_string(GOOGLE_REDIRECT_PORT) + "/callback";
+    std::string authUrl =
+        "https://accounts.google.com/o/oauth2/v2/auth"
+        "?client_id=" + urlEncode(curlTmp, GOOGLE_CLIENT_ID) +
+        "&redirect_uri=" + urlEncode(curlTmp, redirectUri) +
+        "&response_type=code"
+        "&scope=" + urlEncode(curlTmp, "openid email profile") +
+        "&access_type=online"
+        "&prompt=select_account";
+    curl_easy_cleanup(curlTmp);
+
+    int listenSocket = ::socket(AF_INET, SOCK_STREAM, 0);
+    if (listenSocket < 0) { errorOut = "socket() failed"; return false; }
+
+    int reuse = 1;
+    setsockopt(listenSocket, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(GOOGLE_REDIRECT_PORT);
+    inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
+
+    if (bind(listenSocket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
+        errorOut = "Не удалось открыть порт " + std::to_string(GOOGLE_REDIRECT_PORT) + " — возможно, он уже занят";
+        close(listenSocket);
+        return false;
+    }
+    if (listen(listenSocket, 1) < 0) {
+        errorOut = "listen() failed";
+        close(listenSocket);
+        return false;
+    }
+
+    if (!platform::openUrl(authUrl)) {
+        errorOut = "Не удалось открыть браузер для входа через Google";
+        close(listenSocket);
+        return false;
+    }
+
+    fd_set readSet;
+    FD_ZERO(&readSet);
+    FD_SET(listenSocket, &readSet);
+    timeval timeout{120, 0};
+    int ready = select(listenSocket + 1, &readSet, nullptr, nullptr, &timeout);
+    if (ready <= 0) {
+        errorOut = ready == 0
+            ? "Не получили ответ от браузера: время ожидания истекло"
+            : "Ошибка ожидания ответа от браузера";
+        close(listenSocket);
+        return false;
+    }
+
+    int clientSocket = accept(listenSocket, nullptr, nullptr);
+    close(listenSocket);
+    if (clientSocket < 0) { errorOut = "Не удалось принять ответ от браузера"; return false; }
+
+    char buffer[8192]{};
+    ssize_t received = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
+    std::string request = received > 0 ? std::string(buffer, static_cast<size_t>(received)) : std::string();
+
+    std::string html =
+        "<html><body style='font-family:sans-serif;text-align:center;margin-top:80px;'>"
+        "<h2>Вход выполнен</h2><p>Можно закрыть эту вкладку и вернуться в MagmaLauncher.</p>"
+        "</body></html>";
+    std::string response =
+        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: " +
+        std::to_string(html.size()) + "\r\nConnection: close\r\n\r\n" + html;
+    size_t sent = 0;
+    while (sent < response.size()) {
+        ssize_t count = send(clientSocket, response.data() + sent, response.size() - sent, 0);
+        if (count <= 0) break;
+        sent += static_cast<size_t>(count);
+    }
+    close(clientSocket);
+
+    size_t lineEnd = request.find("\r\n");
+    size_t firstSpace = request.find(' ');
+    size_t secondSpace = firstSpace == std::string::npos ? std::string::npos : request.find(' ', firstSpace + 1);
+    if (received <= 0 || firstSpace == std::string::npos || secondSpace == std::string::npos ||
+        (lineEnd != std::string::npos && secondSpace > lineEnd)) {
+        errorOut = "Не удалось разобрать ответ от Google";
+        return false;
+    }
+
+    std::string path = request.substr(firstSpace + 1, secondSpace - firstSpace - 1);
+    if (path.find("error=") != std::string::npos) {
+        errorOut = "Пользователь отменил вход через Google";
+        return false;
+    }
+
+    size_t codePos = path.find("code=");
+    if (codePos == std::string::npos) {
+        errorOut = "В ответе от Google нет параметра code";
+        return false;
+    }
+    size_t codeStart = codePos + 5;
+    size_t codeEnd = path.find('&', codeStart);
+    std::string rawCode = codeEnd == std::string::npos
+        ? path.substr(codeStart)
+        : path.substr(codeStart, codeEnd - codeStart);
+
+    CURL* curlDecode = curl_easy_init();
+    if (!curlDecode) { errorOut = "curl_easy_init failed"; return false; }
+    int decodedLength = 0;
+    char* decoded = curl_easy_unescape(curlDecode, rawCode.c_str(), static_cast<int>(rawCode.size()), &decodedLength);
+    if (!decoded) {
+        curl_easy_cleanup(curlDecode);
+        errorOut = "Не удалось декодировать код Google";
+        return false;
+    }
+    authCode.assign(decoded, static_cast<size_t>(decodedLength));
+    curl_free(decoded);
+    curl_easy_cleanup(curlDecode);
+    return !authCode.empty();
+}
 #else
 bool waitForGoogleAuthCode(std::string& authCode, std::string& errorOut) {
     CURL* curlTmp = curl_easy_init();
@@ -674,6 +837,18 @@ void PushJs(CefRefPtr<CefBrowser> browser, const std::string& code) {
     });
 }
 
+static bool moveFileReplace(const std::filesystem::path& from, const std::filesystem::path& to) {
+    std::error_code ec;
+    std::filesystem::create_directories(to.parent_path(), ec);
+    std::filesystem::remove(to, ec);
+    ec.clear();
+    std::filesystem::rename(from, to, ec);
+    if (!ec) return true;
+    ec.clear();
+    std::filesystem::copy_file(from, to, std::filesystem::copy_options::overwrite_existing, ec);
+    return !ec;
+}
+
 class ApiHandler : public CefMessageRouterBrowserSide::Handler {
 public:
     bool OnQuery(CefRefPtr<CefBrowser> browser,
@@ -708,7 +883,8 @@ public:
     std::string url = arg0.value("url", "");
     std::thread([callback, url]() {
         json result;
-        bool allowed = url.rfind("https://skinsystem.ely.by/", 0) == 0;
+        bool allowed = url.rfind("https://skinsystem.ely.by/", 0) == 0
+            || url.rfind("https://bjgpqlegoptegcbogncq.supabase.co/functions/v1/magma-skin-api/", 0) == 0;
         if (!allowed) {
             result["success"] = false;
             result["error"] = "URL не разрешён";
@@ -755,6 +931,121 @@ public:
     }).detach();
     return true;
 }
+if (name == "uploadChunk") {
+    namespace fs = std::filesystem;
+    json result;
+    std::string uploadId = arg0.value("uploadId", "");
+    std::string data = arg0.value("dataBase64", "");
+    bool first = arg0.value("first", false);
+    if (uploadId.empty() || uploadId.find_first_of("/\\.:") != std::string::npos) {
+        result["success"] = false; result["error"] = "Bad uploadId";
+    } else {
+        std::error_code ec;
+        fs::path dir = platform::userDataDir() / "uploads" / uploadId;
+        fs::create_directories(dir, ec);
+        auto bytes = base64Decode(data);
+        std::ofstream out(dir / "payload.bin", std::ios::binary | (first ? std::ios::trunc : std::ios::app));
+        if (!out) { result["success"] = false; result["error"] = "Не удалось записать временный файл"; }
+        else {
+            out.write((const char*)bytes.data(), (std::streamsize)bytes.size());
+            out.close();
+            result["success"] = true;
+        }
+    }
+    callback->Success(result.dump());
+    return true;
+}
+
+if (name == "installFromUpload") {
+    namespace fs = std::filesystem;
+    std::string uploadId = arg0.value("uploadId", "");
+    std::string kind = arg0.value("kind", "");
+    std::string filename = arg0.value("filename", "");
+    std::string targetDir = arg0.value("targetDir", "");
+    std::string instanceName = arg0.value("instanceName", "");
+    std::string gameDir = arg0.value("gameDir", "");
+    size_t slashPos = filename.find_last_of("/\\");
+    std::string safeName = (slashPos == std::string::npos) ? filename : filename.substr(slashPos + 1);
+
+    if (uploadId.empty() || uploadId.find_first_of("/\\.:") != std::string::npos || safeName.empty()) {
+        json r; r["success"] = false; r["started"] = false; r["error"] = "Bad upload";
+        callback->Success(r.dump());
+        return true;
+    }
+    fs::path uploadDir = platform::userDataDir() / "uploads" / uploadId;
+    fs::path payload = uploadDir / "payload.bin";
+
+    if (kind == "modpack") {
+        launcher::g_cancelled = false;
+        launcher::g_paused = false;
+        std::thread([browser, uploadDir, payload, safeName, instanceName, gameDir]() {
+            std::string errorOut, resolvedVersion, resolvedLoader;
+            bool ok = false;
+            std::error_code ec2;
+            fs::path tmpFile = fs::path(gameDir) / "modpack_tmp" / ("import_" + instanceName + "_" + safeName);
+            if (!moveFileReplace(payload, tmpFile)) {
+                errorOut = "ERR_PACK_PREPARE||";
+            } else {
+                ok = launcher::installModpackFromLocalFile(tmpFile.string(), instanceName, gameDir,
+                    [browser](const std::string& stage, double progress, const std::string& detail) {
+                        json p; p["stage"] = stage; p["progress"] = progress; p["detail"] = detail;
+                        PushJs(browser, "window.__modpackProgress && window.__modpackProgress(" + p.dump() + ");");
+                    },
+                    resolvedVersion, resolvedLoader, errorOut);
+                fs::remove(tmpFile, ec2);
+            }
+            fs::remove_all(uploadDir, ec2);
+            json done;
+            done["success"] = ok;
+            done["instanceName"] = instanceName;
+            done["mcVersion"] = resolvedVersion;
+            done["loader"] = resolvedLoader;
+            if (!ok) done["error"] = errorOut;
+            PushJs(browser, "window.__catalogModpackDone && window.__catalogModpackDone(" + done.dump() + ");");
+        }).detach();
+        json started; started["started"] = true;
+        callback->Success(started.dump());
+        return true;
+    }
+
+    std::thread([callback, uploadDir, payload, kind, safeName, targetDir]() {
+        json result;
+        std::string err;
+        bool ok = false;
+        std::error_code ec;
+        fs::create_directories(targetDir, ec);
+        if (kind == "local") {
+            ok = moveFileReplace(payload, fs::path(targetDir) / safeName);
+            if (ok) result["filename"] = safeName; else err = "Не удалось сохранить файл";
+        } else {
+            fs::path tmpDir = fs::path(targetDir) / "manual_import_tmp";
+            fs::path tmpFile = tmpDir / safeName;
+            if (!moveFileReplace(payload, tmpFile)) {
+                err = "ERR_PACK_PREPARE||";
+            } else if (kind == "mods") {
+                int jarCount = 0;
+                ok = launcher::extractModJarsFromArchive(tmpFile.string(), targetDir, jarCount, err);
+                if (ok) result["count"] = jarCount;
+            } else if (kind == "map") {
+                ok = launcher::extractMapArchive(tmpFile.string(), targetDir, err);
+            } else if (kind == "content") {
+                std::string outName;
+                ok = launcher::extractZipFromRarArchive(tmpFile.string(), targetDir, outName, err);
+                if (ok) result["filename"] = outName;
+            } else {
+                err = "Unknown kind";
+            }
+            fs::remove_all(tmpDir, ec);
+        }
+        fs::remove_all(uploadDir, ec);
+        result["success"] = ok;
+        if (!ok) result["error"] = err;
+        std::string payloadJson = result.dump();
+        PostUi([callback, payloadJson]() { callback->Success(payloadJson); });
+    }).detach();
+    return true;
+}
+
 if (name == "getInstallConfig") {
     json r;
     std::ifstream in(getExeDir() / "install_config.json", std::ios::binary);
@@ -847,7 +1138,16 @@ if (name == "installLauncherUpdate") {
                         showErrorBox(error, "MagmaLauncher — ошибка входа через Google");
                     }
                     std::string payload = result.dump();
-                    PostUi([callback, payload]() { callback->Success(payload); });
+                    PostUi([callback, payload]() {
+#ifdef _WIN32
+                        HWND hwnd = g_authBrowser ? g_authBrowser->GetHost()->GetWindowHandle() : nullptr;
+                        if (hwnd && IsWindow(hwnd)) {
+                            ShowWindow(hwnd, SW_RESTORE);
+                            SetForegroundWindow(hwnd);
+                        }
+#endif
+                        callback->Success(payload);
+                    });
                 }).detach();
                 return true;
             }
@@ -1106,7 +1406,9 @@ if (name == "installLauncherUpdate") {
                 launcher::g_paused = false;
                 launcher::g_cancelled = false;
 
-                if (launcher::g_gameProcessActive.load()) {
+                bool expected = false;
+                if (launcher::g_gameProcessActive.load() ||
+                    !launcher::g_launchInProgress.compare_exchange_strong(expected, true)) {
                     json result; result["started"] = false; result["error"] = "ERR_ALREADY_RUNNING";
                     callback->Success(result.dump());
                     return true;
@@ -1114,20 +1416,35 @@ if (name == "installLauncherUpdate") {
 
                 std::thread([browser, lr]() {
                     std::string errorOut;
-                    bool ok = launcher::launchMinecraft(lr,
-                        [browser](const std::string& stage, double progress, const std::string& detail) {
-                            json p; p["stage"] = stage; p["progress"] = progress; p["detail"] = detail;
-                            std::string payload = p.dump();
-                            PushJs(browser, "window.__launchProgress && window.__launchProgress(" + payload + ");");
-                        },
-                        errorOut);
+                    bool ok = false;
 
+                    try {
+                        ok = launcher::launchMinecraft(lr,
+                            [browser](const std::string& stage, double progress, const std::string& detail) {
+                                json p; p["stage"] = stage; p["progress"] = progress; p["detail"] = detail;
+                                std::string payload = p.dump(-1, ' ', false, json::error_handler_t::replace);
+                                PushJs(browser, "window.__launchProgress && window.__launchProgress(" + payload + ");");
+                            },
+                            errorOut);
+                    } catch (const std::exception& e) {
+                        errorOut = std::string("ERR_LAUNCH_THREAD||") + e.what();
+                    } catch (...) {
+                        errorOut = "ERR_LAUNCH_THREAD||Неизвестная ошибка потока запуска";
+                    }
+
+                    launcher::g_launchInProgress.store(false);
                     bool wasCancelled = (!ok && errorOut == "CANCELLED");
                     json done;
                     done["success"] = ok;
                     done["cancelled"] = wasCancelled;
                     done["error"] = wasCancelled ? "" : errorOut;
-                    std::string payload = done.dump();
+
+                    std::string payload;
+                    try {
+                        payload = done.dump(-1, ' ', false, json::error_handler_t::replace);
+                    } catch (...) {
+                        payload = "{\"success\":false,\"cancelled\":false,\"error\":\"ERR_LAUNCH_RESULT_SERIALIZATION\"}";
+                    }
                     PushJs(browser, "window.__launchDone && window.__launchDone(" + payload + ");");
                 }).detach();
 
@@ -1688,6 +2005,16 @@ public:
     void OnAfterCreated(CefRefPtr<CefBrowser> browser) override {
         CEF_REQUIRE_UI_THREAD();
         browser_list_.push_back(browser);
+#ifdef __APPLE__
+        CefRefPtr<CefBrowser> browserRef = browser;
+        platform::setMacUrlHandler([browserRef](const std::string& url) {
+            g_startupAuthUrl = url;
+            if (!browserRef || !browserRef->GetMainFrame()) return;
+            std::string encodedUrl = json(url).dump();
+            std::string js = "window.magmaStartupAuthUrl=" + encodedUrl + ";window.dispatchEvent(new CustomEvent('magma-auth-url',{detail:" + encodedUrl + "}));";
+            browserRef->GetMainFrame()->ExecuteJavaScript(js, browserRef->GetMainFrame()->GetURL(), 0);
+        });
+#endif
     }
 #else
     void OnAfterCreated(CefRefPtr<CefBrowser> browser) override {
@@ -1697,6 +2024,11 @@ public:
 
     HWND hwnd = browser->GetHost()->GetWindowHandle();
     if (hwnd) {
+        g_authBrowser = browser;
+        if (!g_originalMagmaWndProc) {
+            g_originalMagmaWndProc = reinterpret_cast<WNDPROC>(
+                SetWindowLongPtr(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(MagmaAuthWndProc)));
+        }
         applyWindowIcon(hwnd);
         HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
         MONITORINFO mi{ sizeof(MONITORINFO) };
@@ -1765,6 +2097,9 @@ public:
 
     void OnBeforeClose(CefRefPtr<CefBrowser> browser) override {
         CEF_REQUIRE_UI_THREAD();
+#ifdef _WIN32
+        if (g_authBrowser && g_authBrowser->IsSame(browser)) g_authBrowser = nullptr;
+#endif
         message_router_->OnBeforeClose(browser);
         for (auto it = browser_list_.begin(); it != browser_list_.end(); ++it) {
             if ((*it)->IsSame(browser)) {
@@ -2010,11 +2345,13 @@ private:
             "installMod", "listModsInDir", "toggleModFile", "deleteModFile", "createModpack", "toggleFullscreen",
             "setLauncherFullscreen", "setLauncherWindowSize",
             "discordPresenceStart", "discordPresenceSetActivity", "discordPresenceClear", "discordPresenceStop",
-            "cleanOldGameLogs", "getModsManifest", "closeLauncher", "getDefaultGameDir"
+            "cleanOldGameLogs", "getModsManifest", "closeLauncher", "getDefaultGameDir",
+            "uploadChunk", "installFromUpload"
         };
         
         std::ostringstream js;
         js << "(function(){";
+        js << "window.magmaStartupAuthUrl=" << json(g_startupAuthUrl).dump() << ";";
         for (const char* n : names) {
             js << "window['" << n << "'] = function(){"
                << "var callArgs = Array.prototype.slice.call(arguments);"
@@ -2054,12 +2391,13 @@ int main(int argc, char* argv[]) {
     platform::macInitApplication();
 #endif
 
+    captureMagmaAuthUrl(argc, argv);
     curl_global_init(CURL_GLOBAL_DEFAULT);
 
     CefSettings settings;
     settings.no_sandbox = true;
     settings.background_color = CefColorSetARGB(255, 10, 10, 12);
-    std::string cachePath = (platform::userDataDir() / "cef_cache").string();
+    std::string cachePath = (platform::userDataDir() / (g_startupAuthUrl.empty() ? "cef_cache" : "cef_cache_recovery")).string();
     CefString(&settings.cache_path).FromString(cachePath);
 
     if (!CefInitialize(main_args, settings, app.get(), nullptr)) {
@@ -2083,17 +2421,58 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int) {
         return exit_code;
     }
 
+    int startupArgc = 0;
+    LPWSTR* startupArgv = CommandLineToArgvW(GetCommandLineW(), &startupArgc);
+    if (startupArgv) {
+        std::vector<std::string> utf8Args;
+        std::vector<char*> argvPointers;
+        utf8Args.reserve(startupArgc);
+        argvPointers.reserve(startupArgc);
+        for (int i = 0; i < startupArgc; ++i) {
+            int len = WideCharToMultiByte(CP_UTF8, 0, startupArgv[i], -1, nullptr, 0, nullptr, nullptr);
+            std::string value(len > 0 ? len : 0, '\0');
+            if (len > 1) {
+                WideCharToMultiByte(CP_UTF8, 0, startupArgv[i], -1, value.data(), len, nullptr, nullptr);
+                value.resize(static_cast<size_t>(len - 1));
+            }
+            utf8Args.push_back(std::move(value));
+        }
+        for (auto& value : utf8Args) argvPointers.push_back(value.data());
+        captureMagmaAuthUrl(startupArgc, argvPointers.data());
+        LocalFree(startupArgv);
+    }
+
     waitForPreviousInstanceIfUpdated();
     cleanupOldUpdateBackups();
     HANDLE singleInstanceMutex = CreateMutexA(nullptr, TRUE, "MagmaLauncherSingleInstanceMutex");
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
         HWND existing = FindWindowA(nullptr, "MagmaLauncher");
         if (existing) {
-            if (IsIconic(existing)) ShowWindow(existing, SW_RESTORE);
-            SetForegroundWindow(existing);
+            if (!g_startupAuthUrl.empty()) {
+                COPYDATASTRUCT data{};
+                data.dwData = 0x4D41474D;
+                data.cbData = static_cast<DWORD>(g_startupAuthUrl.size() + 1);
+                data.lpData = const_cast<char*>(g_startupAuthUrl.c_str());
+                DWORD_PTR result = 0;
+                SendMessageTimeoutA(existing, WM_COPYDATA, 0, reinterpret_cast<LPARAM>(&data),
+                                    SMTO_ABORTIFHUNG, 2500, &result);
+                if (result) {
+                    if (IsIconic(existing)) ShowWindow(existing, SW_RESTORE);
+                    SetForegroundWindow(existing);
+                    if (singleInstanceMutex) CloseHandle(singleInstanceMutex);
+                    return 0;
+                }
+            } else {
+                if (IsIconic(existing)) ShowWindow(existing, SW_RESTORE);
+                SetForegroundWindow(existing);
+                if (singleInstanceMutex) CloseHandle(singleInstanceMutex);
+                return 0;
+            }
         }
-        if (singleInstanceMutex) CloseHandle(singleInstanceMutex);
-        return 0;
+        if (singleInstanceMutex) {
+            CloseHandle(singleInstanceMutex);
+            singleInstanceMutex = nullptr;
+        }
     }
 
     SetCurrentProcessExplicitAppUserModelID(L"MagmaLauncher.Launcher");
@@ -2106,14 +2485,14 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int) {
     const char* localAppDataEnv = std::getenv("LOCALAPPDATA");
 const char* appDataEnv = std::getenv("APPDATA");
 
-if (appDataEnv) {
+if (appDataEnv && g_startupAuthUrl.empty()) {
     std::error_code oldEc;
     std::filesystem::remove_all(std::string(appDataEnv) + "\\MagmaLauncher\\cef_cache", oldEc);
 }
 
 const char* cacheBase = localAppDataEnv ? localAppDataEnv : appDataEnv;
 if (cacheBase) {
-    std::string cachePath = std::string(cacheBase) + "\\MagmaLauncher\\cef_cache";
+    std::string cachePath = std::string(cacheBase) + (g_startupAuthUrl.empty() ? "\\MagmaLauncher\\cef_cache" : "\\MagmaLauncher\\cef_cache_recovery");
     std::error_code ec;
     std::filesystem::create_directories(cachePath, ec);
     CefString(&settings.cache_path).FromString(cachePath);
