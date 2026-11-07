@@ -418,6 +418,35 @@ if(WIN32)
 endif()
 
 if(WIN32)
+    if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
+        set(MAGMA_VCPKG_BIN_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin")
+    else()
+        set(MAGMA_VCPKG_BIN_DIR "C:/vcpkg/installed/x64-windows/bin")
+    endif()
+
+    foreach(_dll IN ITEMS libcurl.dll z.dll)
+        if(NOT EXISTS "${MAGMA_VCPKG_BIN_DIR}/${_dll}")
+            message(FATAL_ERROR "Required vcpkg runtime DLL not found: ${MAGMA_VCPKG_BIN_DIR}/${_dll}")
+        endif()
+
+        add_custom_command(
+            TARGET MagmaLauncher
+            POST_BUILD
+
+            COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "${MAGMA_VCPKG_BIN_DIR}/${_dll}"
+                "$<TARGET_FILE_DIR:MagmaLauncher>"
+
+            COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "${MAGMA_VCPKG_BIN_DIR}/${_dll}"
+                "${MAGMA_DIST_DIR}"
+
+            VERBATIM
+        )
+    endforeach()
+endif()
+
+if(WIN32)
     add_custom_command(
         TARGET MagmaLauncher
         POST_BUILD
