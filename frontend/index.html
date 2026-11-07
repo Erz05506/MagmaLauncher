@@ -314,10 +314,9 @@
 
                     
                     <div class="account-skin-system-card">
-                      <div><strong>Система скинов</strong><span>Выбери источник скинов для своего аккаунта</span></div>
-                      <div class="skin-system-options account-skin-system-options" id="accountSkinSystemOptions">
+<div><strong data-i18n="settings.account.skinSystem">Система скинов</strong><span data-i18n="settings.account.skinSystemHint">Выберите сервис, из которого Minecraft будет загружать скины и плащи.</span></div>                      <div class="skin-system-options account-skin-system-options" id="accountSkinSystemOptions">
                         <button class="skin-system-option" type="button" data-skin-system="elyby"><span class="skin-system-logo"><img src="../assets/ely_by.jpg" alt="Ely.by"></span>Ely.by</button>
-                        <button class="skin-system-option magma-skin-option magma-account-only" type="button" data-skin-system="magma" hidden><span class="skin-system-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="magma-diamond" d="M12 2 4 12l8 10 8-10z"/><path class="magma-diamond-cut" d="M12 6.5 17 12l-5 6-5-6z"/></svg></span>MagmaSkins</button>
+                        <button class="skin-system-option magma-skin-option magma-account-only" type="button" data-skin-system="magma" hidden><span class="skin-system-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="skinSystemMagmaGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff9a4d"/><stop offset="1" stop-color="#ff3d1c"/></linearGradient></defs><path fill="url(#skinSystemMagmaGrad)" d="M12 2 4 12l8 10 8-10zM12 6.5 17 12l-5 6-5-6z"/></svg></span>MagmaSkins</button>
                       </div>
                     </div>
                     <button class="ghost-btn skin-change-btn" type="button" id="skinChangeBtn" data-i18n="settings.account.changeSkin">Сменить скин</button>
@@ -351,7 +350,7 @@
                       </div>
 
                     <section class="account-cloud-settings" id="accountCloudSettings">
-                      <div class="account-cloud-heading"><span class="settings-label" data-i18n="settings.account.parameters">Параметры аккаунта</span><span class="account-cloud-status" id="accountCloudStatus">Проверка аккаунта…</span></div>
+                      <div class="account-cloud-heading"><span class="settings-label" data-i18n="settings.account.parameters">Параметры аккаунта</span><span class="account-cloud-status" id="accountCloudStatus" data-i18n="settings.account.checking">Проверка аккаунта…</span></div>
                       <div class="account-profile-actions">
                         <div class="account-action-card">
                           <div class="account-action-top"><div><strong data-i18n="settings.account.nickname">Никнейм</strong><span class="account-action-value" id="cloudNicknameCurrent">—</span></div><button class="ghost-btn account-action-button" id="accountNicknameToggle" type="button" data-i18n="settings.account.edit">Изменить</button></div>

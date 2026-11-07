@@ -3400,8 +3400,7 @@ html[data-theme="halloween"] body {
 
 
 .account-skin-system-options .skin-system-logo img{width:16px;height:16px;object-fit:cover;border-radius:4px}
-.skin-system-logo .magma-diamond{fill:#ff7a1a}.skin-system-logo .magma-diamond-cut{fill:#ffb15c}
-.skin-system-logo .magma-diamond-cut{fill:#ffb15c}
+.skin-system-option .skin-system-logo svg{width:18px;height:18px}
 .account-skin-manager,.account-preferences-card{margin-top:12px;padding:15px;border:1px solid var(--border-soft);border-radius:var(--radius-md);background:var(--bg-void)}
 .account-manager-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .account-manager-heading strong,.account-manager-heading span{display:block}

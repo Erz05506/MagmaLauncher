@@ -6497,6 +6497,10 @@ function applyLanguage(lang) {
     el.placeholder = t(el.dataset.i18nPlaceholder);
   });
 
+  document.querySelectorAll('.modal-close').forEach(el => {
+    el.setAttribute('aria-label', t('a11y.close'));
+  });
+
   document.querySelectorAll('[data-tooltip-i18n]').forEach(el => {
     el.setAttribute('data-tooltip', t(el.dataset.tooltipI18n));
   });
@@ -8951,7 +8955,7 @@ async function autoUpdateOnBoot() {
 
     window.__bootProgressLocked = true;
     if (bootTitleEl) {
-      bootTitleEl.innerHTML = (currentLang === 'ru' ? 'Загрузка обновления' : 'Downloading update') +
+      bootTitleEl.innerHTML = t('boot.updating') +
         '<span class="boot-title-accent">...</span>';
     }
     setBootProgress(0);
@@ -9019,7 +9023,7 @@ async function autoUpdateOnBootLegacy() {
     const bootTitleEl = document.querySelector('.boot-title');
 
     if (bootTitleEl) {
-      bootTitleEl.textContent = 'Загрузка обновления...';
+      bootTitleEl.textContent = t('boot.updating') + '...';
     }
 
     setBootProgress(0);
@@ -9052,7 +9056,7 @@ async function autoUpdateOnBootLegacy() {
     if (!outcome.success) {
       if (bootTitleEl) {
         bootTitleEl.textContent =
-          'Не удалось обновить лаунчер. Запускаем текущую версию...';
+          t('boot.updateFailed');
       }
 
       console.error(
@@ -10793,11 +10797,11 @@ const modpackSubmit = document.getElementById('modpackSubmit');
 
 const DEFAULT_MODS_BY_LOADER = {
   fabric: [
-    { slug: 'fabric-api', label: 'Fabric API', desc: { ru: 'Библиотека, нужна почти всем модам на Fabric', en: 'Library required by almost every Fabric mod' }, checked: true },
-    { slug: 'sodium',     label: 'Sodium',     desc: { ru: 'Оптимизация рендеринга без потери качества картинки', en: 'Rendering optimization without sacrificing visual quality' }, checked: true },
+    { slug: 'fabric-api', label: 'Fabric API', descKey: 'mods.default.fabricApi', desc: { ru: 'Библиотека, нужна почти всем модам на Fabric', en: 'Library required by almost every Fabric mod' }, checked: true },
+    { slug: 'sodium',     label: 'Sodium',     descKey: 'mods.default.sodium', desc: { ru: 'Оптимизация рендеринга без потери качества картинки', en: 'Rendering optimization without sacrificing visual quality' }, checked: true },
   ],
   forge: [
-    { slug: 'cloth-config', label: 'Cloth Config API', desc: { ru: 'Библиотека настроек, нужна многим модам на Forge', en: 'Config library required by many Forge mods' }, checked: true },
+    { slug: 'cloth-config', label: 'Cloth Config API', descKey: 'mods.default.clothConfig', desc: { ru: 'Библиотека настроек, нужна многим модам на Forge', en: 'Config library required by many Forge mods' }, checked: true },
   ],
   neoforge: [],
   quilt: [
@@ -10833,7 +10837,7 @@ function renderModpackDefaultMods() {
       <input type="checkbox" data-slug="${mod.slug}" ${mod.checked ? 'checked' : ''}>
       <div>
         <div>${mod.label}</div>
-        <div class="mod-check-desc">${mod.desc[currentLang] || mod.desc.ru}</div>
+        <div class="mod-check-desc">${mod.descKey ? t(mod.descKey) : (mod.desc[currentLang] || mod.desc.en || mod.desc.ru)}</div>
       </div>
     `;
     modpackDefaultModsEl.appendChild(row);
@@ -11413,15 +11417,28 @@ function upsertActiveAccount(acc) {
   renderAccountsListPanel();
   updateSettingsAccountTab();
 }
-supabaseClient.auth.onAuthStateChange((_event, session) => {
-  if (!session) return;
-  const activeId = getActiveAccountId();
-  if (!activeId || activeId !== session.user.id) return;
-  const acc = getAccounts().find(a => a.id === activeId);
-  if (!acc || acc.type !== 'magma') return;
+function persistMagmaTokens(session) {
+  if (!session?.user?.id || !session.refresh_token) return;
+  const acc = getAccounts().find(a => a.id === session.user.id && a.type === 'magma');
+  if (!acc) return;
   const list = getAccounts().filter(a => a.id !== acc.id);
   list.unshift({ ...acc, accessToken: session.access_token, refreshToken: session.refresh_token });
   saveAccounts(list);
+}
+async function detachSupabaseSession() {
+  try {
+    const { data } = await supabaseClient.auth.getSession();
+    persistMagmaTokens(data?.session);
+  } catch {}
+  try {
+    Object.keys(localStorage)
+      .filter(k => /^sb-.+-auth-token/.test(k))
+      .forEach(k => localStorage.removeItem(k));
+  } catch {}
+}
+supabaseClient.auth.onAuthStateChange((_event, session) => {
+  if (!session) return;
+  persistMagmaTokens(session);
 });
 
 let magmaIconIdCounter = 0;
@@ -11616,16 +11633,18 @@ async function loadMagmaSkinBlobUrl(nickname, expectedAccountId) {
   if (!response.ok || getActiveAccountId() !== expectedAccountId) return await defaultSteveSkinBlobUrl();
   const metadata = await response.json();
   if (getActiveAccountId() !== expectedAccountId) return await defaultSteveSkinBlobUrl();
+  const root = SUPABASE_URL + '/functions/v1/magma-skin-api/textures/';
+  const bust = '?t=' + Date.now();
+  accountSkinViewerCapeSourceUrl = metadata.textures?.cape ? root + encodeURIComponent(metadata.textures.cape) + bust : null;
+  accountSkinViewerModel = (!metadata.textures?.default && metadata.textures?.slim) || window.magmaAccountSkinModel === 'slim' ? 'slim' : 'default';
   const textureId = metadata.textures?.default || metadata.textures?.slim;
   if (!textureId) return await defaultSteveSkinBlobUrl();
-  const root = SUPABASE_URL + '/functions/v1/magma-skin-api/textures/';
-  const skinUrl = root + encodeURIComponent(textureId);
+  const skinUrl = root + encodeURIComponent(textureId) + bust;
   const raw = await window.fetchSkinBytes({ url: skinUrl });
   if (getActiveAccountId() !== expectedAccountId) return await defaultSteveSkinBlobUrl();
   const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
   if (!result.success) return await defaultSteveSkinBlobUrl();
-  accountSkinViewerCapeSourceUrl = metadata.textures?.cape ? root + encodeURIComponent(metadata.textures.cape) : null;
-  return URL.createObjectURL(new Blob([base64ToUint8Array(result.dataBase64)], { type: 'image/png' }));
+   return URL.createObjectURL(new Blob([base64ToUint8Array(result.dataBase64)], { type: 'image/png' }));
 }
 async function loadSkinBlobUrl(nickname, expectedAccountId) {
   accountSkinViewerModel = 'default';
@@ -11910,10 +11929,12 @@ const skinViewer = document.querySelector('.account-skin-viewer');
   if (skinViewer) skinViewer.style.display = '';
   const logoutButton = document.getElementById('accountLogoutBtn');
   if (logoutButton) logoutButton.style.display = accountType === 'guest' ? 'none' : '';
-  ['accountSkinManager', 'accountChangePasswordBlock'].forEach(id => {
+ ['accountSkinManager', 'accountChangePasswordBlock'].forEach(id => {
     const el = document.getElementById(id);
-    if (el && !isMagmaAccount) el.style.display = 'none';
+    if (el) el.style.display = isMagmaAccount ? '' : 'none';
   });
+  const skinManagerEl = document.getElementById('accountSkinManager');
+  if (skinManagerEl) skinManagerEl.hidden = !(isMagmaAccount && getSkinSystemPref() === 'magma');
   const deleteButton = document.getElementById('accountDeleteBtn');
   if (deleteButton) deleteButton.style.display = '';
 
@@ -12027,8 +12048,7 @@ async function switchToAccount(acc) {
     saveGuestSession(acc.nickname);
     accountSessionQueue = accountSessionQueue.catch(() => {}).then(async () => {
       if (getActiveAccountId() !== acc.id) return;
-      const { error } = await supabaseClient.auth.signOut({ scope: 'local' });
-      if (error) throw error;
+    await detachSupabaseSession();
     });
     try {
       await accountSessionQueue;
@@ -12075,6 +12095,7 @@ async function switchToAccount(acc) {
       const session = await accountSessionQueue;
       if (!session || getActiveAccountId() !== acc.id) return;
       finishLogin(acc.nickname);
+      window.dispatchEvent(new CustomEvent('magma:account-session-ready'));
     } catch (err) {
       console.error('[MagmaLauncher] Не удалось восстановить Magma Account:', err);
       if (getActiveAccountId() !== acc.id) return;
@@ -12177,8 +12198,7 @@ async function tryRestoreActiveAccount() {
     saveGuestSession(acc.nickname);
     accountSessionQueue = accountSessionQueue.catch(() => {}).then(async () => {
       if (getActiveAccountId() !== acc.id) return;
-      const { error } = await supabaseClient.auth.signOut({ scope: 'local' });
-      if (error) throw error;
+  await detachSupabaseSession();
     });
     try { await accountSessionQueue; }
     catch (err) { console.warn('[MagmaLauncher] Не удалось очистить локальную сессию:', err); }
@@ -12191,9 +12211,11 @@ async function tryRestoreActiveAccount() {
   if (acc.type === 'magma' && acc.accessToken && acc.refreshToken) {
     accountSessionQueue = accountSessionQueue.catch(() => {}).then(async () => {
       if (getActiveAccountId() !== acc.id) return null;
+ await detachSupabaseSession();
+      const stored = getAccounts().find(a => a.id === acc.id) || acc;
       const { data, error } = await supabaseClient.auth.setSession({
-        access_token: acc.accessToken,
-        refresh_token: acc.refreshToken
+        access_token: stored.accessToken,
+        refresh_token: stored.refreshToken
       });
       if (error) throw error;
       if (!data?.session || getActiveAccountId() !== acc.id) return null;
@@ -12321,7 +12343,7 @@ document.getElementById('guestSubmit')?.addEventListener('click', async () => {
   accountSkinViewerLoadedAt = 0;
   accountSkinViewerNick = null;
   accountSkinViewerAccountId = null;
-  accountSessionQueue = accountSessionQueue.then(() => supabaseClient.auth.signOut({ scope: 'local' })).catch(err => {
+  accountSessionQueue = accountSessionQueue.then(() => detachSupabaseSession()).catch(err => {
     console.warn('[MagmaLauncher] Не удалось очистить предыдущую сессию:', err);
   });
 
@@ -14180,8 +14202,9 @@ accountDeleteBtn?.addEventListener('click', () => {
   hideError(accountDeleteError);
   const acc = getAccounts().find(a => a.id === getActiveAccountId());
   const desc = document.getElementById('accountDeleteDesc');
-  if (desc) desc.textContent = acc?.type === 'guest' ? 'Гостевой профиль будет удалён только из этого лаунчера.' : t('account.deleteConfirmDesc');
-  accountDeleteOverlay?.classList.add('is-open');
+  if (desc) desc.textContent = acc?.type === 'guest' ? t('account.deleteGuestDesc') : t('account.deleteConfirmDesc');
+  accountDeleteOverlay?.classList.add('is-open');applyActiveTheme();
+restoreLastSelection();
 });
 accountDeleteClose?.addEventListener('click', () => accountDeleteOverlay?.classList.remove('is-open'));
 accountDeleteOverlay?.addEventListener('click', (e) => { if (e.target === accountDeleteOverlay) accountDeleteOverlay.classList.remove('is-open'); });
@@ -14195,9 +14218,23 @@ accountDeleteConfirmBtn?.addEventListener('click', async () => {
   setButtonLoading(accountDeleteConfirmBtn, t('account.deleting'));
   try {
     if (acc.type === 'magma') {
+      const { data: cur } = await supabaseClient.auth.getSession();
+      if (cur?.session?.user?.id !== acc.id) {
+        if (!acc.accessToken || !acc.refreshToken) throw new Error('Session expired, sign in again');
+        const { data: restored, error: restoreError } = await supabaseClient.auth.setSession({
+          access_token: acc.accessToken,
+          refresh_token: acc.refreshToken
+        });
+        if (restoreError || restored?.session?.user?.id !== acc.id) throw restoreError || new Error('Session mismatch');
+      }
+      try {
+        await supabaseClient.storage.from('magma-skins').remove([acc.id + '/skin.png', acc.id + '/cape.png']);
+      } catch (storageError) {
+        console.warn('[MagmaLauncher] Не удалось удалить текстуры:', storageError);
+      }
       const { error } = await supabaseClient.rpc('delete_own_account');
       if (error) throw error;
-      await supabaseClient.auth.signOut();
+      await supabaseClient.auth.signOut({ scope: 'local' });
     }
 
     const list = getAccounts().filter(a => a.id !== currentId);
@@ -14209,7 +14246,7 @@ accountDeleteConfirmBtn?.addEventListener('click', async () => {
     await endSessionAndPickNext(currentId);
   } catch (err) {
     console.error('[MagmaLauncher] Ошибка удаления аккаунта:', err);
-    showError(accountDeleteError, t('auth.magma.genericError'));
+    showError(accountDeleteError, (acc.type === 'magma' && err && err.message) ? err.message : t('auth.magma.genericError'));
   } finally {
     restoreButton(accountDeleteConfirmBtn);
   }
@@ -14681,6 +14718,242 @@ const I18N_ACCOUNT_SETTINGS_PATCH = {
 Object.keys(I18N_ACCOUNT_SETTINGS_PATCH).forEach(lang => {
   if (!I18N[lang]) I18N[lang] = {};
   Object.assign(I18N[lang], I18N_ACCOUNT_SETTINGS_PATCH[lang]);
+});
+I18N['es-ES'] = I18N.es;
+
+const I18N_ACCOUNT_EXTRA_PATCH = {
+  ru: { 'settings.account.checking':'Проверка аккаунта…', 'account.deleteGuestDesc':'Гостевой профиль будет удалён только из этого лаунчера.' },
+  en: { 'settings.account.checking':'Checking account…', 'account.deleteGuestDesc':'The guest profile will only be removed from this launcher.' },
+  uk: { 'settings.account.checking':'Перевірка облікового запису…', 'account.deleteGuestDesc':'Гостьовий профіль буде видалено лише з цього лаунчера.' },
+  fr: { 'settings.account.checking':'Vérification du compte…', 'account.deleteGuestDesc':'Le profil invité sera supprimé uniquement de ce launcher.' },
+  de: { 'settings.account.checking':'Konto wird geprüft…', 'account.deleteGuestDesc':'Das Gastprofil wird nur aus diesem Launcher entfernt.' },
+  es: { 'settings.account.checking':'Comprobando la cuenta…', 'account.deleteGuestDesc':'El perfil de invitado solo se eliminará de este launcher.' },
+  it: { 'settings.account.checking':'Controllo dell’account…', 'account.deleteGuestDesc':'Il profilo ospite verrà rimosso solo da questo launcher.' },
+  pt: { 'settings.account.checking':'Verificando a conta…', 'account.deleteGuestDesc':'O perfil de convidado será removido apenas deste launcher.' },
+  ja: { 'settings.account.checking':'アカウントを確認中…', 'account.deleteGuestDesc':'ゲストプロフィールはこのランチャーからのみ削除されます。' },
+  ko: { 'settings.account.checking':'계정 확인 중…', 'account.deleteGuestDesc':'게스트 프로필은 이 런처에서만 삭제됩니다.' },
+  hi: { 'settings.account.checking':'खाते की जाँच हो रही है…', 'account.deleteGuestDesc':'अतिथि प्रोफ़ाइल केवल इस लॉन्चर से हटाई जाएगी।' },
+  id: { 'settings.account.checking':'Memeriksa akun…', 'account.deleteGuestDesc':'Profil tamu hanya akan dihapus dari launcher ini.' }
+};
+Object.keys(I18N_ACCOUNT_EXTRA_PATCH).forEach(lang => {
+  if (!I18N[lang]) I18N[lang] = {};
+  Object.assign(I18N[lang], I18N_ACCOUNT_EXTRA_PATCH[lang]);
+});
+I18N['es-ES'] = I18N.es;
+
+const I18N_COMPLETE_PATCH = {
+  ru: {
+    "a11y.close": "Закрыть",
+    "boot.updating": "Загрузка обновления",
+    "boot.updateFailed": "Не удалось обновить лаунчер. Запускаем текущую версию...",
+    "mods.default.fabricApi": "Библиотека, нужна почти всем модам на Fabric",
+    "mods.default.sodium": "Оптимизация рендеринга без потери качества картинки",
+    "mods.default.clothConfig": "Библиотека настроек, нужна многим модам на Forge",
+    "mods.default.qsl": "Библиотека, нужна многим модам на Quilt"
+  },
+  en: {
+    "a11y.close": "Close",
+    "boot.updating": "Downloading update",
+    "boot.updateFailed": "Could not update the launcher. Starting the current version...",
+    "mods.default.fabricApi": "Library required by almost every Fabric mod",
+    "mods.default.sodium": "Rendering optimization without sacrificing visual quality",
+    "mods.default.clothConfig": "Config library required by many Forge mods",
+    "mods.default.qsl": "Library required by many Quilt mods"
+  },
+  uk: {
+    "servers.licenseRequired": "Потрібна ліцензія Minecraft",
+    "servers.licenseFree": "Без ліцензії (можна зайти гостем)",
+    "discord.playing": "Грає в Minecraft",
+    "discord.inLauncher": "У лаунчері MagmaLauncher",
+    "mods.category.datapacks": "Дата-паки",
+    "mods.category.servers": "Сервери",
+    "servers.tectonicNetwork.desc": "Технічний Forge-сервер з автоматизацією та промисловими модами.",
+    "servers.magmaCreative.desc": "Творчий хаб для будівництва — плоский світ, WorldEdit і спільні міста гравців.",
+    "servers.magmaSurvival.desc": "Ванільне виживання з плавним економічним прогресом і без донату на силу.",
+    "mods.datapackHint": "Дата-паки встановлюються не в загальну теку гри, а всередину конкретного світу. Завантажений файл з’явиться в теці datapacks_downloads — перенесіть його в теку datapacks вашого світу вручну.",
+    "a11y.close": "Закрити",
+    "boot.updating": "Завантаження оновлення",
+    "boot.updateFailed": "Не вдалося оновити лаунчер. Запускаємо поточну версію...",
+    "mods.default.fabricApi": "Бібліотека, потрібна майже всім модам на Fabric",
+    "mods.default.sodium": "Оптимізація рендерингу без втрати якості картинки",
+    "mods.default.clothConfig": "Бібліотека налаштувань, потрібна багатьом модам на Forge",
+    "mods.default.qsl": "Бібліотека, потрібна багатьом модам на Quilt"
+  },
+  fr: {
+    "servers.licenseRequired": "Licence Minecraft requise",
+    "servers.licenseFree": "Sans licence (connexion en invité possible)",
+    "discord.playing": "Joue à Minecraft",
+    "discord.inLauncher": "Dans MagmaLauncher",
+    "mods.category.datapacks": "Packs de données",
+    "mods.category.servers": "Serveurs",
+    "servers.tectonicNetwork.desc": "Un serveur Forge technique avec automatisation et mods industriels.",
+    "servers.magmaCreative.desc": "Un hub créatif pour construire — monde plat, WorldEdit et villes partagées par les joueurs.",
+    "servers.magmaSurvival.desc": "Survie vanilla avec une économie fluide et sans pay-to-win.",
+    "mods.datapackHint": "Les data packs s’installent dans un monde précis, et non dans le dossier de jeu commun. Le fichier téléchargé arrive dans le dossier datapacks_downloads : déplacez-le vous-même dans le dossier datapacks de votre monde.",
+    "a11y.close": "Fermer",
+    "boot.updating": "Téléchargement de la mise à jour",
+    "boot.updateFailed": "Impossible de mettre à jour le launcher. Lancement de la version actuelle...",
+    "mods.default.fabricApi": "Bibliothèque requise par presque tous les mods Fabric",
+    "mods.default.sodium": "Optimisation du rendu sans perte de qualité visuelle",
+    "mods.default.clothConfig": "Bibliothèque de configuration requise par de nombreux mods Forge",
+    "mods.default.qsl": "Bibliothèque requise par de nombreux mods Quilt"
+  },
+  de: {
+    "servers.licenseRequired": "Minecraft-Lizenz erforderlich",
+    "servers.licenseFree": "Keine Lizenz nötig (Beitritt als Gast möglich)",
+    "discord.playing": "Spielt Minecraft",
+    "discord.inLauncher": "Im MagmaLauncher",
+    "mods.category.datapacks": "Datapacks",
+    "mods.category.servers": "Server",
+    "servers.tectonicNetwork.desc": "Ein technischer Forge-Server mit Automatisierung und Industrie-Mods.",
+    "servers.magmaCreative.desc": "Ein kreativer Bau-Hub – flache Welt, WorldEdit und gemeinsame Spielerstädte.",
+    "servers.magmaSurvival.desc": "Vanilla-Survival mit ausgewogener Wirtschaft und ohne Pay-to-Win.",
+    "mods.datapackHint": "Datapacks werden nicht im gemeinsamen Spielordner, sondern in einer bestimmten Welt installiert. Die heruntergeladene Datei landet im Ordner datapacks_downloads – verschiebe sie selbst in den Ordner datapacks deiner Welt.",
+    "a11y.close": "Schließen",
+    "boot.updating": "Update wird heruntergeladen",
+    "boot.updateFailed": "Der Launcher konnte nicht aktualisiert werden. Die aktuelle Version wird gestartet...",
+    "mods.default.fabricApi": "Bibliothek, die fast jede Fabric-Mod benötigt",
+    "mods.default.sodium": "Render-Optimierung ohne Verlust der Bildqualität",
+    "mods.default.clothConfig": "Konfigurationsbibliothek, die viele Forge-Mods benötigen",
+    "mods.default.qsl": "Bibliothek, die viele Quilt-Mods benötigen"
+  },
+  es: {
+    "servers.licenseRequired": "Requiere licencia de Minecraft",
+    "servers.licenseFree": "Sin licencia (puedes entrar como invitado)",
+    "discord.playing": "Jugando a Minecraft",
+    "discord.inLauncher": "En MagmaLauncher",
+    "mods.category.datapacks": "Paquetes de datos",
+    "mods.category.servers": "Servidores",
+    "servers.tectonicNetwork.desc": "Un servidor técnico de Forge con automatización y mods industriales.",
+    "servers.magmaCreative.desc": "Un centro creativo para construir: mundo plano, WorldEdit y ciudades compartidas de jugadores.",
+    "servers.magmaSurvival.desc": "Supervivencia vanilla con una economía fluida y sin pay-to-win.",
+    "mods.datapackHint": "Los paquetes de datos se instalan en un mundo concreto, no en la carpeta común del juego. El archivo descargado queda en la carpeta datapacks_downloads: muévelo tú mismo a la carpeta datapacks de tu mundo.",
+    "a11y.close": "Cerrar",
+    "boot.updating": "Descargando actualización",
+    "boot.updateFailed": "No se pudo actualizar el launcher. Iniciando la versión actual...",
+    "mods.default.fabricApi": "Biblioteca necesaria para casi todos los mods de Fabric",
+    "mods.default.sodium": "Optimización del renderizado sin perder calidad visual",
+    "mods.default.clothConfig": "Biblioteca de configuración necesaria para muchos mods de Forge",
+    "mods.default.qsl": "Biblioteca necesaria para muchos mods de Quilt"
+  },
+  it: {
+    "servers.licenseRequired": "Richiede una licenza di Minecraft",
+    "servers.licenseFree": "Nessuna licenza richiesta (accesso come ospite)",
+    "discord.playing": "Sta giocando a Minecraft",
+    "discord.inLauncher": "In MagmaLauncher",
+    "mods.category.datapacks": "Data pack",
+    "mods.category.servers": "Server",
+    "servers.tectonicNetwork.desc": "Un server Forge tecnico con automazione e mod industriali.",
+    "servers.magmaCreative.desc": "Un hub creativo per costruire: mondo piatto, WorldEdit e città condivise dei giocatori.",
+    "servers.magmaSurvival.desc": "Survival vanilla con un'economia equilibrata e senza pay-to-win.",
+    "mods.datapackHint": "I data pack si installano in un mondo specifico, non nella cartella comune del gioco. Il file scaricato finisce nella cartella datapacks_downloads: spostalo manualmente nella cartella datapacks del tuo mondo.",
+    "a11y.close": "Chiudi",
+    "boot.updating": "Download dell’aggiornamento",
+    "boot.updateFailed": "Impossibile aggiornare il launcher. Avvio della versione attuale...",
+    "mods.default.fabricApi": "Libreria richiesta da quasi tutte le mod Fabric",
+    "mods.default.sodium": "Ottimizzazione del rendering senza perdere qualità visiva",
+    "mods.default.clothConfig": "Libreria di configurazione richiesta da molte mod Forge",
+    "mods.default.qsl": "Libreria richiesta da molte mod Quilt"
+  },
+  pt: {
+    "servers.licenseRequired": "Requer licença do Minecraft",
+    "servers.licenseFree": "Sem licença (entre como convidado)",
+    "discord.playing": "Jogando Minecraft",
+    "discord.inLauncher": "No MagmaLauncher",
+    "mods.category.datapacks": "Pacotes de dados",
+    "mods.category.servers": "Servidores",
+    "servers.tectonicNetwork.desc": "Um servidor Forge técnico com automação e mods industriais.",
+    "servers.magmaCreative.desc": "Um hub criativo para construir — mundo plano, WorldEdit e cidades compartilhadas pelos jogadores.",
+    "servers.magmaSurvival.desc": "Sobrevivência vanilla com economia equilibrada e sem pay-to-win.",
+    "mods.datapackHint": "Os pacotes de dados são instalados em um mundo específico, e não na pasta comum do jogo. O arquivo baixado fica na pasta datapacks_downloads — mova-o você mesmo para a pasta datapacks do seu mundo.",
+    "a11y.close": "Fechar",
+    "boot.updating": "Baixando atualização",
+    "boot.updateFailed": "Não foi possível atualizar o launcher. Iniciando a versão atual...",
+    "mods.default.fabricApi": "Biblioteca necessária para quase todos os mods do Fabric",
+    "mods.default.sodium": "Otimização de renderização sem perder qualidade visual",
+    "mods.default.clothConfig": "Biblioteca de configuração necessária para muitos mods do Forge",
+    "mods.default.qsl": "Biblioteca necessária para muitos mods do Quilt"
+  },
+  ja: {
+    "servers.licenseRequired": "Minecraftのライセンスが必要です",
+    "servers.licenseFree": "ライセンス不要（ゲストで参加可能）",
+    "discord.playing": "Minecraftをプレイ中",
+    "discord.inLauncher": "MagmaLauncherを閲覧中",
+    "mods.category.datapacks": "データパック",
+    "mods.category.servers": "サーバー",
+    "servers.tectonicNetwork.desc": "オートメーションと産業系MODを備えた技術系Forgeサーバー。",
+    "servers.magmaCreative.desc": "建築のためのクリエイティブハブ。フラットワールド、WorldEdit、プレイヤー共有の街。",
+    "servers.magmaSurvival.desc": "スムーズな経済システムを備えた、課金有利なしのバニラサバイバル。",
+    "mods.datapackHint": "データパックは共通のゲームフォルダではなく、特定のワールドの中にインストールします。ダウンロードしたファイルは datapacks_downloads フォルダに保存されるので、ワールドの datapacks フォルダへ手動で移動してください。",
+    "a11y.close": "閉じる",
+    "boot.updating": "アップデートをダウンロード中",
+    "boot.updateFailed": "ランチャーを更新できませんでした。現在のバージョンを起動します...",
+    "mods.default.fabricApi": "ほぼすべてのFabric MODに必要なライブラリ",
+    "mods.default.sodium": "画質を損なわないレンダリング最適化",
+    "mods.default.clothConfig": "多くのForge MODに必要な設定ライブラリ",
+    "mods.default.qsl": "多くのQuilt MODに必要なライブラリ"
+  },
+  ko: {
+    "servers.licenseRequired": "Minecraft 라이선스가 필요합니다",
+    "servers.licenseFree": "라이선스 불필요 (게스트로 접속 가능)",
+    "discord.playing": "Minecraft 플레이 중",
+    "discord.inLauncher": "MagmaLauncher 둘러보는 중",
+    "mods.category.datapacks": "데이터 팩",
+    "mods.category.servers": "서버",
+    "servers.tectonicNetwork.desc": "자동화와 산업 모드를 갖춘 기술형 Forge 서버입니다.",
+    "servers.magmaCreative.desc": "건축을 위한 창작 허브 — 평지 월드, WorldEdit, 플레이어들의 공동 도시.",
+    "servers.magmaSurvival.desc": "원활한 경제 시스템을 갖춘 페이투윈 없는 바닐라 서바이벌.",
+    "mods.datapackHint": "데이터 팩은 공용 게임 폴더가 아니라 특정 월드 안에 설치됩니다. 다운로드한 파일은 datapacks_downloads 폴더에 저장되며, 직접 월드의 datapacks 폴더로 옮겨야 합니다.",
+    "a11y.close": "닫기",
+    "boot.updating": "업데이트 다운로드 중",
+    "boot.updateFailed": "런처를 업데이트하지 못했습니다. 현재 버전을 실행합니다...",
+    "mods.default.fabricApi": "거의 모든 Fabric 모드에 필요한 라이브러리",
+    "mods.default.sodium": "화질 저하 없는 렌더링 최적화",
+    "mods.default.clothConfig": "많은 Forge 모드에 필요한 설정 라이브러리",
+    "mods.default.qsl": "많은 Quilt 모드에 필요한 라이브러리"
+  },
+  hi: {
+    "servers.licenseRequired": "Minecraft लाइसेंस आवश्यक है",
+    "servers.licenseFree": "लाइसेंस की ज़रूरत नहीं (अतिथि के रूप में जुड़ें)",
+    "discord.playing": "Minecraft खेल रहा है",
+    "discord.inLauncher": "MagmaLauncher में ब्राउज़ कर रहा है",
+    "mods.category.datapacks": "डेटा पैक",
+    "mods.category.servers": "सर्वर",
+    "servers.tectonicNetwork.desc": "ऑटोमेशन और इंडस्ट्रियल मॉड्स वाला तकनीकी Forge सर्वर।",
+    "servers.magmaCreative.desc": "निर्माण के लिए क्रिएटिव हब — समतल दुनिया, WorldEdit और खिलाड़ियों के साझा शहर।",
+    "servers.magmaSurvival.desc": "सहज अर्थव्यवस्था वाला वैनिला सर्वाइवल, बिना पे-टू-विन के।",
+    "mods.datapackHint": "डेटा पैक साझा गेम फ़ोल्डर में नहीं, बल्कि किसी विशेष वर्ल्ड के अंदर इंस्टॉल होते हैं। डाउनलोड की गई फ़ाइल datapacks_downloads फ़ोल्डर में आएगी — उसे खुद अपने वर्ल्ड के datapacks फ़ोल्डर में ले जाएँ।",
+    "a11y.close": "बंद करें",
+    "boot.updating": "अपडेट डाउनलोड हो रहा है",
+    "boot.updateFailed": "लॉन्चर अपडेट नहीं हो सका। मौजूदा संस्करण शुरू किया जा रहा है...",
+    "mods.default.fabricApi": "लगभग हर Fabric मॉड के लिए आवश्यक लाइब्रेरी",
+    "mods.default.sodium": "दृश्य गुणवत्ता घटाए बिना रेंडरिंग ऑप्टिमाइज़ेशन",
+    "mods.default.clothConfig": "कई Forge मॉड्स के लिए आवश्यक कॉन्फ़िग लाइब्रेरी",
+    "mods.default.qsl": "कई Quilt मॉड्स के लिए आवश्यक लाइब्रेरी"
+  },
+  id: {
+    "servers.licenseRequired": "Memerlukan lisensi Minecraft",
+    "servers.licenseFree": "Tanpa lisensi (bisa masuk sebagai tamu)",
+    "discord.playing": "Bermain Minecraft",
+    "discord.inLauncher": "Menjelajahi MagmaLauncher",
+    "mods.category.datapacks": "Data Pack",
+    "mods.category.servers": "Server",
+    "servers.tectonicNetwork.desc": "Server Forge teknis dengan otomatisasi dan mod industri.",
+    "servers.magmaCreative.desc": "Hub kreatif untuk membangun — dunia datar, WorldEdit, dan kota bersama para pemain.",
+    "servers.magmaSurvival.desc": "Survival vanilla dengan ekonomi yang mulus dan tanpa pay-to-win.",
+    "mods.datapackHint": "Data pack dipasang di dunia tertentu, bukan di folder game bersama. File yang diunduh berada di folder datapacks_downloads — pindahkan sendiri ke folder datapacks dunia Anda.",
+    "a11y.close": "Tutup",
+    "boot.updating": "Mengunduh pembaruan",
+    "boot.updateFailed": "Gagal memperbarui launcher. Menjalankan versi saat ini...",
+    "mods.default.fabricApi": "Pustaka yang dibutuhkan hampir semua mod Fabric",
+    "mods.default.sodium": "Optimalisasi rendering tanpa mengurangi kualitas visual",
+    "mods.default.clothConfig": "Pustaka konfigurasi yang dibutuhkan banyak mod Forge",
+    "mods.default.qsl": "Pustaka yang dibutuhkan banyak mod Quilt"
+  }
+};
+Object.keys(I18N_COMPLETE_PATCH).forEach(lang => {
+  if (!I18N[lang]) I18N[lang] = {};
+  Object.assign(I18N[lang], I18N_COMPLETE_PATCH[lang]);
 });
 I18N['es-ES'] = I18N.es;
 

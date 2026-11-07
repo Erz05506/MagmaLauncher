@@ -29,11 +29,20 @@
     }
   }
 
-  function setStatus(value, good = false) {
+  let refreshSeq = 0;
+
+  function setStatus(value, good = false, key = '') {
     const el = $('accountCloudStatus');
     if (!el) return;
+    if (key) el.dataset.i18n = key; else delete el.dataset.i18n;
     el.textContent = value;
     el.classList.toggle('is-online', good);
+  }
+
+  function reportSyncError(error) {
+    try { requireSignedIn(); } catch {}
+    setStatus(tr('settings.account.syncFailed', 'Ошибка синхронизации'), false, 'settings.account.syncFailed');
+    console.error('[Magma Account]', error);
   }
 
   function activeAccount() {
@@ -58,16 +67,29 @@
     if ($('cloudNicknameCurrent')) $('cloudNicknameCurrent').textContent = '—';
     if ($('cloudCurrentEmail')) $('cloudCurrentEmail').textContent = '—';
     if ($('accountSkinModelSelectLabel')) $('accountSkinModelSelectLabel').textContent = tr('settings.account.classic', 'Классическая (Steve)');
-    updateSkinControls('elyby');
+  const keepAccount = activeAccount();
+    let keepProvider = 'elyby';
+    try {
+      if (keepAccount?.type === 'magma' && localStorage.getItem('magma_skin_system_' + keepAccount.id) === 'magma') keepProvider = 'magma';
+    } catch {}
+    updateSkinControls(keepProvider);
     document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(button => {
-      button.classList.toggle('is-active', button.dataset.skinSystem === 'elyby');
+      button.classList.toggle('is-active', button.dataset.skinSystem === keepProvider);
     });
     requireSignedIn();
   }
 
+  function showCachedAccount() {
+    const acc = activeAccount();
+    if (!acc || acc.type !== 'magma') return;
+    if ($('cloudNicknameCurrent')) $('cloudNicknameCurrent').textContent = acc.nickname || '—';
+    if ($('cloudCurrentEmail')) $('cloudCurrentEmail').textContent = acc.identifier || '—';
+    if ($('cloudNickname')) $('cloudNickname').value = acc.nickname || '';
+  }
+
   function requireSignedIn() {
     document.querySelectorAll('#accountCloudSettings input, #accountCloudSettings button, #accountCloudSettings select').forEach(el => { el.disabled = !user; });
-    if (!user) setStatus(tr('settings.account.signInRequired', 'Войдите в аккаунт'));
+    if (!user) setStatus(tr('settings.account.signInRequired', 'Войдите в аккаунт'), false, 'settings.account.signInRequired');
   }
 
   function preferences() { return user?.user_metadata?.magma_preferences || {}; }
@@ -95,7 +117,8 @@
     $('accountSkinModelSelectList')?.querySelectorAll('.custom-select-item').forEach(item => {
       item.classList.toggle('is-selected', item.dataset.value === value);
     });
-    skinRecord.model = value;
+     skinRecord.model = value;
+    window.magmaAccountSkinModel = value;
   }
 
   async function loadSkinRecord() {
@@ -124,26 +147,30 @@
     }
     if (!force && document.activeElement && $('accountCloudSettings').contains(document.activeElement)) return;
     const expectedUserId = account.id;
-    const { data, error } = await client().auth.getUser();
-    if (error || !data.user || data.user.id !== expectedUserId || !isActiveMagmaAccount(expectedUserId)) {
+    const seq = ++refreshSeq;
+    const isStale = () => seq !== refreshSeq || !isActiveMagmaAccount(expectedUserId);
+    const { data: sessionData, error } = await client().auth.getSession();
+    if (isStale()) return;
+    const sessionUser = sessionData?.session?.user;
+    if (error || !sessionUser || sessionUser.id !== expectedUserId) {
       clearAccountState();
+      showCachedAccount();
       return;
     }
-    user = data.user;
+    user = sessionUser;
     const { data: row, error: profileError } = await client().from('profiles').select('nick').eq('id', expectedUserId).maybeSingle();
-    if (profileError) throw profileError;
-    if (!isActiveMagmaAccount(expectedUserId) || user?.id !== expectedUserId) {
-      clearAccountState();
-      return;
-    }
-    const nickname = row?.nick || user.user_metadata?.nick || '';
+    if (isStale()) return;
+    if (profileError) console.warn('[Magma Account] profile load failed:', profileError);
+    const nickname = row?.nick || sessionUser.user_metadata?.nick || account.nickname || '';
     $('cloudNickname').value = nickname;
     $('cloudNicknameCurrent').textContent = nickname || tr('settings.account.notSet', 'Не задан');
-    $('cloudCurrentEmail').textContent = user.email || '—';
+    $('cloudCurrentEmail').textContent = sessionUser.email || account.identifier || '—';
     const provider = preferences().skin_provider === 'elyby' ? 'elyby' : 'magma';
     document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(button => button.classList.toggle('is-active', button.dataset.skinSystem === provider));
     updateSkinControls(provider);
-    if (provider === 'magma') await loadSkinRecord();
+      if (provider === 'magma') {
+      try { await loadSkinRecord(); } catch (error) { console.warn('[Magma Skins] Could not load skin record:', error); }
+    }
     try {
       const key = 'magma_skin_system_' + expectedUserId;
       const changed = localStorage.getItem(key) !== provider;
@@ -151,16 +178,17 @@
       localStorage.removeItem('magma_skin_system');
       if (changed && isActiveMagmaAccount(expectedUserId)) window.dispatchEvent(new CustomEvent('magma:account-settings-updated'));
     } catch {}
-    setStatus(tr('settings.account.synced', 'Синхронизировано'), true);
+    setStatus(tr('settings.account.synced', 'Синхронизировано'), true, 'settings.account.synced');
     requireSignedIn();
     const accounts = (() => { try { return JSON.parse(localStorage.getItem('magma_accounts') || '[]'); } catch { return []; } })();
-    const current = accounts.find(item => item.id === user.id);
-    if (current && nickname && current.nickname !== nickname) {
-      current.nickname = nickname;
-      localStorage.setItem('magma_accounts', JSON.stringify(accounts));
-      if ($('accountName') && localStorage.getItem('magma_active_account_id') === user.id) $('accountName').textContent = nickname;
-      if ($('settingsAccountName')) $('settingsAccountName').textContent = nickname;
-    }
+    client().auth.onAuthStateChange((_event, session) => {
+      const sessionUser = session?.user || null;
+      if (sessionUser && isActiveMagmaAccount(sessionUser.id)) {
+        setTimeout(() => refreshAccount(true).catch(reportSyncError), 0);
+      } else if (activeAccount()?.type !== 'magma') {
+        clearAccountState();
+      }
+    });
   }
 
   async function saveNickname() {
@@ -364,9 +392,18 @@
     document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(button => {
       button.addEventListener('click', async () => {
         const provider = button.dataset.skinSystem;
-        if (!user || !isActiveMagmaAccount(user.id)) {
+ const activeMagma = activeAccount();
+        if (!activeMagma || activeMagma.type !== 'magma') {
           document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(item => item.classList.toggle('is-active', item.dataset.skinSystem === 'elyby'));
           updateSkinControls('elyby');
+          return;
+        }
+        if (!user || !isActiveMagmaAccount(user.id)) {
+          document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(item => item.classList.toggle('is-active', item === button));
+          updateSkinControls(provider);
+          try { localStorage.setItem('magma_skin_system_' + activeMagma.id, provider); } catch {}
+          window.dispatchEvent(new CustomEvent('magma:account-settings-updated'));
+          retryRefresh();
           return;
         }
         document.querySelectorAll('#accountSkinSystemOptions [data-skin-system]').forEach(item => item.classList.toggle('is-active', item === button));
@@ -394,11 +431,20 @@
     });
     window.addEventListener('magma:active-account-changed', () => {
       clearAccountState();
-      refreshAccount(true).catch(error => { setStatus(tr('settings.account.syncFailed', 'Ошибка синхронизации')); console.error('[Magma Account]', error); });
+      showCachedAccount();
+      const acc = activeAccount();
+      if (acc && acc.type === 'magma') {
+        client().auth.getSession().then(({ data }) => {
+          if (data?.session?.user?.id === acc.id) refreshAccount(true).catch(reportSyncError);
+        }).catch(console.error);
+      }
     });
-    await refreshAccount().catch(error => { clearAccountState(); setStatus(tr('settings.account.syncFailed', 'Ошибка синхронизации')); console.error('[Magma Account]', error); });
-    window.addEventListener('focus', () => refreshAccount().catch(console.error));
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshAccount().catch(console.error); });
+    window.addEventListener('magma:account-session-ready', () => {
+      refreshAccount(true).catch(reportSyncError);
+    });
+    await refreshAccount().catch(error => { clearAccountState(); showCachedAccount(); reportSyncError(error); });
+    window.addEventListener('focus', () => refreshAccount().catch(reportSyncError));
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshAccount().catch(reportSyncError); });
   }
 
   document.addEventListener('DOMContentLoaded', bind);

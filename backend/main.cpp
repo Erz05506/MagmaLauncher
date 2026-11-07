@@ -883,7 +883,8 @@ public:
     std::string url = arg0.value("url", "");
     std::thread([callback, url]() {
         json result;
-        bool allowed = url.rfind("https://skinsystem.ely.by/", 0) == 0;
+        bool allowed = url.rfind("https://skinsystem.ely.by/", 0) == 0
+            || url.rfind("https://bjgpqlegoptegcbogncq.supabase.co/functions/v1/magma-skin-api/", 0) == 0;
         if (!allowed) {
             result["success"] = false;
             result["error"] = "URL не разрешён";
