@@ -11,6 +11,8 @@ if (-not (Test-Path -LiteralPath $Dist -PathType Container)) {
 
 $RequiredFiles = @(
     "MagmaLauncher.exe",
+    "libcurl.dll",
+    "z.dll",
     "libcef.dll",
     "chrome_elf.dll",
     "d3dcompiler_47.dll",
