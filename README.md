@@ -9,6 +9,8 @@
 </p>
 
 <p align="center">
+  <a href="https://magmalauncher.space/">Website</a>
+  ·
   <a href="https://github.com/Erz05506/MagmaLauncher/releases">Download</a>
   ·
   <a href="https://github.com/Erz05506/MagmaLauncher/issues">Report a bug</a>
