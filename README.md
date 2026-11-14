@@ -133,3 +133,7 @@ Bug reports, suggestions, and contributions are welcome!
 ## License
 
 MagmaLauncher is released under the [MIT License](LICENSE).
+
+---
+
+🌐 **Website:** https://magmalauncher.space/
